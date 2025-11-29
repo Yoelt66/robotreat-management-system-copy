@@ -158,6 +158,7 @@ export default function ServiceCallList({
               <TableHead className="text-center">תיאור</TableHead>
               <TableHead className="text-center">סוג שירות</TableHead>
               <TableHead className="text-center">תאריך</TableHead>
+              <TableHead className="text-center">שעות</TableHead>
               <TableHead className="text-center">טכנאי</TableHead>
               <TableHead className="text-center">סטטוס</TableHead>
               {currentUser?.role === 'admin' && (
@@ -169,7 +170,7 @@ export default function ServiceCallList({
             {filteredCalls.length === 0 ? (
               <TableRow>
                 <TableCell 
-                  colSpan={currentUser?.role === 'admin' ? 9 : 8} 
+                  colSpan={currentUser?.role === 'admin' ? 10 : 9} 
                   className="text-center py-8 text-gray-500"
                 >
                   לא נמצאו קריאות תואמות
@@ -183,25 +184,6 @@ export default function ServiceCallList({
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="font-medium">{call.client_name}</div>
-                    {/* Work hours display */}
-                    {call.no_work_hours ? (
-                      <div className="text-xs text-orange-600 flex items-center justify-center gap-1">
-                        <XCircle className="h-3 w-3" />
-                        ללא שעות עבודה
-                      </div>
-                    ) : (call.start_time || call.end_time) && (
-                      <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {call.start_time || '--:--'} - {call.end_time || '--:--'}
-                      </div>
-                    )}
-                    {/* No travel indicator */}
-                    {call.no_travel && (
-                      <div className="text-xs text-green-600 flex items-center justify-center gap-1">
-                        <Car className="h-3 w-3" />
-                        ללא נסיעה
-                      </div>
-                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     {call.device ? (
@@ -239,6 +221,25 @@ export default function ServiceCallList({
                       </div>
                     ) : (
                       '-'
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {call.no_work_hours ? (
+                      <div className="text-xs text-orange-600 flex items-center justify-center gap-1">
+                        <XCircle className="h-3 w-3" />
+                        ללא שעות
+                      </div>
+                    ) : (call.start_time || call.end_time) ? (
+                      <div className="text-xs text-gray-600 flex items-center justify-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {call.start_time || '--:--'} - {call.end_time || '--:--'}
+                      </div>
+                    ) : '-'}
+                    {call.no_travel && (
+                      <div className="text-xs text-green-600 flex items-center justify-center gap-1">
+                        <Car className="h-3 w-3" />
+                        ללא נסיעה
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
