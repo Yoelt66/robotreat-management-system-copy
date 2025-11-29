@@ -155,10 +155,10 @@ export default function ServiceCallList({
               <TableHead className="text-center">מספר קריאה</TableHead>
               <TableHead className="text-center">תאריך</TableHead>
               <TableHead className="text-center">לקוח</TableHead>
-              <TableHead className="text-center">סוג שירות</TableHead>
               <TableHead className="text-center">מכשיר</TableHead>
               <TableHead className="text-center">שעות</TableHead>
               <TableHead className="text-center">תיאור</TableHead>
+              <TableHead className="text-center">סוג שירות</TableHead>
               <TableHead className="text-center">טכנאי</TableHead>
               <TableHead className="text-center">סטטוס</TableHead>
               {currentUser?.role === 'admin' && (
@@ -194,15 +194,6 @@ export default function ServiceCallList({
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="font-medium">{call.client_name}</div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {call.service_type ? (
-                      <Badge variant="outline">
-                        {serviceTypeLabels[call.service_type] || call.service_type}
-                      </Badge>
-                    ) : (
-                      '-'
-                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     {call.device ? (
@@ -241,6 +232,15 @@ export default function ServiceCallList({
                     <div className="truncate" title={call.description}>
                       {call.description || '-'}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {call.service_type ? (
+                      <Badge variant="outline">
+                        {serviceTypeLabels[call.service_type] || call.service_type}
+                      </Badge>
+                    ) : (
+                      '-'
+                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     {call.assigned_to_nickname || call.assigned_to ? (
