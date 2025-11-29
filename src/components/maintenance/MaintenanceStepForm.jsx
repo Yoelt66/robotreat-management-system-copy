@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,9 +152,9 @@ export default function MaintenanceStepForm({ step, parts, deviceType, onSubmit,
         )}
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>ביטול</Button>
+      <div className="flex justify-start gap-3 pt-4 border-t">
         <Button type="submit">{step ? 'עדכן שלב' : 'צור שלב'}</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>ביטול</Button>
       </div>
     </form>
   );

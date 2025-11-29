@@ -130,9 +130,9 @@ export default function ProcedureTemplateForm({ template, allSteps, deviceType, 
           </div>
         </ScrollArea>
       </div>
-      <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>ביטול</Button>
+      <div className="flex justify-start gap-3 pt-4 border-t">
         <Button type="submit">{template ? 'עדכן נוהל' : 'צור נוהל'}</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>ביטול</Button>
       </div>
     </form>
   );
