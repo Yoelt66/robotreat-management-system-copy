@@ -315,88 +315,7 @@ export default function Import() {
     return data;
   };
 
-  const parseExcel = async (file) => {
-    // Read the Excel file using a simple approach
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = await parseXLSX(arrayBuffer);
-    return workbook;
-  };
 
-  const parseXLSX = async (arrayBuffer) => {
-    // Simple XLSX parser - reads first sheet
-    const JSZip = (await import('jszip')).default;
-    const zip = await JSZip.loadAsync(arrayBuffer);
-    
-    // Get shared strings
-    const sharedStringsFile = zip.file('xl/sharedStrings.xml');
-    let sharedStrings = [];
-    if (sharedStringsFile) {
-      const sharedStringsXml = await sharedStringsFile.async('string');
-      const siMatches = sharedStringsXml.match(/<si>[\s\S]*?<\/si>/g) || [];
-      sharedStrings = siMatches.map(si => {
-        const tMatch = si.match(/<t[^>]*>([^<]*)<\/t>/);
-        return tMatch ? tMatch[1] : '';
-      });
-    }
-    
-    // Get first sheet
-    const sheet1File = zip.file('xl/worksheets/sheet1.xml');
-    if (!sheet1File) throw new Error('לא נמצא גיליון בקובץ Excel');
-    
-    const sheetXml = await sheet1File.async('string');
-    const rows = [];
-    
-    // Parse rows
-    const rowMatches = sheetXml.match(/<row[^>]*>[\s\S]*?<\/row>/g) || [];
-    
-    for (const rowXml of rowMatches) {
-      const cellMatches = rowXml.match(/<c[^>]*>[\s\S]*?<\/c>|<c[^\/]*\/>/g) || [];
-      const rowData = [];
-      let maxCol = 0;
-      
-      for (const cellXml of cellMatches) {
-        // Get cell reference (e.g., "A1", "B2")
-        const refMatch = cellXml.match(/r="([A-Z]+)(\d+)"/);
-        if (!refMatch) continue;
-        
-        const colLetter = refMatch[1];
-        const colIndex = colLetter.split('').reduce((acc, char) => acc * 26 + char.charCodeAt(0) - 64, 0) - 1;
-        
-        // Fill empty cells
-        while (rowData.length < colIndex) {
-          rowData.push('');
-        }
-        
-        // Get cell value
-        let value = '';
-        const valueMatch = cellXml.match(/<v>([^<]*)<\/v>/);
-        
-        if (valueMatch) {
-          const isSharedString = cellXml.includes('t="s"');
-          if (isSharedString) {
-            const stringIndex = parseInt(valueMatch[1]);
-            value = sharedStrings[stringIndex] || '';
-          } else {
-            value = valueMatch[1];
-          }
-        }
-        
-        rowData[colIndex] = value;
-        maxCol = Math.max(maxCol, colIndex);
-      }
-      
-      // Fill remaining empty cells
-      while (rowData.length <= maxCol) {
-        rowData.push('');
-      }
-      
-      if (rowData.some(cell => cell !== '')) {
-        rows.push(rowData);
-      }
-    }
-    
-    return rows;
-  };
   
   const processParsedData = (dataRows) => {
     if (!Array.isArray(dataRows) || dataRows.length === 0) {
@@ -454,10 +373,8 @@ export default function Import() {
       let parsedData;
       
       if (isExcel) {
-        addLog('מזהה קובץ Excel, מנתח...', 'info');
-        const allRows = await parseExcel(file);
-        parsedData = hasHeaders ? allRows.slice(1) : allRows;
-        addLog(`ניתוח Excel הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
+        addLog('קבצי Excel אינם נתמכים ישירות. יש לייצא את הקובץ כ-CSV או טקסט עם הפרדת טאב.', 'error');
+        throw new Error('קבצי Excel (.xlsx/.xls) אינם נתמכים ישירות. יש לייצא את הקובץ מ-Excel כ-CSV UTF-8 או כטקסט עם הפרדת טאב.');
       } else {
         // CSV or Tab-delimited text file
         const text = await new Promise((resolve, reject) => {
@@ -966,7 +883,7 @@ export default function Import() {
             <CardHeader>
                 <CardTitle>שלב 2: העלאת נתונים</CardTitle>
                 <CardDescription>
-                  העלה קובץ CSV, Excel (.xlsx) או טקסט עם הפרדת טאב (.txt/.tsv).
+                  העלה קובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv).
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -974,9 +891,7 @@ export default function Import() {
                 <Info className="h-4 w-4" />
                 <AlertTitle>סוגי קבצים נתמכים</AlertTitle>
                 <AlertDescription>
-                  • <strong>Excel (.xlsx)</strong> - מומלץ, נקרא ישירות
-                  <br />
-                  • <strong>CSV</strong> - יש לוודא קידוד UTF-8
+                  • <strong>CSV</strong> - יש לוודא קידוד UTF-8 (ב-Excel: שמור כ-CSV UTF-8)
                   <br />
                   • <strong>טקסט עם טאב (.txt/.tsv)</strong> - הפרדה בטאב בין עמודות
                 </AlertDescription>
@@ -1001,7 +916,7 @@ export default function Import() {
                             העלה קובץ נתונים
                         </span>
                         <span className="mt-1 block text-xs text-gray-500">
-                            CSV, Excel (.xlsx), או טקסט (.txt/.tsv) - מקס 50MB
+                            CSV או טקסט (.txt/.tsv) - מקס 50MB
                         </span>
                         </label>
                         <input
@@ -1009,7 +924,7 @@ export default function Import() {
                         name="file-upload"
                         type="file"
                         className="sr-only"
-                        accept=".csv,.xlsx,.xls,.txt,.tsv"
+                        accept=".csv,.txt,.tsv"
                         onChange={handleFileUpload}
                         disabled={isFileUploading}
                         />
