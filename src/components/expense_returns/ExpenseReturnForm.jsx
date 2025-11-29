@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -608,11 +607,11 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 />
             </div>
             
-            <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="ghost" onClick={onCancel}>ביטול</Button>
+            <div className="flex justify-start gap-2 pt-4">
                 <Button type="submit" disabled={formData.expenses.length === 0}>
                     שמור החזרת הוצאות
                 </Button>
+                <Button type="button" variant="ghost" onClick={onCancel}>ביטול</Button>
             </div>
         </form>
     );

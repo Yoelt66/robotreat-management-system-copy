@@ -148,9 +148,9 @@ export default function DeliveryNoteForm({ parts, warehouses, onSubmit, onCancel
             <Textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="הערות נוספות..." />
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>ביטול</Button>
+        <CardFooter className="flex justify-start gap-2">
           <Button type="submit" disabled={loading}>{loading ? "מעדכן..." : "שמור ועדכן מלאי"}</Button>
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>ביטול</Button>
         </CardFooter>
       </form>
     </Card>
