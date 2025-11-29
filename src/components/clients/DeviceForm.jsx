@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,7 @@ export default function DeviceForm({ device, onSubmit, onCancel }) {
   };
 
   return (
-    <Card>
+    <Card dir="rtl">
       <CardHeader>
         <CardTitle>{device.id ? 'עריכת מערכת' : 'מערכת חדשה'}</CardTitle>
       </CardHeader>
@@ -103,7 +102,7 @@ export default function DeviceForm({ device, onSubmit, onCancel }) {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-start gap-3">
           <Button
             type="button"
             variant="outline"
