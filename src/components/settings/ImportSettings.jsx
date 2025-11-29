@@ -1,0 +1,526 @@
+
+import React, { useState, useEffect } from "react";
+import { ImportMapping, Client, Device, ServiceCall, User, Part } from "@/entities/all";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Edit, Trash2, Users, HardDrive, Wrench, ClipboardPlus } from "lucide-react";
+import ImportMappingForm from "./ImportMappingForm";
+import { toast } from "@/components/ui/use-toast";
+import DataImporter from "./import/DataImporter";
+
+// Client import configuration
+const clientTemplateHeaders = ["name", "company", "phone", "email", "address", "notes"];
+const clientTemplateDisplayHeaders = ["שם", "חברה", "טלפון", "אימייל", "כתובת", "הערות"];
+const clientRequiredFields = ["name", "phone"];
+const mapClientRow = (row) => ({
+  name: row[0],
+  company: row[1] || null,
+  phone: row[2],
+  email: row[3] || null,
+  address: row[4] || null,
+  notes: row[5] || null,
+});
+
+// Device import configuration
+const deviceTemplateHeaders = ["client_phone", "name", "type", "serial_number", "location"];
+const deviceTemplateDisplayHeaders = ["טלפון לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
+const deviceRequiredFields = ["client_phone", "name", "type", "serial_number"];
+const preImportDevices = async () => {
+    const clients = await Client.list();
+    return { clientMap: new Map(clients.map(c => [c.phone, c.id])) };
+};
+const mapDeviceRow = (row, { clientMap }) => {
+    const clientId = clientMap.get(row[0]);
+    if (!clientId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם מספר טלפון ${row[0]}.`);
+    
+    // Normalize input by replacing spaces with underscores
+    const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
+    
+    // Map Hebrew display names and other aliases to system keys
+    const hebrewDeviceTypeMap = {
+      "מיכל_חלב": "Milk_tank",
+      "מערכת_אחרת": "other",
+      "CRS+": "CRS", // Added alias for CRS+
+    };
+
+    // Use the mapped value if it exists, otherwise use the normalized input
+    const deviceType = hebrewDeviceTypeMap[normalizedInput] || normalizedInput;
+    
+    const validTypes = ["Astronaut_A3", "Astronaut_A3N", "Astronaut_A4", "Delaval_2008", "Delaval_2011", "Milk_tank", "CRS", "Juno_100", "Juno_150", "Luna", "other"];
+    if (!validTypes.includes(deviceType)) throw new Error(`שורה ${row.join(',')}: סוג מכשיר לא תקין: ${row[2]}`);
+    
+    return {
+        client_id: clientId,
+        name: row[1],
+        type: deviceType,
+        serial_number: row[3],
+        location: row[4] || null,
+    };
+};
+
+// ServiceCall import configuration
+const serviceCallTemplateHeaders = [
+    "call_number", 
+    "client_name", 
+    "device_name",
+    "status", 
+    "service_type",
+    "description",
+    "notes",
+    "scheduled_date",
+    "start_time",
+    "end_time",
+    "assigned_to_email",
+    "location",
+    "no_travel",
+    "no_work_hours",
+    "photos"
+];
+const serviceCallTemplateDisplayHeaders = [
+    "מספר קריאה", 
+    "שם לקוח (מפתח)", 
+    "שם מכשיר (מפתח)",
+    "סטטוס", 
+    "סוג שירות",
+    "תיאור תקלה",
+    "הערות",
+    "תאריך מתוכנן",
+    "שעת התחלה",
+    "שעת סיום",
+    "אימייל טכנאי",
+    "מיקום",
+    "ללא נסיעה (true/false)",
+    "ללא שעות עבודה (true/false)",
+    "תמונות (מופרד בפסיק)"
+];
+const serviceCallRequiredFields = ["call_number", "client_name", "status"];
+
+const parseImportedDate = (dateString) => {
+    if (!dateString) return null;
+    
+    // Try to parse DD.MM.YYYY or DD/MM/YYYY
+    const parts = dateString.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
+    if (parts) {
+        // parts[1] is day, parts[2] is month, parts[3] is year
+        const isoDate = `${parts[3]}-${String(parts[2]).padStart(2, '0')}-${String(parts[1]).padStart(2, '0')}`;
+        if (!isNaN(new Date(isoDate).getTime())) {
+            return isoDate;
+        }
+    }
+
+    // Try to parse as is (assuming YYYY-MM-DD or other valid format)
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+    }
+    
+    return null; // Return null if format is unrecognized
+};
+
+const preImportServiceCalls = async () => {
+    const [clients, users, devices] = await Promise.all([Client.list(), User.list(), Device.list()]);
+    return { 
+        clientMap: new Map(clients.map(c => [c.name, c])),
+        userMap: new Map(users.map(u => [u.email, u])),
+        deviceMap: new Map(devices.map(d => [`${d.client_id}:${d.name}`, d]))
+    };
+};
+const mapServiceCallRow = (row, { clientMap, userMap, deviceMap }) => {
+    const rowData = {};
+    serviceCallTemplateHeaders.forEach((header, index) => {
+        rowData[header] = row[index] || null;
+    });
+
+    const client = clientMap.get(rowData.client_name);
+    if (!client) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם השם ${rowData.client_name}.`);
+    
+    const user = userMap.get(rowData.assigned_to_email);
+    
+    let device = null;
+    if(rowData.device_name && client) {
+        const deviceKey = `${client.id}:${rowData.device_name}`;
+        device = deviceMap.get(deviceKey);
+    }
+
+    const hebrewStatusMap = {
+      "זמני": "temporary", 
+      "טיוטה": "pending",
+      "סגור": "assigned",
+      "אושר": "in_progress",
+      "הוקלדו": "completed",
+      "סופי": "final", 
+      "מבוטל": "cancelled"
+    };
+    const hebrewServiceTypeMap = {
+      "תקלה": "repair",
+      "תקלה חוזרת": "inspection",
+      "בדיקה": "inspection",
+      "טיפול": "maintenance",
+      "חלקים": "parts", // Added alternative spelling
+      "חירום": "emergency", 
+      "התקנה": "installation", 
+      "אחר": "other"
+    };
+
+    const rawStatus = rowData.status;
+    const status = hebrewStatusMap[rawStatus] || rawStatus;
+    const validStatuses = ["temporary", "pending", "assigned", "in_progress", "completed", "final", "cancelled"];
+    if (!validStatuses.includes(status)) throw new Error(`שורה ${row.join(',')}: סטטוס לא תקין: ${rawStatus}`);
+
+    const rawServiceType = rowData.service_type;
+    const serviceType = hebrewServiceTypeMap[rawServiceType] || rawServiceType;
+    const validServiceTypes = ["repair", "inspection", "maintenance", "parts", "emergency", "installation", "other"];
+    if (rawServiceType && !validServiceTypes.includes(serviceType)) throw new Error(`שורה ${row.join(',')}: סוג שירות לא תקין: ${rawServiceType}`);
+
+    const toBoolean = (val) => {
+        if (!val) return false;
+        const lowerVal = String(val).toLowerCase();
+        return lowerVal === 'true' || lowerVal === 'כן';
+    };
+
+    return {
+        call_number: rowData.call_number,
+        client_name: client.name,
+        client_phone: client.phone,
+        device: device ? device.name : null,
+        device_id: device ? device.id : null,
+        device_type: device ? device.type : null,
+        location: rowData.location,
+        status: status,
+        service_type: serviceType,
+        description: rowData.description,
+        notes: rowData.notes,
+        scheduled_date: parseImportedDate(rowData.scheduled_date),
+        start_time: rowData.start_time || null,
+        end_time: rowData.end_time || null,
+        assigned_to: user ? user.email : null,
+        assigned_to_nickname: user ? (user.nickname || user.full_name) : null,
+        no_travel: toBoolean(rowData.no_travel),
+        no_work_hours: toBoolean(rowData.no_work_hours),
+        photos: rowData.photos ? rowData.photos.split(',').map(p => p.trim()) : [],
+        is_draft: false,
+        parts_used: [],
+    };
+};
+
+const upsertServiceCalls = async (batch) => {
+    if (!batch || batch.length === 0) return;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const callNumbers = batch.map(b => b.call_number).filter(Boolean);
+    
+    const toCreateWithoutNumber = batch.filter(item => !item.call_number);
+
+    let existingCallsMap = new Map();
+    if (callNumbers.length > 0) {
+        const existingCalls = await ServiceCall.filter({ call_number: { $in: callNumbers } });
+        existingCallsMap = new Map(existingCalls.map(c => [c.call_number, c]));
+    }
+
+    const toCreate = [...toCreateWithoutNumber];
+    const toUpdate = [];
+
+    for (const item of batch) {
+        if (!item.call_number) continue; // Already handled
+
+        const existing = existingCallsMap.get(item.call_number);
+        if (existing) {
+            toUpdate.push({ id: existing.id, data: item });
+        } else {
+            toCreate.push(item);
+        }
+    }
+
+    if (toCreate.length > 0) {
+        await ServiceCall.bulkCreate(toCreate);
+    }
+
+    for (const update of toUpdate) {
+        await ServiceCall.update(update.id, update.data);
+        await sleep(300); // Increased delay to prevent rate limiting
+    }
+};
+
+
+// Service Call Parts import configuration
+const serviceCallPartsTemplateHeaders = ["call_number", "part_sku", "quantity", "has_serial", "old_serial", "new_serial"];
+const serviceCallPartsTemplateDisplayHeaders = ["מספר קריאה (מפתח)", "מק\"ט חלק", "כמות", "האם סריאלי (true/false)", "מספר סידורי ישן", "מספר סידורי חדש"];
+const serviceCallPartsRequiredFields = ["call_number", "part_sku", "quantity"];
+
+const preImportServiceCallParts = async () => {
+    const [serviceCalls, parts] = await Promise.all([ServiceCall.list(), Part.list()]);
+    return {
+        serviceCallMap: new Map(serviceCalls.map(sc => [sc.call_number, sc])),
+        partMap: new Map(parts.map(p => [p.sku, p]))
+    };
+};
+
+const mapServiceCallPartRow = (row, { serviceCallMap, partMap }) => {
+    const callNumber = row[0];
+    const partSku = row[1];
+    const quantity = parseFloat(row[2]);
+
+    if (!serviceCallMap.has(callNumber)) {
+        throw new Error(`שורה ${row.join(',')}: לא נמצאה קריאת שירות עם מספר ${callNumber}.`);
+    }
+    if (!partMap.has(partSku)) {
+        throw new Error(`שורה ${row.join(',')}: לא נמצא חלק עם מק"ט ${partSku}.`);
+    }
+
+    const part = partMap.get(partSku);
+
+    return {
+        call_number: callNumber,
+        part_to_add: {
+            name: part.name,
+            part_number: part.sku,
+            quantity: quantity,
+            has_serial: row[3] ? row[3].toLowerCase() === 'true' : false,
+            old_serial: row[4] || null,
+            new_serial: row[5] || null,
+        }
+    };
+};
+
+const updateServiceCallsWithParts = async (batch) => {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const groupedByCallNumber = batch.reduce((acc, { call_number, part_to_add }) => {
+        if (!acc[call_number]) {
+            acc[call_number] = [];
+        }
+        acc[call_number].push(part_to_add);
+        return acc;
+    }, {});
+
+    const callNumbersToUpdate = Object.keys(groupedByCallNumber);
+    if (callNumbersToUpdate.length === 0) return;
+
+    const serviceCallsToUpdate = await ServiceCall.filter({ call_number: { $in: callNumbersToUpdate } });
+    const serviceCallMap = new Map(serviceCallsToUpdate.map(sc => [sc.call_number, sc]));
+
+    let skippedCount = 0;
+    let updatedCallsCount = 0;
+
+    for (const callNumber of callNumbersToUpdate) {
+        const serviceCall = serviceCallMap.get(callNumber);
+        if (serviceCall) {
+            const existingParts = serviceCall.parts_used || [];
+            const partsToAddFromCsv = groupedByCallNumber[callNumber];
+            
+            const existingPartSkus = new Set(existingParts.map(p => p.part_number));
+            
+            const newPartsToAdd = partsToAddFromCsv.filter(partToAdd => {
+                if (existingPartSkus.has(partToAdd.part_number)) {
+                    skippedCount++;
+                    return false; // Skip this part, it's a duplicate
+                }
+                return true; // Keep this part, it's new
+            });
+
+            if (newPartsToAdd.length > 0) {
+                const updatedParts = [...existingParts, ...newPartsToAdd];
+                await ServiceCall.update(serviceCall.id, { parts_used: updatedParts });
+                updatedCallsCount++;
+                await sleep(300); // Add delay to prevent rate limiting
+            }
+        }
+    }
+    
+    toast({
+        title: "ייבוא חלפים הושלם",
+        description: `${updatedCallsCount} קריאות עודכנו. ${skippedCount > 0 ? `${skippedCount} חלפים כפולים דולגו.` : 'לא נמצאו כפילויות.'}`,
+    });
+};
+
+
+export default function ImportSettings() {
+  const [mappings, setMappings] = useState([]);
+  const [editingMapping, setEditingMapping] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadMappings();
+  }, []);
+
+  const loadMappings = async () => {
+    setLoading(true);
+    try {
+      const data = await ImportMapping.list();
+      setMappings(data);
+    } catch (error) {
+      console.error("Error loading import mappings:", error);
+      toast({ variant: "destructive", title: "שגיאה בטעינת הגדרות ייבוא" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingMapping(null);
+    setShowForm(true);
+  };
+
+  const handleEdit = (mapping) => {
+    setEditingMapping(mapping);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (mappingId) => {
+    if (confirm("האם אתה בטוח שברצונך למחוק הגדרת מיפוי זו?")) {
+      try {
+        await ImportMapping.delete(mappingId);
+        toast({ title: "הגדרת המיפוי נמחקה בהצלחה" });
+        loadMappings();
+      } catch (error) {
+        console.error("Error deleting mapping:", error);
+        toast({ variant: "destructive", title: "שגיאה במחיקת הגדרת המיפוי" });
+      }
+    }
+  };
+
+  const handleSave = async (data) => {
+    try {
+      if (data.is_default) {
+        for (const mapping of mappings) {
+          if (mapping.is_default && mapping.id !== data.id) {
+            await ImportMapping.update(mapping.id, { is_default: false });
+          }
+        }
+      }
+
+      if (editingMapping) {
+        await ImportMapping.update(editingMapping.id, data);
+        toast({ title: "הגדרת המיפוי עודכנה בהצלחה" });
+      } else {
+        await ImportMapping.create(data);
+        toast({ title: "הגדרת מיפוי חדשה נוצרה" });
+      }
+      
+      setShowForm(false);
+      setEditingMapping(null);
+      await loadMappings();
+    } catch (error) {
+      console.error("Error saving mapping:", error);
+      toast({ variant: "destructive", title: "שגיאה בשמירת הגדרת המיפוי" });
+    }
+  };
+
+  if (loading) return <div>טוען הגדרות ייבוא...</div>;
+
+  return (
+    <div className="space-y-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>הגדרות מיפוי לייבוא פריטים</CardTitle>
+            {!showForm && (
+              <Button onClick={handleAddNew}>
+                <Plus className="h-4 w-4 ml-2" />
+                הוסף הגדרה חדשה
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {showForm ? (
+              <ImportMappingForm
+                mappingData={editingMapping}
+                onSave={handleSave}
+                onCancel={() => {
+                  setShowForm(false);
+                  setEditingMapping(null);
+                }}
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>שם ההגדרה</TableHead>
+                    <TableHead>ברירת מחדל</TableHead>
+                    <TableHead className="text-right">פעולות</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mappings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan="3" className="text-center">לא נמצאו הגדרות שמורות.</TableCell>
+                    </TableRow>
+                  ) : (
+                    mappings.map((mapping) => (
+                      <TableRow key={mapping.id}>
+                        <TableCell className="font-medium">{mapping.name}</TableCell>
+                        <TableCell>{mapping.is_default ? 'כן' : 'לא'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(mapping)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleDelete(mapping.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+        
+        <div className="space-y-4">
+            <h2 className="text-xl font-semibold border-b pb-2">ייבוא ישיר</h2>
+            <div className="grid md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <DataImporter 
+                    title="ייבוא לקוחות"
+                    description="ייבא רשימת לקוחות חדשים. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    entityName="Client"
+                    templateHeaders={clientTemplateHeaders}
+                    templateDisplayHeaders={clientTemplateDisplayHeaders}
+                    requiredFields={clientRequiredFields}
+                    mapRowToEntity={mapClientRow}
+                    entityCreateFn={(batch) => Client.bulkCreate(batch)}
+                    icon={Users}
+                />
+                 <DataImporter 
+                    title="ייבוא מכשירים"
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    entityName="Device"
+                    templateHeaders={deviceTemplateHeaders}
+                    templateDisplayHeaders={deviceTemplateDisplayHeaders}
+                    requiredFields={deviceRequiredFields}
+                    preImportTask={preImportDevices}
+                    mapRowToEntity={mapDeviceRow}
+                    entityCreateFn={(batch) => Device.bulkCreate(batch)}
+                    icon={HardDrive}
+                />
+                <DataImporter 
+                    title="ייבוא קריאות שירות (שלב 1)"
+                    description="ייבא קריאות שירות. יש להשתמש בקובץ CSV בלבד. אם מספר קריאה כבר קיים, הרשומה תעודכן. אחרת, תיווצר רשומה חדשה. תאים ריקים בקובץ ידרסו נתונים קיימים."
+                    entityName="ServiceCall"
+                    templateHeaders={serviceCallTemplateHeaders}
+                    templateDisplayHeaders={serviceCallTemplateDisplayHeaders}
+                    requiredFields={serviceCallRequiredFields}
+                    preImportTask={preImportServiceCalls}
+                    mapRowToEntity={mapServiceCallRow}
+                    entityCreateFn={upsertServiceCalls}
+                    icon={Wrench}
+                />
+                <DataImporter
+                    title="ייבוא חלפים לקריאות (שלב 2)"
+                    description="ייבא רשימת חלפים ושייך לקריאות שירות קיימות באמצעות מספר קריאה. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    entityName="ServiceCallParts"
+                    templateHeaders={serviceCallPartsTemplateHeaders}
+                    templateDisplayHeaders={serviceCallPartsTemplateDisplayHeaders}
+                    requiredFields={serviceCallPartsRequiredFields}
+                    preImportTask={preImportServiceCallParts}
+                    mapRowToEntity={mapServiceCallPartRow}
+                    entityCreateFn={updateServiceCallsWithParts}
+                    icon={ClipboardPlus}
+                />
+            </div>
+        </div>
+    </div>
+  );
+}
