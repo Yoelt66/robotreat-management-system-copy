@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Edit, Trash2, Calendar, User as UserIcon, Wrench } from "lucide-react";
+import { Search, Edit, Trash2, Calendar, User as UserIcon, Wrench, Clock, Car, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 const statusLabels = {
@@ -183,8 +183,24 @@ export default function ServiceCallList({
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="font-medium">{call.client_name}</div>
-                    {call.client_phone && (
-                      <div className="text-sm text-gray-500">{call.client_phone}</div>
+                    {/* Work hours display */}
+                    {call.no_work_hours ? (
+                      <div className="text-xs text-orange-600 flex items-center justify-center gap-1">
+                        <XCircle className="h-3 w-3" />
+                        ללא שעות עבודה
+                      </div>
+                    ) : (call.start_time || call.end_time) && (
+                      <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {call.start_time || '--:--'} - {call.end_time || '--:--'}
+                      </div>
+                    )}
+                    {/* No travel indicator */}
+                    {call.no_travel && (
+                      <div className="text-xs text-green-600 flex items-center justify-center gap-1">
+                        <Car className="h-3 w-3" />
+                        ללא נסיעה
+                      </div>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
