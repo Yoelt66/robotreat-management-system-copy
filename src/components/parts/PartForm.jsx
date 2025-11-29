@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -438,7 +437,7 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
         </CardContent>
       </Card>
 
-      <div className="flex justify-end space-x-2">
+      <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           ביטול
         </Button>

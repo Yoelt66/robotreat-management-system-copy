@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -782,7 +781,7 @@ export default function PartsStep({ data, onUpdate }) {
                                 };
 
                                 document.addEventListener('touchend', clearTimer);
-                                document.removeEventListener('touchcancel', clearTimer);
+                                document.addEventListener('touchcancel', clearTimer);
                               }}
                               className="w-20 text-center" // Removed cursor-pointer
                               disabled={part.has_serial} // Disable partial mode for serial parts
