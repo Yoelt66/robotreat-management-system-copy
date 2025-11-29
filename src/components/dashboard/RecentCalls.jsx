@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -516,7 +515,7 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
       <Dialog open={showViewDialog} onOpenChange={(open) => {
         if (!open) closeDialog();
       }}>
-        <DialogContent className="p-0 flex flex-col h-screen w-screen max-w-full sm:max-w-4xl sm:h-auto sm:max-h-[95vh] sm:rounded-lg">
+        <DialogContent className="p-0 flex flex-col h-screen w-screen max-w-full sm:max-w-4xl sm:h-auto sm:max-h-[95vh] sm:rounded-lg" dir="rtl">
           <DialogHeader className="p-4 md:p-6 border-b">
             <div className="flex justify-between items-center">
               <DialogTitle className="text-lg">צפייה בקריאת שירות</DialogTitle>
@@ -739,7 +738,7 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
             )})()}
           </div>
 
-          <DialogFooter className="p-4 md:p-6 border-t bg-gray-50 flex justify-between items-center gap-2">
+          <DialogFooter className="p-4 md:p-6 border-t bg-gray-50 flex flex-row-reverse justify-between items-center gap-2">
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
