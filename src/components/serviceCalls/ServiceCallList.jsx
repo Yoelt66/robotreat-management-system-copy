@@ -153,12 +153,12 @@ export default function ServiceCallList({
           <TableHeader>
             <TableRow>
               <TableHead className="text-center">מספר קריאה</TableHead>
-              <TableHead className="text-center">לקוח</TableHead>
-              <TableHead className="text-center">מכשיר</TableHead>
-              <TableHead className="text-center">תיאור</TableHead>
-              <TableHead className="text-center">סוג שירות</TableHead>
               <TableHead className="text-center">תאריך</TableHead>
+              <TableHead className="text-center">לקוח</TableHead>
+              <TableHead className="text-center">סוג שירות</TableHead>
+              <TableHead className="text-center">מכשיר</TableHead>
               <TableHead className="text-center">שעות</TableHead>
+              <TableHead className="text-center">תיאור</TableHead>
               <TableHead className="text-center">טכנאי</TableHead>
               <TableHead className="text-center">סטטוס</TableHead>
               {currentUser?.role === 'admin' && (
@@ -183,26 +183,17 @@ export default function ServiceCallList({
                     {call.call_number || '-'}
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="font-medium">{call.client_name}</div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {call.device ? (
-                      <div>
-                        <div className="font-medium">{call.device}</div>
-                        {call.device_type && (
-                          <div className="text-sm text-gray-500">
-                            {deviceTypeLabels[call.device_type] || call.device_type}
-                          </div>
-                        )}
+                    {call.scheduled_date ? (
+                      <div className="flex items-center justify-center gap-1 text-sm">
+                        <Calendar className="h-3 w-3 text-gray-500" />
+                        {format(new Date(call.scheduled_date), 'dd/MM/yyyy')}
                       </div>
                     ) : (
                       '-'
                     )}
                   </TableCell>
-                  <TableCell className="text-center max-w-xs">
-                    <div className="truncate" title={call.description}>
-                      {call.description || '-'}
-                    </div>
+                  <TableCell className="text-center">
+                    <div className="font-medium">{call.client_name}</div>
                   </TableCell>
                   <TableCell className="text-center">
                     {call.service_type ? (
@@ -214,10 +205,14 @@ export default function ServiceCallList({
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    {call.scheduled_date ? (
-                      <div className="flex items-center justify-center gap-1 text-sm">
-                        <Calendar className="h-3 w-3 text-gray-500" />
-                        {format(new Date(call.scheduled_date), 'dd/MM/yyyy')}
+                    {call.device ? (
+                      <div>
+                        <div className="font-medium">{call.device}</div>
+                        {call.device_type && (
+                          <div className="text-sm text-gray-500">
+                            {deviceTypeLabels[call.device_type] || call.device_type}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       '-'
@@ -241,6 +236,11 @@ export default function ServiceCallList({
                         ללא נסיעה
                       </div>
                     )}
+                  </TableCell>
+                  <TableCell className="text-center max-w-xs">
+                    <div className="truncate" title={call.description}>
+                      {call.description || '-'}
+                    </div>
                   </TableCell>
                   <TableCell className="text-center">
                     {call.assigned_to_nickname || call.assigned_to ? (
