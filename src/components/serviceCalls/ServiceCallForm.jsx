@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Client } from '@/entities/Client';
 import { Part } from "@/entities/Part";
@@ -299,7 +298,7 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
     } else {
       setSelectedParts([...selectedParts, {
         part_id: part.id,
-        part_number: part.part_number,
+        part_number: part.sku,
         name: part.name,
         quantity: 1
       }]);
@@ -676,12 +675,12 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="חפש לקוחות..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pr-10"
               />
             </div>
 
@@ -780,8 +779,8 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
                 <tbody>
                   {availableParts
                     .filter(part => 
-                      part.name.toLowerCase().includes(partsSearch.toLowerCase()) ||
-                      part.part_number.toLowerCase().includes(partsSearch.toLowerCase())
+                      part.name?.toLowerCase().includes(partsSearch.toLowerCase()) ||
+                      part.sku?.toLowerCase().includes(partsSearch.toLowerCase())
                     )
                     .map(part => {
                       const existingPart = selectedParts.find(p => p.part_id === part.id);
@@ -867,12 +866,12 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
           </DialogHeader>
           <div className="space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="חפש טכנאי..."
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
-                className="pl-10"
+                className="pr-10"
               />
             </div>
             <div className="max-h-[300px] overflow-y-auto space-y-2">
