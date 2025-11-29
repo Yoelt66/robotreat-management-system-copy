@@ -86,7 +86,7 @@ export default function ClientDevices({ clientId, onDeviceUpdate }) {
   }
 
   return (
-    <div>
+    <div dir="rtl">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">מערכות</h2>
         <Button

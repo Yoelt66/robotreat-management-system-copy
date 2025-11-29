@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Device } from '@/entities/Device';
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
@@ -127,14 +126,14 @@ export default function ClientForm({ client, onSubmit, onCancel }) {
   const visibleDevices = devices.filter(device => !device._markForDeletion);
 
   return (
-    <Card>
+    <Card dir="rtl">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <CardHeader>
-          <CardTitle>{client ? 'Edit Client' : 'New Client'}</CardTitle>
+          <CardTitle>{client ? 'עריכת לקוח' : 'לקוח חדש'}</CardTitle>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="details">Client Details</TabsTrigger>
+            <TabsTrigger value="details">פרטי לקוח</TabsTrigger>
             <TabsTrigger value="devices">
-              Devices {visibleDevices.length > 0 && `(${visibleDevices.length})`}
+              מערכות {visibleDevices.length > 0 && `(${visibleDevices.length})`}
             </TabsTrigger>
           </TabsList>
         </CardHeader>
@@ -144,69 +143,69 @@ export default function ClientForm({ client, onSubmit, onCancel }) {
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Enter client name"
-                    required
-                  />
-                </div>
+                      <Label htmlFor="name">שם מלא *</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="הכנס שם לקוח"
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input
-                    id="company"
-                    value={formData.company}
-                    onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                    placeholder="Enter company name"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="company">חברה</Label>
+                      <Input
+                        id="company"
+                        value={formData.company}
+                        onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
+                        placeholder="הכנס שם חברה"
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="Enter phone number"
-                    required
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">מספר טלפון *</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="הכנס מספר טלפון"
+                        required
+                      />
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Enter email address"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">אימייל</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        placeholder="הכנס כתובת אימייל"
+                      />
+                    </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Service Address</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                    placeholder="Enter service address"
-                  />
-                </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="address">כתובת שירות</Label>
+                      <Input
+                        id="address"
+                        value={formData.address}
+                        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="הכנס כתובת שירות"
+                      />
+                    </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="notes">Additional Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Add any additional notes about the client"
-                    className="min-h-[100px]"
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="notes">הערות נוספות</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                        placeholder="הוסף הערות נוספות על הלקוח"
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                  </div>
             </CardContent>
           </TabsContent>
 
@@ -215,15 +214,15 @@ export default function ClientForm({ client, onSubmit, onCancel }) {
               <div className="mb-4 flex justify-between items-center">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Settings2 className="w-5 h-5" />
-                  Client Devices
+                  מערכות לקוח
                 </h3>
                 <Button
                   type="button"
                   onClick={handleAddDevice}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  Add Device
+                  <PlusCircle className="w-4 h-4 ml-2" />
+                  הוסף מערכת
                 </Button>
               </div>
 
@@ -231,12 +230,12 @@ export default function ClientForm({ client, onSubmit, onCancel }) {
                 <div className="text-center py-8 text-gray-500 border rounded-lg">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <p>Loading devices...</p>
+                    <p>טוען מערכות...</p>
                   </div>
                 </div>
               ) : visibleDevices.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 border rounded-lg">
-                  No devices added yet. Click the button above to add a device.
+                  לא נוספו מערכות עדיין. לחץ על הכפתור למעלה להוספת מערכת.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -306,21 +305,21 @@ export default function ClientForm({ client, onSubmit, onCancel }) {
             </CardContent>
           </TabsContent>
 
-          <CardFooter className="flex justify-end gap-3">
+          <CardFooter className="flex justify-start gap-3">
+            <Button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <CheckCircle className="w-4 h-4 ml-2" />
+              {client ? 'עדכן' : 'צור'} לקוח
+            </Button>
             <Button
               type="button"
               variant="outline"
               onClick={onCancel}
             >
-              <XCircle className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {client ? 'Update' : 'Create'} Client
+              <XCircle className="w-4 h-4 ml-2" />
+              ביטול
             </Button>
           </CardFooter>
         </form>

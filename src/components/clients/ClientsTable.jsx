@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Table,
@@ -49,7 +48,7 @@ export default function ClientsTable({ clients = [], loading, onEdit, onDelete, 
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-white">
+    <div className="border rounded-lg overflow-hidden bg-white" dir="rtl">
       <Table>
         <TableHeader>
           <TableRow>
