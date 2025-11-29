@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Part, Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
 import { Button } from "@/components/ui/button";
@@ -281,11 +280,11 @@ export default function Import() {
     setLogs(prev => [...prev, { message, type, timestamp: new Date() }]);
   };
 
-  const parseCSV = (text, hasHeaders) => {
+  const parseCSV = (text, hasHeaders, delimiter = ',') => {
     const lines = text.trim().split(/\r\n|\n/);
     if (lines.length === 0) return [];
   
-    const splitLine = (line) => {
+    const splitLine = (line, delim) => {
         const result = [];
         let inQuote = false;
         let currentField = '';
@@ -293,7 +292,7 @@ export default function Import() {
             const char = line[i];
             if (char === '"') {
                 inQuote = !inQuote;
-            } else if (char === ',' && !inQuote) {
+            } else if (char === delim && !inQuote) {
                 result.push(currentField.trim());
                 currentField = '';
             } else {
@@ -310,10 +309,93 @@ export default function Import() {
     for (let i = startIndex; i < lines.length; i++) {
       if (!lines[i].trim()) continue;
       
-      const values = splitLine(lines[i]);
+      const values = splitLine(lines[i], delimiter);
       data.push(values.map(v => v.replace(/"/g, ''))); // Store as array of strings, remove quotes
     }
     return data;
+  };
+
+  const parseExcel = async (file) => {
+    // Read the Excel file using a simple approach
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = await parseXLSX(arrayBuffer);
+    return workbook;
+  };
+
+  const parseXLSX = async (arrayBuffer) => {
+    // Simple XLSX parser - reads first sheet
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    
+    // Get shared strings
+    const sharedStringsFile = zip.file('xl/sharedStrings.xml');
+    let sharedStrings = [];
+    if (sharedStringsFile) {
+      const sharedStringsXml = await sharedStringsFile.async('string');
+      const siMatches = sharedStringsXml.match(/<si>[\s\S]*?<\/si>/g) || [];
+      sharedStrings = siMatches.map(si => {
+        const tMatch = si.match(/<t[^>]*>([^<]*)<\/t>/);
+        return tMatch ? tMatch[1] : '';
+      });
+    }
+    
+    // Get first sheet
+    const sheet1File = zip.file('xl/worksheets/sheet1.xml');
+    if (!sheet1File) throw new Error('לא נמצא גיליון בקובץ Excel');
+    
+    const sheetXml = await sheet1File.async('string');
+    const rows = [];
+    
+    // Parse rows
+    const rowMatches = sheetXml.match(/<row[^>]*>[\s\S]*?<\/row>/g) || [];
+    
+    for (const rowXml of rowMatches) {
+      const cellMatches = rowXml.match(/<c[^>]*>[\s\S]*?<\/c>|<c[^\/]*\/>/g) || [];
+      const rowData = [];
+      let maxCol = 0;
+      
+      for (const cellXml of cellMatches) {
+        // Get cell reference (e.g., "A1", "B2")
+        const refMatch = cellXml.match(/r="([A-Z]+)(\d+)"/);
+        if (!refMatch) continue;
+        
+        const colLetter = refMatch[1];
+        const colIndex = colLetter.split('').reduce((acc, char) => acc * 26 + char.charCodeAt(0) - 64, 0) - 1;
+        
+        // Fill empty cells
+        while (rowData.length < colIndex) {
+          rowData.push('');
+        }
+        
+        // Get cell value
+        let value = '';
+        const valueMatch = cellXml.match(/<v>([^<]*)<\/v>/);
+        
+        if (valueMatch) {
+          const isSharedString = cellXml.includes('t="s"');
+          if (isSharedString) {
+            const stringIndex = parseInt(valueMatch[1]);
+            value = sharedStrings[stringIndex] || '';
+          } else {
+            value = valueMatch[1];
+          }
+        }
+        
+        rowData[colIndex] = value;
+        maxCol = Math.max(maxCol, colIndex);
+      }
+      
+      // Fill remaining empty cells
+      while (rowData.length <= maxCol) {
+        rowData.push('');
+      }
+      
+      if (rowData.some(cell => cell !== '')) {
+        rows.push(rowData);
+      }
+    }
+    
+    return rows;
   };
   
   const processParsedData = (dataRows) => {
@@ -364,46 +446,59 @@ export default function Import() {
     setIsFileUploading(true);
     setUploadedFile(file);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target.result;
-        addLog('קריאת הקובץ הסתיימה, מנתח תוכן...', 'success');
-        const parsedData = parseCSV(text, hasHeaders);
-        
-        if (parsedData.length === 0) {
-            throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
-        }
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    const isTabDelimited = fileName.endsWith('.txt') || fileName.endsWith('.tsv');
 
-        addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
-        
-        processParsedData(parsedData); // Use the new function to process parsed data
-        
-        toast({
-          title: "הקובץ עובד בהצלחה",
-          description: `זוהו ${parsedData.length} שורות.`
+    try {
+      let parsedData;
+      
+      if (isExcel) {
+        addLog('מזהה קובץ Excel, מנתח...', 'info');
+        const allRows = await parseExcel(file);
+        parsedData = hasHeaders ? allRows.slice(1) : allRows;
+        addLog(`ניתוח Excel הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
+      } else {
+        // CSV or Tab-delimited text file
+        const text = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(new Error('שגיאה בקריאת הקובץ'));
+          reader.readAsText(file, 'UTF-8');
         });
-        addLog(`עיבוד הקובץ הושלם.`, 'success');
-
-      } catch (error) {
-        console.error("שגיאה בניתוח הקובץ:", error);
-        let errorMessage = error.message || "אירעה שגיאה לא ידועה.";
-        addLog(`שגיאה בניתוח הקובץ: ${errorMessage}`, "error");
-        toast({ variant: "destructive", title: "שגיאה בניתוח הקובץ", description: errorMessage });
-      } finally {
-        setIsFileUploading(false);
-        event.target.value = '';
+        
+        addLog('קריאת הקובץ הסתיימה, מנתח תוכן...', 'success');
+        
+        const delimiter = isTabDelimited ? '\t' : ',';
+        if (isTabDelimited) {
+          addLog('מזהה קובץ עם הפרדת טאב...', 'info');
+        }
+        
+        parsedData = parseCSV(text, hasHeaders, delimiter);
+        addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
       }
-    };
-    
-    reader.onerror = (e) => {
-        console.error("שגיאה בקריאת הקובץ:", e);
-        addLog("שגיאה בקריאת הקובץ.", "error");
-        toast({ variant: "destructive", title: "שגיאה בקריאת הקובץ" });
-        setIsFileUploading(false);
-    };
+      
+      if (parsedData.length === 0) {
+        throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
+      }
+      
+      processParsedData(parsedData);
+      
+      toast({
+        title: "הקובץ עובד בהצלחה",
+        description: `זוהו ${parsedData.length} שורות.`
+      });
+      addLog(`עיבוד הקובץ הושלם.`, 'success');
 
-    reader.readAsText(file, 'UTF-8');
+    } catch (error) {
+      console.error("שגיאה בניתוח הקובץ:", error);
+      let errorMessage = error.message || "אירעה שגיאה לא ידועה.";
+      addLog(`שגיאה בניתוח הקובץ: ${errorMessage}`, "error");
+      toast({ variant: "destructive", title: "שגיאה בניתוח הקובץ", description: errorMessage });
+    } finally {
+      setIsFileUploading(false);
+      event.target.value = '';
+    }
   };
   
   const analyzeChanges = async () => {
@@ -871,17 +966,19 @@ export default function Import() {
             <CardHeader>
                 <CardTitle>שלב 2: העלאת נתונים</CardTitle>
                 <CardDescription>
-                  העלה קובץ CSV. הקובץ חייב להיות מקודם ב-UTF-8.
+                  העלה קובץ CSV, Excel (.xlsx) או טקסט עם הפרדת טאב (.txt/.tsv).
                 </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>חשוב מאוד: קידוד קובץ</AlertTitle>
+              <Alert className="mb-4">
+                <Info className="h-4 w-4" />
+                <AlertTitle>סוגי קבצים נתמכים</AlertTitle>
                 <AlertDescription>
-                  כדי למנוע שגיאות, יש לוודא שהקובץ נשמר בקידוד **UTF-8**.
+                  • <strong>Excel (.xlsx)</strong> - מומלץ, נקרא ישירות
                   <br />
-                  ב-Excel, ניתן לעשות זאת דרך: `קובץ {'->'} שמירה בשם {'->'} סוג קובץ: CSV UTF-8 (Comma Delimited)`.
+                  • <strong>CSV</strong> - יש לוודא קידוד UTF-8
+                  <br />
+                  • <strong>טקסט עם טאב (.txt/.tsv)</strong> - הפרדה בטאב בין עמודות
                 </AlertDescription>
               </Alert>
               <div className="space-y-6">
@@ -904,7 +1001,7 @@ export default function Import() {
                             העלה קובץ נתונים
                         </span>
                         <span className="mt-1 block text-xs text-gray-500">
-                            CSV בלבד (מקס 50MB)
+                            CSV, Excel (.xlsx), או טקסט (.txt/.tsv) - מקס 50MB
                         </span>
                         </label>
                         <input
@@ -912,7 +1009,7 @@ export default function Import() {
                         name="file-upload"
                         type="file"
                         className="sr-only"
-                        accept=".csv"
+                        accept=".csv,.xlsx,.xls,.txt,.tsv"
                         onChange={handleFileUpload}
                         disabled={isFileUploading}
                         />
