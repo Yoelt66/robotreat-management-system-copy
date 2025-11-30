@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Trash2, Search, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Transfer } from "@/entities/Transfer";
-import { Part } from "@/entities/Part";
+import { getParts } from "@/functions/getParts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -66,7 +65,8 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
   useEffect(() => {
     const loadParts = async () => {
       try {
-        const partsData = await Part.list();
+        const partsResponse = await getParts();
+        const partsData = partsResponse?.data?.data || [];
         setParts(partsData);
       } catch (error) {
         console.error("Error loading parts:", error);
