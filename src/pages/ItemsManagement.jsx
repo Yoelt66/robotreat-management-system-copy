@@ -259,11 +259,26 @@ export default function ItemsManagement() {
 
   const handleSubmit = async (partData) => {
     try {
+      // Add warehouse data for new parts
+      const dataWithWarehouses = {
+        ...partData,
+        warehouses: warehouses.map(wh => ({
+          warehouse_id: wh.warehouse_id,
+          quantity: 0
+        }))
+      };
+      
       if (editingPart) {
-        await Part.update(editingPart.id, partData);
+        const response = await updatePart(partData);
+        if (response?.data?.error) {
+          throw new Error(response.data.error);
+        }
         toast({ title: "פריט עודכן בהצלחה" });
       } else {
-        await Part.create(partData);
+        const response = await createPart(dataWithWarehouses);
+        if (response?.data?.error) {
+          throw new Error(response.data.error);
+        }
         toast({ title: "פריט נוצר בהצלחה" });
       }
       
