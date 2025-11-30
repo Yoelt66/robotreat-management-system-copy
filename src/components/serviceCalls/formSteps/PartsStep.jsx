@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, Trash2, Plus, Eye, Edit, AlertCircle } from "lucide-react";
-import { Part } from "@/entities/Part";
+import { getParts } from "@/functions/getParts";
 import { ServiceCall } from "@/entities/ServiceCall";
 import {
   Dialog,
@@ -421,8 +421,9 @@ export default function PartsStep({ data, onUpdate }) {
 
   const loadAllParts = async () => {
     try {
-      const parts = await Part.list();
-      setAllParts(parts || []);
+      const partsResponse = await getParts();
+      const parts = partsResponse?.data?.data || [];
+      setAllParts(parts);
     } catch (error) {
       console.error("Error loading parts:", error);
       setAllParts([]);
