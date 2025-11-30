@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Trash2, RefreshCw, Database, Wrench, Upload } from "lucide-react";
-import { migrateParts } from "@/functions/migrateParts";
+import { base44 } from "@/api/base44Client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,7 +72,7 @@ export default function DatabaseSettings() {
     setMigratingParts(true);
     setMigrationResult(null);
     try {
-      const response = await migrateParts();
+      const response = await base44.functions.invoke('migrateParts');
       const result = response?.data;
       setMigrationResult(result);
       if (result?.success) {
