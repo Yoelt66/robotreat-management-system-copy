@@ -112,6 +112,10 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Migration error:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ 
+            success: false, 
+            error: error.message,
+            stack: error.stack 
+        }, { status: 200 }); // Return 200 so we can see the error details
     }
 });
