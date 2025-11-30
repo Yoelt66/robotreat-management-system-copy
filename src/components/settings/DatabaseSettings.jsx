@@ -1,10 +1,10 @@
-
 import React, { useState } from "react";
 import { Part, Warehouse, Transfer, DeliveryNote, Order, ServiceCall } from "@/entities/all";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle, Trash2, RefreshCw, Database, Wrench } from "lucide-react";
+import { AlertTriangle, Trash2, RefreshCw, Database, Wrench, Upload } from "lucide-react";
+import { migrateParts } from "@/functions/migrateParts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +26,8 @@ export default function DatabaseSettings() {
   const [stats, setStats] = useState({ parts: 0, warehouses: 0, transfers: 0, deliveryNotes: 0, orders: 0, serviceCalls: 0 });
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [cleaningDuplicates, setCleaningDuplicates] = useState(false);
+  const [migratingParts, setMigratingParts] = useState(false);
+  const [migrationResult, setMigrationResult] = useState(null);
 
   const loadStats = async () => {
     try {
@@ -65,6 +67,37 @@ export default function DatabaseSettings() {
   React.useEffect(() => {
     loadStats();
   }, []);
+
+  const handleMigrateParts = async () => {
+    setMigratingParts(true);
+    setMigrationResult(null);
+    try {
+      const response = await migrateParts();
+      const result = response?.data;
+      setMigrationResult(result);
+      if (result?.success) {
+        toast({
+          title: "המיגרציה הושלמה בהצלחה!",
+          description: `הועברו ${result.stats?.migrated || 0} חלקים למבנה החדש.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "שגיאה במיגרציה",
+          description: result?.error || "אירעה שגיאה לא ידועה"
+        });
+      }
+    } catch (error) {
+      console.error("Migration error:", error);
+      toast({
+        variant: "destructive",
+        title: "שגיאה במיגרציה",
+        description: error.message
+      });
+    } finally {
+      setMigratingParts(false);
+    }
+  };
 
   const handleCleanDuplicateServiceCalls = async () => {
     setCleaningDuplicates(true);
@@ -325,6 +358,56 @@ export default function DatabaseSettings() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-blue-600" />
+            מיגרציה לארכיטקטורה החדשה
+          </CardTitle>
+          <CardDescription>
+            העברת נתוני חלקים מהטבלה הישנה (Part) לארבעת הטבלאות החדשות (PartCore, PartPricing, PartSupplier, PartStock).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button
+            variant="default"
+            onClick={handleMigrateParts}
+            disabled={migratingParts}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {migratingParts ? 'מעביר נתונים...' : 'התחל מיגרציית חלקים'}
+          </Button>
+          
+          {migrationResult && (
+            <Alert variant={migrationResult.success ? 'default' : 'destructive'}>
+              <AlertDescription>
+                {migrationResult.success ? (
+                  <div>
+                    <p className="font-medium">מיגרציה הושלמה!</p>
+                    <ul className="list-disc list-inside mt-2">
+                      <li>סה"כ חלקים: {migrationResult.stats?.total}</li>
+                      <li>הועברו: {migrationResult.stats?.migrated}</li>
+                      <li>דולגו (כבר קיימים): {migrationResult.stats?.skipped}</li>
+                      <li>שגיאות: {migrationResult.stats?.errors}</li>
+                    </ul>
+                    {migrationResult.errors?.length > 0 && (
+                      <div className="mt-2 text-sm text-red-600">
+                        <p>שגיאות:</p>
+                        {migrationResult.errors.map((err, i) => (
+                          <p key={i}>{err.sku}: {err.error}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p>{migrationResult.error}</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
