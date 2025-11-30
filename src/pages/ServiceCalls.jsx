@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import ServiceCallList from "../components/serviceCalls/ServiceCallList";
-import ServiceCallForm from "../components/serviceCalls/ServiceCallForm";
+import ServiceCallFormSteps from "../components/serviceCalls/ServiceCallFormSteps";
 
 export default function ServiceCalls() {
   const [serviceCalls, setServiceCalls] = useState([]);
@@ -94,7 +94,12 @@ export default function ServiceCalls() {
 
   const handleSubmit = async (callData) => {
     try {
-      if (editingCall) {
+      // If callData has an id, it means we are updating an existing service call
+      // (either from editingCall or from a temporary service call)
+      if (callData.id) {
+        await ServiceCall.update(callData.id, callData);
+        toast({ title: "הקריאה עודכנה בהצלחה" });
+      } else if (editingCall) {
         await ServiceCall.update(editingCall.id, callData);
         toast({ title: "הקריאה עודכנה בהצלחה" });
       } else {
@@ -138,18 +143,15 @@ export default function ServiceCalls() {
         />
       </Card>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" dir="rtl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCall ? 'עריכת קריאת שירות' : 'קריאת שירות חדשה'}
-            </DialogTitle>
-          </DialogHeader>
-          <ServiceCallForm
-            call={editingCall}
-            clients={clients}
-            devices={devices}
-            users={users}
+      <Dialog open={showForm} onOpenChange={(open) => {
+        if (!open) {
+          setShowForm(false);
+          setEditingCall(null);
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0" dir="rtl">
+          <ServiceCallFormSteps
+            initialData={editingCall}
             onSubmit={handleSubmit}
             onCancel={() => {
               setShowForm(false);
