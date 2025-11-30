@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '@/entities/Client';
-import { Part } from "@/entities/Part";
+import { getParts } from "@/functions/getParts";
 import { User } from "@/entities/User";
 import { Device } from "@/entities/Device";
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
