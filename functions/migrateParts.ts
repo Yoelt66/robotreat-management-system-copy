@@ -1,5 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -18,11 +20,27 @@ Deno.serve(async (req) => {
         const warehouseIds = warehouses.map(w => w.warehouse_id);
         console.log(`Found ${warehouses.length} warehouses:`, warehouseIds);
 
+        // Get existing PartCore records to check for duplicates
+        let existingCores = [];
+        try {
+            existingCores = await base44.asServiceRole.entities.PartCore.list();
+        } catch (e) {
+            existingCores = [];
+        }
+        const existingSkus = new Set(existingCores.map(c => c.sku));
+
         let migrated = 0;
         let skipped = 0;
         let errors = [];
 
-        for (const part of oldParts) {
+        // Process in smaller batches with delays
+        const BATCH_SIZE = 5;
+        const DELAY_BETWEEN_PARTS = 200;
+        const DELAY_BETWEEN_BATCHES = 1000;
+
+        for (let i = 0; i < oldParts.length; i++) {
+            const part = oldParts[i];
+            
             try {
                 const sku = part.sku;
                 if (!sku) {
@@ -30,15 +48,8 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                // Check if already migrated (PartCore exists with this SKU)
-                let existingCores = [];
-                try {
-                    existingCores = await base44.asServiceRole.entities.PartCore.filter({ sku: sku });
-                } catch (filterErr) {
-                    // Filter might fail if no records exist yet, that's ok
-                    existingCores = [];
-                }
-                if (existingCores && existingCores.length > 0) {
+                // Check if already migrated
+                if (existingSkus.has(sku)) {
                     console.log(`Skipping ${sku} - already exists`);
                     skipped++;
                     continue;
@@ -57,6 +68,7 @@ Deno.serve(async (req) => {
                     requires_serial_number: part.requires_serial_number || false,
                     last_count_date: part.last_count_date || null
                 });
+                await sleep(100);
 
                 // Create PartPricing
                 await base44.asServiceRole.entities.PartPricing.create({
@@ -69,6 +81,7 @@ Deno.serve(async (req) => {
                     manual_sale_price: part.manual_sale_price || 0,
                     is_manual: part.is_manual || false
                 });
+                await sleep(100);
 
                 // Create PartSupplier
                 await base44.asServiceRole.entities.PartSupplier.create({
@@ -76,6 +89,7 @@ Deno.serve(async (req) => {
                     supplier_number: part.supplier_number || '',
                     supplier_part_number: part.supplier_part_number || ''
                 });
+                await sleep(100);
 
                 // Create PartStock for each warehouse with stock
                 for (const whId of warehouseIds) {
@@ -86,15 +100,27 @@ Deno.serve(async (req) => {
                             warehouse_id: whId,
                             quantity: qty
                         });
+                        await sleep(50);
                     }
                 }
 
                 migrated++;
+                existingSkus.add(sku); // Mark as migrated
                 console.log(`Migrated ${sku} (${migrated}/${oldParts.length})`);
+
+                // Delay between parts
+                await sleep(DELAY_BETWEEN_PARTS);
+
+                // Extra delay between batches
+                if ((i + 1) % BATCH_SIZE === 0) {
+                    console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} complete, pausing...`);
+                    await sleep(DELAY_BETWEEN_BATCHES);
+                }
 
             } catch (partError) {
                 console.error(`Error migrating part ${part.sku}:`, partError);
                 errors.push({ sku: part.sku, error: partError.message });
+                await sleep(500); // Extra delay after error
             }
         }
 
@@ -107,7 +133,7 @@ Deno.serve(async (req) => {
                 skipped: skipped,
                 errors: errors.length
             },
-            errors: errors.slice(0, 10) // Only show first 10 errors
+            errors: errors.slice(0, 10)
         });
 
     } catch (error) {
@@ -116,6 +142,6 @@ Deno.serve(async (req) => {
             success: false, 
             error: error.message,
             stack: error.stack 
-        }, { status: 200 }); // Return 200 so we can see the error details
+        }, { status: 200 });
     }
 });
