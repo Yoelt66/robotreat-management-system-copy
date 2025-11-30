@@ -31,7 +31,13 @@ Deno.serve(async (req) => {
                 }
 
                 // Check if already migrated (PartCore exists with this SKU)
-                const existingCores = await base44.asServiceRole.entities.PartCore.filter({ sku: sku });
+                let existingCores = [];
+                try {
+                    existingCores = await base44.asServiceRole.entities.PartCore.filter({ sku: sku });
+                } catch (filterErr) {
+                    // Filter might fail if no records exist yet, that's ok
+                    existingCores = [];
+                }
                 if (existingCores && existingCores.length > 0) {
                     console.log(`Skipping ${sku} - already exists`);
                     skipped++;
