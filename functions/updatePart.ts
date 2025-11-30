@@ -74,11 +74,18 @@ Deno.serve(async (req) => {
         const existingPricing = existingPricings?.[0] || {};
         
         const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
+        const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
         const pricingUpdate = {};
         
         for (const field of pricingFields) {
-            if (hasChanged(existingPricing[field], partData[field])) {
-                pricingUpdate[field] = partData[field] ?? (typeof existingPricing[field] === 'number' ? 0 : '');
+            if (partData[field] !== undefined && hasChanged(existingPricing[field], partData[field])) {
+                if (numericPricingFields.includes(field)) {
+                    pricingUpdate[field] = parseFloat(partData[field]) || 0;
+                } else if (field === 'is_manual') {
+                    pricingUpdate[field] = Boolean(partData[field]);
+                } else {
+                    pricingUpdate[field] = partData[field] ?? '';
+                }
                 updatedFields.push(field);
             }
         }
