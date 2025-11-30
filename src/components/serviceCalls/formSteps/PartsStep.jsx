@@ -422,8 +422,11 @@ export default function PartsStep({ data, onUpdate }) {
   const loadAllParts = async () => {
     try {
       const partsResponse = await getParts();
-      const parts = partsResponse?.data?.data || [];
-      setAllParts(parts);
+      // Backend function returns { success: true, data: parts }
+      // Frontend receives it as axios response with partsResponse.data
+      const parts = partsResponse?.data?.data || partsResponse?.data || [];
+      console.log("Loaded parts:", parts.length, "parts");
+      setAllParts(Array.isArray(parts) ? parts : []);
     } catch (error) {
       console.error("Error loading parts:", error);
       setAllParts([]);
