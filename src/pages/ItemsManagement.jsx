@@ -299,7 +299,10 @@ export default function ItemsManagement() {
     if (!partToDelete) return;
     
     try {
-      await Part.delete(partToDelete.id);
+      const response = await deletePart({ sku: partToDelete.sku });
+      if (response?.data?.error) {
+        throw new Error(response.data.error);
+      }
       toast({ title: "פריט נמחק בהצלחה" });
       setPartToDelete(null);
       loadData();
