@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Part } from "@/entities/Part";
 import { Warehouse } from "@/entities/Warehouse";
+import { getParts } from "@/functions/getParts";
 import { Transfer } from "@/entities/Transfer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 

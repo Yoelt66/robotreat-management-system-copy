@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Part, Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
+import { Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
+import { getParts } from "@/functions/getParts";
+import { createPart } from "@/functions/createPart";
+import { updatePart } from "@/functions/updatePart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {

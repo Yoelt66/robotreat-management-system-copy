@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { Order } from "@/entities/Order";
-import { Part } from "@/entities/Part";
 import { Warehouse } from "@/entities/Warehouse";
 import { DeliveryNote } from "@/entities/DeliveryNote";
 import { SystemLog } from "@/entities/SystemLog";
 import { User } from "@/entities/User";
+import { getParts } from "@/functions/getParts";
+import { updatePartStock } from "@/functions/updatePartStock";
 import { toast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";

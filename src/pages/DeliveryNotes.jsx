@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { DeliveryNote } from "@/entities/DeliveryNote";
-import { Part } from "@/entities/Part";
 import { Warehouse } from "@/entities/Warehouse";
+import { getParts } from "@/functions/getParts";
+import { updatePartStock } from "@/functions/updatePartStock";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";

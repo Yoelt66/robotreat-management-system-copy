@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from "react";
-import { Part } from "@/entities/Part";
 import { Warehouse } from "@/entities/Warehouse";
 import { Order } from "@/entities/Order";
+import { getParts } from "@/functions/getParts";
 import { toast } from "@/components/ui/use-toast";
 import SuggestedItemsList from "../components/orders/SuggestedItemsList";
 import NewOrderForm from "../components/orders/NewOrderForm";

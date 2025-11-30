@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Transfer } from "@/entities/Transfer";
 import { Warehouse } from "@/entities/Warehouse";
-import { Part } from "@/entities/Part";
 import { SystemLog } from "@/entities/SystemLog";
 import { User } from "@/entities/User";
+import { getParts } from "@/functions/getParts";
+import { updatePartStock } from "@/functions/updatePartStock";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from "lucide-react";
 import {
