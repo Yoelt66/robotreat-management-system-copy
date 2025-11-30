@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { ImportMapping, Client, Device, ServiceCall, User, Part } from "@/entities/all";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -474,7 +473,7 @@ export default function ImportSettings() {
             <div className="grid md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 <DataImporter 
                     title="ייבוא לקוחות"
-                    description="ייבא רשימת לקוחות חדשים. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    description="ייבא רשימת לקוחות חדשים. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
                     entityName="Client"
                     templateHeaders={clientTemplateHeaders}
                     templateDisplayHeaders={clientTemplateDisplayHeaders}
@@ -485,7 +484,7 @@ export default function ImportSettings() {
                 />
                  <DataImporter 
                     title="ייבוא מכשירים"
-                    description="ייבא רשימת מכשירים ושייך ללקוחות. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
                     entityName="Device"
                     templateHeaders={deviceTemplateHeaders}
                     templateDisplayHeaders={deviceTemplateDisplayHeaders}
@@ -497,7 +496,7 @@ export default function ImportSettings() {
                 />
                 <DataImporter 
                     title="ייבוא קריאות שירות (שלב 1)"
-                    description="ייבא קריאות שירות. יש להשתמש בקובץ CSV בלבד. אם מספר קריאה כבר קיים, הרשומה תעודכן. אחרת, תיווצר רשומה חדשה. תאים ריקים בקובץ ידרסו נתונים קיימים."
+                    description="ייבא קריאות שירות. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). אם מספר קריאה כבר קיים, הרשומה תעודכן. אחרת, תיווצר רשומה חדשה."
                     entityName="ServiceCall"
                     templateHeaders={serviceCallTemplateHeaders}
                     templateDisplayHeaders={serviceCallTemplateDisplayHeaders}
@@ -509,7 +508,7 @@ export default function ImportSettings() {
                 />
                 <DataImporter
                     title="ייבוא חלפים לקריאות (שלב 2)"
-                    description="ייבא רשימת חלפים ושייך לקריאות שירות קיימות באמצעות מספר קריאה. יש להשתמש בקובץ CSV בלבד. לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    description="ייבא רשימת חלפים ושייך לקריאות שירות קיימות באמצעות מספר קריאה. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
                     entityName="ServiceCallParts"
                     templateHeaders={serviceCallPartsTemplateHeaders}
                     templateDisplayHeaders={serviceCallPartsTemplateDisplayHeaders}

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +64,14 @@ export default function DataImporter({
             addLog('איסוף נתונים מקדימים הושלם.', 'info');
             
             const fileContent = await file.text();
+            const fileName = file.name.toLowerCase();
+            const isTabDelimited = fileName.endsWith('.txt') || fileName.endsWith('.tsv');
+            const delimiter = isTabDelimited ? '\t' : ',';
+            
+            if (isTabDelimited) {
+                addLog('מזהה קובץ עם הפרדת טאב...', 'info');
+            }
+            
             const rows = fileContent.trim().split(/\r\n|\n/);
             const dataRows = rows.slice(1);
 
@@ -84,7 +91,7 @@ export default function DataImporter({
                         continue; // Skip empty or whitespace-only rows
                     }
 
-                    const rowArray = rowString.split(',').map(v => v.trim().replace(/"/g, ''));
+                    const rowArray = rowString.split(delimiter).map(v => v.trim().replace(/"/g, ''));
                     
                     const missingFields = [];
                     for(const field of requiredFields) {
@@ -162,7 +169,7 @@ export default function DataImporter({
             </CardHeader>
             <CardContent className="space-y-4 flex-grow">
                 <div className="flex flex-col sm:flex-row gap-4">
-                    <Input type="file" accept=".csv" onChange={handleFileChange} disabled={isImporting} className="flex-grow" />
+                    <Input type="file" accept=".csv,.txt,.tsv" onChange={handleFileChange} disabled={isImporting} className="flex-grow" />
                     <Button 
                         variant="outline" 
                         onClick={() => downloadCSVTemplate(downloadHeaders, `${entityName}_template.csv`)}
