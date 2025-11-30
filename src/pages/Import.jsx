@@ -445,11 +445,12 @@ export default function Import() {
     try {
       // Load data in batches to avoid overwhelming the system
       addLog('טוען נתוני מערכת קיימים...', 'info');
-      const [allParts, allCategories] = await Promise.all([
-        apiCallWithRetry(() => Part.list(), MAX_RETRIES, "Part.list"),
+      const [partsResponse, allCategories] = await Promise.all([
+        apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts"),
         apiCallWithRetry(() => Category.list(), MAX_RETRIES, "Category.list").catch(() => [])
       ]);
       
+      const allParts = partsResponse?.data?.data || [];
       const partMap = new Map(allParts.map(p => [p.sku, p]));
       const categoryMap = new Map(allCategories.map(c => [c.code, c]));
       
@@ -652,11 +653,12 @@ export default function Import() {
     addLog(`התחלת תהליך ייבוא עם ${changes.length} שינויים.`);
 
     try {
-      const [initialParts, allWarehouses] = await Promise.all([
-        apiCallWithRetry(() => Part.list(), MAX_RETRIES, "Part.list"),
+      const [initialPartsResponse, allWarehouses] = await Promise.all([
+        apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts"),
         apiCallWithRetry(() => Warehouse.list(), MAX_RETRIES, "Warehouse.list")
       ]);
 
+      const initialParts = initialPartsResponse?.data?.data || [];
       let maxPartBusinessId = initialParts.reduce((max, p) => Math.max(max, parseInt(p.part_id) || 0), 0);
 
       const newItems = changes.filter(c => c.type === 'new');
@@ -668,35 +670,43 @@ export default function Import() {
       let errorCount = 0;
       let processedCount = 0;
 
-      // Phase 1: Create new items with minimal required data
+      // Phase 1: Create new items using backend function
       if (newItems.length > 0) {
         addLog(`יוצר רשומות בסיסיות עבור ${newItems.length} פריטים חדשים...`, 'info');
-        const minimalPayloads = newItems.map(change => {
-          maxPartBusinessId++;
-          const formattedRow = change.newData;
-          return {
-            part_id: String(maxPartBusinessId),
-            sku: formattedRow.sku,
-            name: formattedRow.name,
-            category: formattedRow.category || 'other',
-            unit: formattedRow.unit || 'pieces',
-          };
-        });
-
-        try {
-            await apiCallWithRetry(() => Part.bulkCreate(minimalPayloads), MAX_RETRIES, 'Bulk Create Placeholders');
-            createdCount = minimalPayloads.length;
-            addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
-        } catch(e) {
-            addLog(`שגיאה קריטית ביצירת פריטים חדשים: ${e.message}`, 'error');
-            errorCount += minimalPayloads.length;
-            throw e;
+        
+        for (const change of newItems) {
+          try {
+            maxPartBusinessId++;
+            const formattedRow = change.newData;
+            const partPayload = {
+              part_id: String(maxPartBusinessId),
+              sku: formattedRow.sku,
+              name: formattedRow.name,
+              category: formattedRow.category || 'other',
+              unit: formattedRow.unit || 'pieces',
+              warehouses: allWarehouses.map(wh => ({
+                warehouse_id: wh.warehouse_id,
+                quantity: parseInt(formattedRow[wh.warehouse_id]) || 0
+              }))
+            };
+            
+            const response = await apiCallWithRetry(() => createPart(partPayload), MAX_RETRIES, `Create ${formattedRow.sku}`);
+            if (response?.data?.error) {
+              throw new Error(response.data.error);
+            }
+            createdCount++;
+          } catch(e) {
+            addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${e.message}`, 'error');
+            errorCount++;
+          }
         }
+        addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
       }
 
       // Phase 2: Update all items (new and existing) with full data
       addLog('מתחיל שלב עדכון נתונים מלא...','info');
-      const allPartsForUpdate = await apiCallWithRetry(() => Part.list(), MAX_RETRIES, "Part.list (post-creation)");
+      const allPartsForUpdateResponse = await apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts (post-creation)");
+      const allPartsForUpdate = allPartsForUpdateResponse?.data?.data || [];
       const partMap = new Map(allPartsForUpdate.map(p => [p.sku, p]));
       
       if (allItemsToProcess.length > 0) {
@@ -743,7 +753,12 @@ export default function Import() {
               
               if (Object.keys(updateData).length > 0) {
                 updateData.last_updated = new Date().toISOString().split('T')[0];
-                await apiCallWithRetry(() => Part.update(existingPart.id, updateData), MAX_RETRIES, `Part Update ${existingPart.sku}`);
+                updateData.sku = existingPart.sku; // Include SKU for backend function
+                
+                const response = await apiCallWithRetry(() => updatePart(updateData), MAX_RETRIES, `Part Update ${existingPart.sku}`);
+                if (response?.data?.error) {
+                  throw new Error(response.data.error);
+                }
                 
                 if (change.type !== 'new') {
                   updatedCount++;
