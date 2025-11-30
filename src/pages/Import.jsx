@@ -501,7 +501,13 @@ export default function Import() {
 
           // Apply category settings if category is specified
           if (formattedRow.category) {
-            const categorySettings = categoryMap.get(formattedRow.category);
+            // Try to find by code first, then by name
+            let categorySettings = categoryMap.get(formattedRow.category);
+            if (!categorySettings) {
+              // Search by name if code didn't match
+              categorySettings = allCategories.find(c => c.name === formattedRow.category);
+            }
+            
             if (categorySettings) {
               if (!formattedRow.supplier_number && categorySettings.supplier_number) {
                 formattedRow.supplier_number = categorySettings.supplier_number;
