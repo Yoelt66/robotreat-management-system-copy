@@ -3,6 +3,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 // Helper to check if value actually changed
 const hasChanged = (oldVal, newVal) => {
     if (newVal === undefined) return false; // Field not provided, don't update
+    // Handle boolean comparisons
+    if (typeof newVal === 'boolean' || typeof oldVal === 'boolean') {
+        return Boolean(oldVal) !== Boolean(newVal);
+    }
+    // Handle numeric comparisons
+    if (typeof newVal === 'number' || typeof oldVal === 'number') {
+        const oldNum = parseFloat(oldVal) || 0;
+        const newNum = parseFloat(newVal) || 0;
+        return oldNum !== newNum;
+    }
     const oldStr = String(oldVal ?? '');
     const newStr = String(newVal ?? '');
     return oldStr !== newStr;
