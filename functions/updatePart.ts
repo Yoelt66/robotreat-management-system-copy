@@ -53,8 +53,14 @@ Deno.serve(async (req) => {
         const coreUpdate = {};
         
         for (const field of coreFields) {
-            if (hasChanged(existingCore[field], partData[field])) {
-                coreUpdate[field] = partData[field] ?? (field === 'minimum_stock' ? 0 : '');
+            if (partData[field] !== undefined && hasChanged(existingCore[field], partData[field])) {
+                if (field === 'minimum_stock') {
+                    coreUpdate[field] = parseFloat(partData[field]) || 0;
+                } else if (field === 'requires_serial_number') {
+                    coreUpdate[field] = Boolean(partData[field]);
+                } else {
+                    coreUpdate[field] = partData[field] ?? '';
+                }
                 updatedFields.push(field);
             }
         }
