@@ -380,12 +380,25 @@ export default function Import() {
         throw new Error('קבצי Excel (.xlsx/.xls) אינם נתמכים ישירות. יש לייצא את הקובץ מ-Excel כ-CSV UTF-8 או כטקסט עם הפרדת טאב.');
       } else {
         // CSV or Tab-delimited text file
-        const text = await new Promise((resolve, reject) => {
+        // Try UTF-8 first, if Hebrew chars appear garbled, try Windows-1255
+        let text = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
           reader.onerror = (e) => reject(new Error('שגיאה בקריאת הקובץ'));
           reader.readAsText(file, 'UTF-8');
         });
+        
+        // Check for garbled Hebrew (common pattern: Ã or Â characters indicate wrong encoding)
+        const hasGarbledChars = /[\xC0-\xFF]{2,}/.test(text) && !/[\u0590-\u05FF]/.test(text);
+        if (hasGarbledChars) {
+          addLog('זוהה קידוד לא תקין, מנסה קידוד Windows-1255...', 'info');
+          text = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('שגיאה בקריאת הקובץ'));
+            reader.readAsText(file, 'windows-1255');
+          });
+        }
         
         addLog('קריאת הקובץ הסתיימה, מנתח תוכן...', 'success');
         
