@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
         const supplierUpdate = {};
         
         for (const field of supplierFields) {
-            if (hasChanged(existingSupplier[field], partData[field])) {
+            if (partData[field] !== undefined && hasChanged(existingSupplier[field], partData[field])) {
                 supplierUpdate[field] = partData[field] ?? '';
                 updatedFields.push(field);
             }
