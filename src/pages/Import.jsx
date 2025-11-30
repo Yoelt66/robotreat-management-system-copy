@@ -749,12 +749,18 @@ export default function Import() {
               const fieldsToUpdate = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'cost_price', 'current_location', 'supplier_part_number', 'replaced_sku', 'supplier_number', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'exchange_rate'];
               
               fieldsToUpdate.forEach(field => {
-                if (formattedRow[field] !== undefined && formattedRow[field] !== null) {
-                  const newValue = ['minimum_stock', 'cost_price', 'import_percentage', 'markup_percentage', 'exchange_rate'].includes(field)
-                    ? parseFloat(formattedRow[field]) || null
+                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+                  const numericFields = ['minimum_stock', 'cost_price', 'import_percentage', 'markup_percentage', 'exchange_rate'];
+                  const newValue = numericFields.includes(field)
+                    ? parseFloat(formattedRow[field]) || 0
                     : formattedRow[field];
                   
-                  if (change.type === 'new' || String(existingPart[field] || '') !== String(newValue || '')) {
+                  const existingValue = numericFields.includes(field)
+                    ? parseFloat(existingPart[field]) || 0
+                    : existingPart[field] || '';
+                  
+                  // Only add to update if value actually changed
+                  if (change.type === 'new' || String(existingValue) !== String(newValue)) {
                      updateData[field] = newValue;
                   }
                 }
