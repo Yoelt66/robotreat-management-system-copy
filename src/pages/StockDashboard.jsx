@@ -32,11 +32,13 @@ export default function StockDashboard() {
     setError("");
     
     try {
-      const [partsData, warehousesData, transfersData] = await Promise.all([
-        Part.list().catch(e => { console.error("Error loading parts:", e); return []; }),
+      const [partsResponse, warehousesData, transfersData] = await Promise.all([
+        getParts().catch(e => { console.error("Error loading parts:", e); return { data: { data: [] } }; }),
         Warehouse.list().catch(e => { console.error("Error loading warehouses:", e); return []; }),
         Transfer.list().catch(e => { console.warn("Could not load transfers:", e); return []; })
       ]);
+      
+      const partsData = partsResponse?.data?.data || [];
       
       const mainWarehouse = warehousesData.find(w => w.number === 1);
       

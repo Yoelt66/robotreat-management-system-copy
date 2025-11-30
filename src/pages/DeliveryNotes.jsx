@@ -43,7 +43,8 @@ export default function DeliveryNotes() {
 
       try {
         console.log("Loading parts...");
-        partsData = await Part.list();
+        const partsResponse = await getParts();
+        partsData = partsResponse?.data?.data || [];
         console.log("Parts loaded:", partsData.length);
       } catch (error) {
         console.error("Error loading parts:", error);
@@ -77,20 +78,17 @@ export default function DeliveryNotes() {
       await DeliveryNote.create(noteData);
       toast({ title: "תעודת משלוח נוצרה בהצלחה" });
 
-      // 2. Update stock for each item in the note - stock is now stored directly in Part entity
+      // 2. Update stock for each item in the note using backend function
       for (const item of noteData.items) {
         const part = parts.find(p => p.sku === item.part_sku);
         const warehouse = warehouses.find(w => w.id === noteData.warehouse_id);
         if (!part || !warehouse) continue;
 
-        // Get current quantity from the part record using warehouse_id as column name
-        const currentQty = part[warehouse.warehouse_id] || 0;
-        const newQty = currentQty + item.quantity;
-        
-        // Update the part record with new stock quantity
-        await Part.update(part.id, {
-          [warehouse.warehouse_id]: newQty,
-          last_count_date: noteData.delivery_date // Update last count date
+        // Update stock using backend function with delta
+        await updatePartStock({ 
+          sku: part.sku, 
+          warehouse_id: warehouse.warehouse_id, 
+          delta: item.quantity 
         });
       }
       

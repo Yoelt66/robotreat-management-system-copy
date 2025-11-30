@@ -95,7 +95,8 @@ export default function TransfersPage() {
       }
 
       try {
-        partsData = await Part.list();
+        const partsResponse = await getParts();
+        partsData = partsResponse?.data?.data || [];
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error("Error loading parts:", error);
@@ -180,13 +181,17 @@ export default function TransfersPage() {
       const newFromQty = currentFromQty - item.quantity;
       const newToQty = currentToQty + item.quantity;
 
-      // Update the part record with new quantities
-      const updateData = {
-        [fromWarehouse.warehouse_id]: newFromQty,
-        [toWarehouse.warehouse_id]: newToQty
-      };
-
-      await Part.update(part.id, updateData);
+      // Update the part stock for both warehouses using backend function
+      await updatePartStock({ 
+        sku: part.sku, 
+        warehouse_id: fromWarehouse.warehouse_id, 
+        quantity: newFromQty 
+      });
+      await updatePartStock({ 
+        sku: part.sku, 
+        warehouse_id: toWarehouse.warehouse_id, 
+        quantity: newToQty 
+      });
 
       // Log history
       if (currentUser && part) {

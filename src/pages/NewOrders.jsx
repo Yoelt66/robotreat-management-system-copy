@@ -51,12 +51,13 @@ export default function NewOrders() {
   const loadData = async (tempOrderId = null) => {
     setLoading(true);
     try {
-      const [parts, warehouses, orders] = await Promise.all([
-        Part.list(),
+      const [partsResponse, warehouses, orders] = await Promise.all([
+        getParts(),
         Warehouse.list(),
         Order.list(),
       ]);
 
+      const parts = partsResponse?.data?.data || [];
       setAllParts(parts);
       setAllWarehouses(warehouses);
       setAllOrders(orders);

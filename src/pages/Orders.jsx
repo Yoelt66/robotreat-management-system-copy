@@ -60,7 +60,8 @@ export default function OrdersPage() {
 
       try {
         console.log("Loading parts...");
-        partsData = await Part.list();
+        const partsResponse = await getParts();
+        partsData = partsResponse?.data?.data || [];
         console.log("Parts loaded:", partsData.length);
       } catch (error) {
         console.error("Error loading parts:", error);
@@ -152,7 +153,7 @@ export default function OrdersPage() {
         throw new Error(`Warehouse not found`);
       }
 
-      // Process each item
+      // Process each item using backend function
       for (const item of deliveryNoteData.items) {
         if (item.quantity <= 0) continue;
         
@@ -160,14 +161,11 @@ export default function OrdersPage() {
         const part = parts.find(p => p.sku === item.part_sku);
         if (!part) continue;
         
-        // Update the warehouse quantity directly in the Part entity
-        const currentQuantity = part[targetWarehouse.warehouse_id] || 0;
-        const newQuantity = currentQuantity + item.quantity;
-        
-        // Update the part with new stock quantity
-        await Part.update(part.id, {
-          [targetWarehouse.warehouse_id]: newQuantity,
-          last_count_date: deliveryNoteData.delivery_date // Update last count date
+        // Update stock using backend function with delta
+        await updatePartStock({ 
+          sku: part.sku, 
+          warehouse_id: targetWarehouse.warehouse_id, 
+          delta: item.quantity 
         });
       }
 
