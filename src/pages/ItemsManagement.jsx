@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Part } from "@/entities/Part";
 import { Warehouse } from "@/entities/Warehouse";
 import { Category } from "@/entities/Category";
 import { Supplier } from "@/entities/Supplier";
 import { Currency } from "@/entities/Currency";
 import { Unit } from "@/entities/Unit";
 import { User } from "@/entities/User";
+import { getParts } from "@/functions/getParts";
+import { createPart } from "@/functions/createPart";
+import { updatePart } from "@/functions/updatePart";
+import { deletePart } from "@/functions/deletePart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
