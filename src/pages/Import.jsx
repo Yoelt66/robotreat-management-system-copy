@@ -764,24 +764,29 @@ export default function Import() {
                 const stockVal = formattedRow[String(wh.warehouse_id)];
                 if (stockVal !== undefined && stockVal !== null && stockVal !== '') {
                   const newQuantity = parseInt(stockVal) || 0;
-                  if (change.type === 'new' || (existingPart[wh.warehouse_id] || 0) !== newQuantity) {
+                  const currentQuantity = existingPart[wh.warehouse_id] || 0;
+                  if (change.type === 'new' || currentQuantity !== newQuantity) {
                     updateData[wh.warehouse_id] = newQuantity;
                   }
                 }
               });
-              
+
+              // Only update if there are actual changes
               if (Object.keys(updateData).length > 0) {
                 updateData.last_updated = new Date().toISOString().split('T')[0];
                 updateData.sku = existingPart.sku; // Include SKU for backend function
-                
+
                 const response = await apiCallWithRetry(() => updatePart(updateData), MAX_RETRIES, `Part Update ${existingPart.sku}`);
                 if (response?.data?.error) {
                   throw new Error(response.data.error);
                 }
-                
+
                 if (change.type !== 'new') {
                   updatedCount++;
                 }
+              } else if (change.type !== 'new') {
+                // No changes detected for existing part, skip silently
+                addLog(`פריט ${existingPart.sku} ללא שינויים - מדלג`, 'info');
               }
             } catch (e) {
                 errorCount++;
