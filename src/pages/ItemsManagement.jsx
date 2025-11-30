@@ -89,7 +89,7 @@ export default function ItemsManagement() {
     setLoading(true);
     try {
       const [
-        partsData,
+        partsResponse,
         categoriesData,
         suppliersData,
         currenciesData,
@@ -97,7 +97,7 @@ export default function ItemsManagement() {
         warehousesData,
         userData
       ] = await Promise.all([
-        Part.list(),
+        getParts(),
         Category.list(),
         Supplier.list(),
         Currency.list(),
@@ -106,7 +106,8 @@ export default function ItemsManagement() {
         User.me().catch(() => null)
       ]);
 
-      setParts(partsData || []);
+      const partsData = partsResponse?.data?.data || [];
+      setParts(partsData);
       setCategories(categoriesData || []);
       setSuppliers(suppliersData || []);
       setCurrencies(currenciesData || []);
