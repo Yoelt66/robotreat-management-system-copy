@@ -68,12 +68,12 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
         current_location: part.current_location || '',
         supplier_part_number: part.supplier_part_number || '',
         supplier_number: part.supplier_number || '',
-        requires_serial_number: part.requires_serial_number || false, // Initialize new field from part
+        requires_serial_number: part.requires_serial_number || false,
         cost_price: part.cost_price || 0,
-        cost_currency: part.cost_currency || 'ILS',
-        sale_currency: part.sale_currency || 'ILS',
-        import_percentage: part.import_percentage || 15,
-        markup_percentage: part.markup_percentage || 30,
+        cost_currency: part.cost_currency && part.cost_currency !== '' ? part.cost_currency : 'ILS',
+        sale_currency: part.sale_currency && part.sale_currency !== '' ? part.sale_currency : 'ILS',
+        import_percentage: part.import_percentage !== undefined ? part.import_percentage : 15,
+        markup_percentage: part.markup_percentage !== undefined ? part.markup_percentage : 30,
         manual_sale_price: part.manual_sale_price || 0,
         is_manual: part.is_manual || false
       });
