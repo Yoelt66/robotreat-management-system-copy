@@ -36,7 +36,7 @@ const pageFilters = {
     ]
 };
 
-export default function UserProfileForm({ user, onSubmit, onCancel, isAdmin = false }) {
+export default function UserProfileForm({ user, warehouses: externalWarehouses, onSubmit, onCancel, isAdmin = false }) {
   const [formData, setFormData] = useState({
     full_name: '',
     nickname: '',
@@ -50,25 +50,28 @@ export default function UserProfileForm({ user, onSubmit, onCancel, isAdmin = fa
   const [warehouses, setWarehouses] = useState([]);
 
   useEffect(() => {
-    const initForm = async () => {
-      if(isAdmin) {
-        await loadWarehouses();
-      }
-      if (user) {
-        setFormData({
-          full_name: user.full_name || '',
-          nickname: user.nickname || '',
-          phone: user.phone || '',
-          department: user.department || '',
-          role: user.role || 'user',
-          assigned_warehouse_id: user.assigned_warehouse_id || '',
-          default_page: user.default_page || 'Dashboard',
-          default_page_filter: user.default_page_filter || ''
-        });
-      }
-    };
-    initForm();
-  }, [user, isAdmin]);
+    // Use external warehouses if provided, otherwise load them
+    if (externalWarehouses && externalWarehouses.length > 0) {
+      setWarehouses(externalWarehouses);
+    } else if (isAdmin) {
+      loadWarehouses();
+    }
+  }, [externalWarehouses, isAdmin]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        full_name: user.full_name || '',
+        nickname: user.nickname || '',
+        phone: user.phone || '',
+        department: user.department || '',
+        role: user.role || 'user',
+        assigned_warehouse_id: user.assigned_warehouse_id || '',
+        default_page: user.default_page || 'Dashboard',
+        default_page_filter: user.default_page_filter || ''
+      });
+    }
+  }, [user]);
   
   const loadWarehouses = async () => {
       try {
