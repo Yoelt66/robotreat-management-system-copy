@@ -5,7 +5,6 @@ import { RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Warehouse } from "@/entities/Warehouse";
-import { PartStock } from "@/entities/PartStock";
 import { getParts } from "@/functions/getParts";
 
 export default function StockMigration() {
@@ -21,11 +20,12 @@ export default function StockMigration() {
     setError("");
     
     try {
-      // Get all warehouses and stock records
-      const [warehouses, stockRecords] = await Promise.all([
+      // Get all warehouses and parts
+      const [warehouses, partsResponse] = await Promise.all([
         Warehouse.list(),
-        PartStock.list()
+        getParts()
       ]);
+      const stockRecords = partsResponse?.data?.data || [];
       
       console.log("Found warehouses:", warehouses);
       console.log("Found stock records:", stockRecords.length);
@@ -59,7 +59,7 @@ export default function StockMigration() {
           
           // Only update if there are missing columns
           if (needsUpdate) {
-            await PartStock.update(stock.id, updateData);
+            await Stock.update(stock.id, updateData);
             updated++;
             console.log(`Updated stock ${stock.id} with warehouse columns:`, updateData);
           }
@@ -75,31 +75,8 @@ export default function StockMigration() {
       
       setProgress(90);
       
-      // If no stock records exist, create sample ones for existing parts
-      if (stockRecords.length === 0) {
-        const partsResponse = await getParts();
-        const parts = partsResponse?.data?.data || [];
-        
-        for (const part of parts.slice(0, 5)) { // Limit to first 5 parts for testing
-          try {
-            const stockData = { part_sku: part.sku };
-            
-            // Add all warehouse columns with 0 quantity
-            sortedWarehouses.forEach(warehouse => {
-              stockData[warehouse.warehouse_id] = 0;
-            });
-            
-            await PartStock.create(stockData);
-            created++;
-            console.log(`Created stock record for part ${part.sku}:`, stockData);
-            
-            await new Promise(resolve => setTimeout(resolve, 200));
-          } catch (err) {
-            console.error(`Error creating stock for part ${part.sku}:`, err);
-            failed++;
-          }
-        }
-      }
+      // Stock is now managed directly on PartStock entity via backend functions
+      // No need to create separate stock records
       
       setResult({
         totalStocks: stockRecords.length,
