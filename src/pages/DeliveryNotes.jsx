@@ -108,38 +108,46 @@ export default function DeliveryNotes() {
   };
 
   return (
-    <div className="p-6" dir="rtl">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between gap-4">
-          <h1 className="text-2xl font-bold">תעודות משלוח</h1>
-          <Button onClick={() => setShowForm(true)} className="w-full sm:w-auto">
-            <Plus className="w-4 h-4 ml-2" /> הוסף תעודת משלוח
-          </Button>
+    <div className="space-y-6" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">תעודות משלוח</h1>
+          <p className="text-gray-500 mt-1">קליטת סחורה ועדכון מלאי</p>
         </div>
-
-        {showForm && (
-          <DeliveryNoteForm
-            parts={parts}
-            warehouses={warehouses}
-            onSubmit={handleCreateDeliveryNote}
-            onCancel={() => setShowForm(false)}
-            loading={loading}
-          />
-        )}
-
-        <DeliveryNoteList
-          deliveryNotes={deliveryNotes}
-          loading={loading}
-          onView={handleViewNote}
-        />
-
-        {viewingNote && (
-          <DeliveryNoteDetailsModal
-            note={viewingNote}
-            onClose={() => setViewingNote(null)}
-          />
+        {!showForm && (
+          <Button onClick={() => setShowForm(true)} size="lg" className="gap-2">
+            <Plus className="w-5 h-5" />
+            תעודה חדשה
+          </Button>
         )}
       </div>
+
+      {/* Form */}
+      {showForm && (
+        <DeliveryNoteForm
+          parts={parts}
+          warehouses={warehouses}
+          onSubmit={handleCreateDeliveryNote}
+          onCancel={() => setShowForm(false)}
+          loading={loading}
+        />
+      )}
+
+      {/* List */}
+      <DeliveryNoteList
+        deliveryNotes={deliveryNotes}
+        loading={loading}
+        onView={handleViewNote}
+      />
+
+      {/* Details Modal */}
+      {viewingNote && (
+        <DeliveryNoteDetailsModal
+          note={viewingNote}
+          onClose={() => setViewingNote(null)}
+        />
+      )}
     </div>
   );
 }
