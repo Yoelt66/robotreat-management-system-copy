@@ -74,9 +74,11 @@ export default function UserProfileForm({ user, onSubmit, onCancel, isAdmin = fa
       try {
         const data = await Warehouse.list();
         setWarehouses(data);
+        return data;
       } catch(e) {
         console.error("Failed to load warehouses", e);
         toast({variant: "destructive", title: "Failed to load warehouses"});
+        return [];
       }
   }
 
