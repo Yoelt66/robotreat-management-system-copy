@@ -47,8 +47,13 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
   const [exchangeRate, setExchangeRate] = useState(1);
 
   useEffect(() => {
-    loadCurrencies();
-  }, []);
+    // Use currencies from props if available, otherwise load them
+    if (currencies && currencies.length > 0) {
+      setAvailableCurrencies(currencies);
+    } else {
+      loadCurrencies();
+    }
+  }, [currencies]);
 
   useEffect(() => {
     if (part) {
