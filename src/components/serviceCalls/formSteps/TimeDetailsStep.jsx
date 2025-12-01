@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useImperativeHandle } from 'react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -51,18 +52,6 @@ export default function TimeDetailsStep({ data, onUpdate }) {
   
   const handleTimeChange = (field, value) => {
     onUpdate({ [field]: value });
-  };
-
-  // Generate end time options - only times after start time
-  const generateEndTimeOptions = () => {
-    const times = generateTimeOptions();
-    if (!data.start_time) return times;
-    
-    const startIndex = times.indexOf(data.start_time);
-    if (startIndex === -1) return times;
-    
-    // Return only times after the start time
-    return times.slice(startIndex + 1);
   };
 
   const handleDateChange = (date) => {
