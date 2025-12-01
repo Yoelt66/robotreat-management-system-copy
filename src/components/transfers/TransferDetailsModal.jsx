@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { CheckCircle, ArrowUpCircle, Circle, ArrowLeft, Edit, ChevronUp, ChevronDown } from "lucide-react";
-import { Part } from "@/entities/all";
+import { getParts } from "@/functions/getParts";
 
 const statusColors = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -39,7 +39,8 @@ export default function TransferDetailsModal({ transfer, onClose, onEdit }) {
   React.useEffect(() => {
     const loadParts = async () => {
       try {
-        const partsData = await Part.list();
+        const partsResponse = await getParts();
+        const partsData = partsResponse?.data?.data || [];
         setParts(partsData);
       } catch (error) {
         console.error("Error loading parts:", error);
