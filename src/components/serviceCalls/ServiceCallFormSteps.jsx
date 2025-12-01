@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ChevronLeft, XCircle, CheckCircle, X } from "lucide-react";
@@ -207,18 +206,6 @@ export default function ServiceCallFormSteps({ initialData, onSubmit, onCancel }
     if (!formData.no_work_hours && !formData.end_time) {
       setError("יש להזין שעת סיום");
       return false;
-    }
-
-    if (!formData.no_work_hours && formData.end_time) {
-      const [startHour, startMinute] = formData.start_time.split(':').map(Number);
-      const [endHour, endMinute] = formData.end_time.split(':').map(Number);
-      const startMinutes = startHour * 60 + startMinute;
-      const endMinutes = endHour * 60 + endMinute;
-
-      if (endMinutes <= startMinutes) {
-        setError("שעת הסיום חייבת להיות מאוחרת משעת ההתחלה");
-        return false;
-      }
     }
 
     // Additional validation for maintenance step if it's included
