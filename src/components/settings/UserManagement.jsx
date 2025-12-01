@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { User } from "@/entities/User";
+import { Warehouse } from "@/entities/Warehouse";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,23 +24,28 @@ import UserProfileForm from "./UserProfileForm";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    loadUsers();
+    loadData();
   }, []);
 
-  const loadUsers = async () => {
+  const loadData = async () => {
     try {
-      const usersData = await User.list();
+      const [usersData, warehousesData] = await Promise.all([
+        User.list(),
+        Warehouse.list()
+      ]);
       setUsers(usersData);
+      setWarehouses(warehousesData);
     } catch (error) {
-      console.error("Error loading users:", error);
+      console.error("Error loading data:", error);
       toast({
         variant: "destructive",
-        title: "שגיאה בטעינת משתמשים",
+        title: "שגיאה בטעינת נתונים",
         description: "אנא נסה שנית",
       });
     } finally {
@@ -59,7 +65,7 @@ export default function UserManagement() {
         toast({ title: "פרטי המשתמש עודכנו בהצלחה" });
         setShowForm(false);
         setEditingUser(null);
-        loadUsers();
+        loadData();
       }
     } catch (error) {
       console.error("Error updating user:", error);
@@ -150,6 +156,7 @@ export default function UserManagement() {
             {editingUser && (
               <UserProfileForm
                 user={editingUser}
+                warehouses={warehouses}
                 onSubmit={handleUpdateUser}
                 onCancel={() => {
                   setShowForm(false);
