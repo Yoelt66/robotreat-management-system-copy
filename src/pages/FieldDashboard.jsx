@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { ServiceCall } from "@/entities/ServiceCall";
 import { User } from "@/entities/User";
@@ -38,13 +37,13 @@ export default function Dashboard() {
       );
       
       if (callsWithoutNumbers.length > 0) {
-        const maxCallNumber = Math.max(...callsArray.map(call => call?.call_number || 0), 0);
+        const maxCallNumber = Math.max(...callsArray.map(call => parseInt(call?.call_number) || 0), 0);
         
         let nextCallNumber = maxCallNumber + 1;
         
         for (const call of callsWithoutNumbers) {
-          await ServiceCall.update(call.id, { call_number: nextCallNumber });
-          call.call_number = nextCallNumber;
+          await ServiceCall.update(call.id, { call_number: String(nextCallNumber) });
+          call.call_number = String(nextCallNumber);
           nextCallNumber++;
         }
         
