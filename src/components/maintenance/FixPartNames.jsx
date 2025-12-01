@@ -22,7 +22,7 @@ export default function FixPartNames() {
     try {
       // Load all parts from stock for reference
       const partsResponse = await getParts();
-      const allParts = partsResponse?.data?.data || partsResponse?.data || [];
+      const allParts = partsResponse?.data?.data || [];
       const partsBySku = new Map(allParts.map(part => [part.sku, part]));
 
       // Load all maintenance steps
