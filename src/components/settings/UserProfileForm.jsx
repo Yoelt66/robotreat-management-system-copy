@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,21 +17,21 @@ const mainPages = [
 
 const pageFilters = {
     FieldDashboard: [
-        { value: 'all', label: 'הכל (לא כולל מבוטלות)' },
+        { value: 'all', label: 'הכל' },
         { value: 'pending', label: 'טיוטה' },
-        { value: 'assigned', label: 'משובץ' },
-        { value: 'in_progress', label: 'בטיפול' },
-        { value: 'completed', label: 'בוצע' },
-        { value: 'final', label: 'נסגר' },
+        { value: 'assigned', label: 'סגור' },
+        { value: 'in_progress', label: 'אושר' },
+        { value: 'completed', label: 'הוקלדו' },
+        { value: 'final', label: 'סופי' },
         { value: 'cancelled', label: 'מבוטל' },
     ],
     ServiceCalls: [
-        { value: 'all', label: 'הכל (לא כולל מבוטלות)' },
+        { value: 'all', label: 'הכל' },
         { value: 'pending', label: 'טיוטה' },
-        { value: 'assigned', label: 'משובץ' },
-        { value: 'in_progress', label: 'בטיפול' },
-        { value: 'completed', label: 'בוצע' },
-        { value: 'final', label: 'נסגר' },
+        { value: 'assigned', label: 'סגור' },
+        { value: 'in_progress', label: 'אושר' },
+        { value: 'completed', label: 'הוקלדו' },
+        { value: 'final', label: 'סופי' },
         { value: 'cancelled', label: 'מבוטל' },
     ]
 };
