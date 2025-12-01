@@ -519,30 +519,6 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="end_time">שעת סיום</Label>
-              <Select
-                value={formData.end_time || ""}
-                onValueChange={(value) => handleChange('end_time', value)}
-                disabled={formData.no_work_hours}
-              >
-                <SelectTrigger id="end_time" className={`font-mono ${formData.no_work_hours ? "opacity-60" : ""}`}>
-                  <SelectValue placeholder="בחר שעת סיום" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeOptions.map((time) => (
-                    <SelectItem key={`end-${time}`} value={time} className="font-mono">
-                      {time}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formData.start_time && (
-                <p className="text-xs text-gray-500 mt-1">שעת התחלה: {formData.start_time}</p>
-              )}
-              {duration && <p className="text-xs text-gray-500">משך: {duration}</p>}
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="start_time">שעת תחילה</Label>
               <Select
                 value={formData.start_time || ""}
@@ -560,6 +536,27 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="end_time">שעת סיום</Label>
+              <Select
+                value={formData.end_time || ""}
+                onValueChange={(value) => handleChange('end_time', value)}
+                disabled={formData.no_work_hours}
+              >
+                <SelectTrigger id="end_time" className={`font-mono ${formData.no_work_hours ? "opacity-60" : ""}`}>
+                  <SelectValue placeholder="בחר שעת סיום" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map((time) => (
+                    <SelectItem key={`end-${time}`} value={time} className="font-mono">
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {duration && <p className="text-xs text-gray-500 mt-1">משך: {duration}</p>}
             </div>
 
             <div className="space-y-2 md:col-span-2">
