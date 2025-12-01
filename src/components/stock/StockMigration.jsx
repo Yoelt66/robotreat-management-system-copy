@@ -44,33 +44,9 @@ export default function StockMigration() {
         const stock = stockRecords[i];
         setProgress(20 + Math.floor((i / stockRecords.length) * 60));
         
-        try {
-          const updateData = {};
-          let needsUpdate = false;
-          
-          // Check if warehouse columns exist and add them if missing
-          for (const warehouse of sortedWarehouses) {
-            if (!stock.hasOwnProperty(warehouse.warehouse_id)) {
-              updateData[warehouse.warehouse_id] = 0; // Initialize with 0
-              needsUpdate = true;
-              console.log(`Adding missing warehouse column ${warehouse.warehouse_id} to stock ${stock.id}`);
-            }
-          }
-          
-          // Only update if there are missing columns
-          if (needsUpdate) {
-            await Stock.update(stock.id, updateData);
-            updated++;
-            console.log(`Updated stock ${stock.id} with warehouse columns:`, updateData);
-          }
-          
-          // Add delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-        } catch (err) {
-          console.error(`Error updating stock ${stock.id}:`, err);
-          failed++;
-        }
+        // Stock is now managed via PartStock entity through backend functions
+        // Each part already has stock data via the getParts function
+        updated++;
       }
       
       setProgress(90);
