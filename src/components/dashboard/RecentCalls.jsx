@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { 
   Dialog,
@@ -14,18 +13,24 @@ import { format } from "date-fns";
 import { 
   CheckCircle2, 
   Clock, 
-  AlertCircle,
-  MapPin,
-  Phone,
   Eye,
   Calendar,
-  User as UserIcon
+  User as UserIcon,
+  ArrowUpDown
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ServiceCall } from "@/entities/ServiceCall";
 import { User } from "@/entities/User";
 import { SendEmail } from "@/integrations/Core";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const statusLabels = {
   temporary: "זמני",
@@ -47,18 +52,18 @@ const statusColors = {
   cancelled: "bg-gray-100 text-gray-800 border-gray-200"
 };
 
-const priorityIcons = {
-  low: null,
-  medium: <Clock className="w-4 h-4 text-blue-500" />,
-  high: <AlertCircle className="w-4 h-4 text-orange-500" />,
-  urgent: <AlertCircle className="w-4 h-4 text-red-500" />
-};
-
-const priorityLabels = {
-  low: "נמוכה",
-  medium: "בינונית",
-  high: "גבוהה",
-  urgent: "דחופה"
+const deviceTypeLabels = {
+  Astronaut_A3: "Astronaut A3",
+  Astronaut_A3N: "Astronaut A3N",
+  Astronaut_A4: "Astronaut A4",
+  Delaval_2008: "Delaval 2008",
+  Delaval_2011: "Delaval 2011",
+  Milk_tank: "מיכל חלב",
+  CRS: "CRS+",
+  Juno_100: "Juno 100",
+  Juno_150: "Juno 150",
+  Luna: "Luna",
+  other: "מערכת אחרת"
 };
 
 const serviceTypeLabels = {
@@ -71,42 +76,27 @@ const serviceTypeLabels = {
   other: "אחר"
 };
 
-const deviceTypeLabels = {
-    Astronaut_A3: "Astronaut A3",
-    Astronaut_A3N: "Astronaut A3N",
-    Astronaut_A4: "Astronaut A4",
-    Delaval_2008: "Delaval 2008",
-    Delaval_2011: "Delaval 2011",
-    Milk_tank: "מיכל חלב",
-    CRS: "CRS+",
-    Juno_100: "Juno 100",
-    Juno_150: "Juno 150",
-    Luna: "Luna",
-    other: "מערכת אחרת"
-};
-
 const parseDisplayDate = (dateString) => {
-    if (!dateString) return null;
-    
-    // Check for YYYY-MM-DD (standard format)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-        const d = new Date(dateString);
-        if (!isNaN(d)) return d;
-    }
-    
-    // Check for DD.MM.YYYY or DD/MM/YYYY (legacy import format)
-    const parts = dateString.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
-    if (parts) {
-        const d = new Date(parseInt(parts[3], 10), parseInt(parts[2], 10) - 1, parseInt(parts[1], 10));
-        if (!isNaN(d)) return d;
-    }
-
-    // Fallback for other JS-supported formats
+  if (!dateString) return null;
+  
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     const d = new Date(dateString);
     if (!isNaN(d)) return d;
+  }
+  
+  const parts = dateString.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
+  if (parts) {
+    const d = new Date(parseInt(parts[3], 10), parseInt(parts[2], 10) - 1, parseInt(parts[1], 10));
+    if (!isNaN(d)) return d;
+  }
 
-    return null;
+  const d = new Date(dateString);
+  if (!isNaN(d)) return d;
+
+  return null;
 };
+
+const SORT_STORAGE_KEY = 'dashboard_calls_sort';
 
 export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpdated }) {
   const [viewCall, setViewCall] = useState(null);
@@ -114,11 +104,67 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
   const [currentPage, setCurrentPage] = useState(1);
   const [currentCallIndex, setCurrentCallIndex] = useState(0);
   const [originalFilter, setOriginalFilter] = useState(null);
+  
+  // Sort state - load from localStorage
+  const [sortField, setSortField] = useState(() => {
+    const saved = localStorage.getItem(SORT_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved).field || 'call_number';
+      } catch { return 'call_number'; }
+    }
+    return 'call_number';
+  });
+  const [sortDirection, setSortDirection] = useState(() => {
+    const saved = localStorage.getItem(SORT_STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved).direction || 'desc';
+      } catch { return 'desc'; }
+    }
+    return 'desc';
+  });
+
   const ITEMS_PER_PAGE = 10;
 
-  const totalCalls = calls.length;
+  // Save sort preference to localStorage
+  useEffect(() => {
+    localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ field: sortField, direction: sortDirection }));
+  }, [sortField, sortDirection]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedCalls = useMemo(() => {
+    const safeCallsArray = Array.isArray(calls) ? calls : [];
+    return [...safeCallsArray].sort((a, b) => {
+      let aVal, bVal;
+      
+      if (sortField === 'call_number') {
+        aVal = parseInt(a.call_number) || 0;
+        bVal = parseInt(b.call_number) || 0;
+      } else if (sortField === 'scheduled_date') {
+        aVal = a.scheduled_date ? new Date(a.scheduled_date).getTime() : 0;
+        bVal = b.scheduled_date ? new Date(b.scheduled_date).getTime() : 0;
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal - bVal;
+      } else {
+        return bVal - aVal;
+      }
+    });
+  }, [calls, sortField, sortDirection]);
+
+  const totalCalls = sortedCalls.length;
   const totalPages = Math.ceil(totalCalls / ITEMS_PER_PAGE);
-  const currentCalls = calls.slice(
+  const currentCalls = sortedCalls.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -141,7 +187,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
     setCurrentCallIndex(newIndex);
     setViewCall(currentCalls[newIndex]);
     
-    // Auto scroll to top
     setTimeout(() => {
       const contentElement = document.querySelector('[data-dialog-content]');
       if (contentElement) {
@@ -176,17 +221,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
     }
   };
 
-  const safeCallsArray = Array.isArray(calls) ? calls : [];
-  const recentCalls = safeCallsArray
-    .sort((a, b) => {
-      // Put temporary calls at the top
-      if (!a.call_number && !b.call_number) return 0;
-      if (!a.call_number) return -1;
-      if (!b.call_number) return 1;
-      return b.call_number - a.call_number;
-    })
-    .slice(0, 5);
-
   const openDialog = (call) => {
     try {
       const refreshCall = async () => {
@@ -215,7 +249,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
       if (user) {
         const userData = JSON.parse(user);
         setOriginalFilter(userData.dashboard_default_filter);
-        console.log("Stored original filter:", userData.dashboard_default_filter);
       }
       
       refreshCall();
@@ -230,17 +263,12 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
       setShowViewDialog(false);
       
       if (originalFilter && typeof onCallsUpdated === 'function') {
-        console.log("Restoring original filter:", originalFilter);
-        
         const userDataStr = localStorage.getItem('userData');
         if (userDataStr) {
           const userData = JSON.parse(userDataStr);
-          
           userData.dashboard_default_filter = originalFilter;
           localStorage.setItem('userData', JSON.stringify(userData));
-          
           await User.updateMyUserData({ dashboard_default_filter: originalFilter });
-          
           await onCallsUpdated();
         }
       }
@@ -274,7 +302,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
 
   const sendUpdateEmail = async (call) => {
     try {
-      // Fetch admins and send email to them
       const users = await User.list();
       const admins = users.filter(user => 
         user.role === 'admin' && 
@@ -293,7 +320,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
           console.error(`Error sending email to ${admin.email}:`, error);
         }
       }
-      console.log("Update email sent successfully to admins with notifications enabled");
     } catch (error) {
       console.error("Error sending update email:", error);
     }
@@ -312,7 +338,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
         await onCallsUpdated();
       }
 
-      // Filter out the current call from the *current page's* list to prepare for next/prev logic
       const remainingCallsOnCurrentPage = currentCalls.filter(c => c.id !== call.id);
       
       if (remainingCallsOnCurrentPage.length === 0) {
@@ -320,7 +345,7 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
       } else {
         let nextIndex = currentCallIndex;
         if (nextIndex >= remainingCallsOnCurrentPage.length) {
-          nextIndex = 0; // Wrap around to the first call if the last one was removed
+          nextIndex = 0;
         }
         
         setCurrentCallIndex(nextIndex);
@@ -333,11 +358,28 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
     }
   };
 
+  const SortableHeader = ({ field, children }) => (
+    <TableHead 
+      className="text-center cursor-pointer hover:bg-gray-100 select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center justify-center gap-1">
+        {children}
+        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? 'text-blue-600' : 'text-gray-400'}`} />
+        {sortField === field && (
+          <span className="text-xs text-blue-600">
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+      </div>
+    </TableHead>
+  );
+
   if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>קריאות שירות אחרונות</CardTitle>
+          <CardTitle>קריאות שירות</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -362,7 +404,7 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>קריאות שירות אחרונות</CardTitle>
+            <CardTitle>קריאות שירות</CardTitle>
             <div className="text-sm text-gray-500">
               סה"כ: {totalCalls} קריאות
             </div>
@@ -375,88 +417,69 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
             </div>
           ) : (
             <>
-              <div className="space-y-4">
-                {currentCalls.map((call) => {
-                  const callDate = parseDisplayDate(call?.scheduled_date);
-                  return (
-                  <div 
-                    key={call?.id}
-                    className={`p-4 border rounded-lg transition-colors ${call?.assigned_to === userEmail ? 'bg-blue-50' : ''}`}
-                  >
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <Avatar className="w-12 h-12 hidden md:flex">
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          {call?.client_name?.[0]?.toUpperCase() || 'C'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-2">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-medium">{call?.client_name}</h3>
-                              {call?.call_number && (
-                                <Badge variant="outline" className="text-sm">
-                                  קריאה מס׳ {call.call_number}
-                                </Badge>
-                              )}
-                            </div>
-                            {call?.device && (
-                              <p className="mt-1 text-sm text-gray-600 flex flex-wrap items-center">
-                                <span className="font-medium ml-1">{call.device}</span>
+              <div className="border rounded-lg overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader field="call_number">מס׳ קריאה</SortableHeader>
+                      <SortableHeader field="scheduled_date">תאריך</SortableHeader>
+                      <TableHead className="text-center">לקוח</TableHead>
+                      <TableHead className="text-center">מכשיר</TableHead>
+                      <TableHead className="text-center">צפייה</TableHead>
+                      <TableHead className="text-center">סטטוס</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentCalls.map((call) => {
+                      const callDate = parseDisplayDate(call?.scheduled_date);
+                      return (
+                        <TableRow key={call?.id} className="hover:bg-gray-50">
+                          <TableCell className="text-center font-mono font-bold">
+                            {call?.call_number || '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {callDate ? (
+                              <div className="flex items-center justify-center gap-1 text-sm">
+                                <Calendar className="h-3 w-3 text-gray-500" />
+                                {format(callDate, 'dd/MM/yyyy')}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="font-medium">{call?.client_name}</div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {call?.device ? (
+                              <div>
+                                <div className="font-medium">{call.device}</div>
                                 {call.device_type && (
-                                  <span className="text-gray-500">
-                                    {` - ${deviceTypeLabels[call.device_type] || call.device_type}`}
-                                  </span>
+                                  <div className="text-sm text-gray-500">
+                                    {deviceTypeLabels[call.device_type] || call.device_type}
+                                  </div>
                                 )}
-                              </p>
-                            )}
-                            {call?.description && (
-                              <p className="mt-1 text-sm text-gray-600 line-clamp-2">{call.description}</p>
-                            )}
-                            {call?.notes && (
-                              <p className="mt-1 text-sm text-gray-500 italic line-clamp-1">{call.notes}</p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 self-end md:self-auto mt-2 md:mt-0">
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
                             <Button
                               variant="ghost"
-                              size="icon"
+                              size="sm"
                               onClick={() => openDialog(call)}
                               className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                            {call?.priority && priorityIcons[call.priority]}
-                            <Badge variant="secondary" className={call?.status ? statusColors[call.status] : ''}>
-                              {call?.status ? statusLabels[call.status] || call.status : 'טיוטה'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge className={statusColors[call?.status] || 'bg-gray-100 text-gray-800'}>
+                              {statusLabels[call?.status] || call?.status}
                             </Badge>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                          {callDate && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {format(callDate, "dd/MM/yyyy")}
-                            </div>
-                          )}
-                          {call?.assigned_to_nickname && (
-                            <div className="flex items-center gap-1">
-                              <UserIcon className="w-4 h-4" />
-                              {call.assigned_to_nickname}
-                            </div>
-                          )}
-                          {call?.assigned_to === userEmail && (
-                            <Badge variant="outline" className="bg-blue-50">
-                              הוקצה לך
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  
-                  
-                  </div>
-                )})}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
 
               {totalPages > 1 && (
@@ -660,7 +683,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
                                               const updateData = { parts_used: updatedParts };
                                               await ServiceCall.update(viewCall.id, updateData);
                                               await sendUpdateEmail({ ...viewCall, parts_used: updatedParts });
-                                              console.log("Serial saved and email sent successfully");
                                             } catch (error) {
                                               console.error("Error saving serial:", error);
                                             }
@@ -699,7 +721,6 @@ export default function RecentCalls({ calls = [], loading, userEmail, onCallsUpd
                         try {
                           await ServiceCall.update(viewCall.id, { notes: newNotes });
                           await sendUpdateEmail({ ...viewCall, notes: newNotes });
-                          console.log("Notes saved and email sent successfully");
                         } catch (error) {
                           console.error("Error saving notes:", error);
                         }
