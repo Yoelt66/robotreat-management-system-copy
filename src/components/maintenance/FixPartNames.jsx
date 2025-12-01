@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, AlertTriangle, Wrench } from "lucide-react";
-import { MaintenanceStep, Part } from "@/entities/all";
+import { MaintenanceStep } from "@/entities/MaintenanceStep";
+import { getParts } from "@/functions/getParts";
 
 export default function FixPartNames() {
   const [isRunning, setIsRunning] = useState(false);
@@ -20,7 +21,8 @@ export default function FixPartNames() {
 
     try {
       // Load all parts from stock for reference
-      const allParts = await Part.list();
+      const partsResponse = await getParts();
+      const allParts = partsResponse?.data?.data || partsResponse?.data || [];
       const partsBySku = new Map(allParts.map(part => [part.sku, part]));
 
       // Load all maintenance steps

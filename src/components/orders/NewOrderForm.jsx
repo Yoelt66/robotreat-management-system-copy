@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Trash2, AlertTriangle, Plus } from "lucide-react";
-import { Part, Supplier, Order } from "@/entities/all";
+import { Supplier } from "@/entities/Supplier";
+import { Order } from "@/entities/Order";
+import { getParts } from "@/functions/getParts";
+import { createPart } from "@/functions/createPart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
@@ -71,23 +73,18 @@ function QuickPartForm({ searchTerm, onCreatePart, onCreateOneTime, onCancel }) 
 
     setLoading(true);
     try {
-      // Get next part_id
-      const parts = await Part.list();
-      const maxId = parts.reduce((max, p) => {
-        const id = p.part_id || 0;
-        return id > max ? id : max;
-      }, 0);
-      
       const newPart = {
         ...formData,
-        part_id: maxId + 1,
         cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
         minimum_stock: parseInt(formData.minimum_stock) || 0
       };
 
-      const createdPart = await Part.create(newPart);
+      const response = await createPart(newPart);
+      if (response?.data?.error) {
+        throw new Error(response.data.error);
+      }
       toast({ title: "פריט נוסף בהצלחה למערכת" });
-      onCreatePart(createdPart);
+      onCreatePart(response?.data?.data || newPart);
     } catch (error) {
       console.error("Error creating part:", error);
       toast({ variant: "destructive", title: "שגיאה ביצירת פריט" });
@@ -274,11 +271,12 @@ function SearchParts({ onSelectPart, currentOrderItems, allWarehouses, allOrders
     const handler = setTimeout(async () => {
       setLoading(true);
       try {
-        const searchResults = await Part.list();
+        const partsResponse = await getParts();
+        const searchResults = partsResponse?.data?.data || partsResponse?.data || [];
         const filteredResults = searchResults.filter(part => {
           const matchesSearch = 
-            part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            part.sku.toLowerCase().includes(searchTerm.toLowerCase());
+            part.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            part.sku?.toLowerCase().includes(searchTerm.toLowerCase());
           const notInOrder = !currentOrderItems.some(item => item.sku === part.sku);
           return matchesSearch && notInOrder;
         });
