@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Stock, Warehouse } from "@/entities/all";
+import { Warehouse } from "@/entities/Warehouse";
+import { PartStock } from "@/entities/PartStock";
+import { getParts } from "@/functions/getParts";
 
 export default function StockMigration() {
   const [loading, setLoading] = useState(false);
@@ -22,7 +24,7 @@ export default function StockMigration() {
       // Get all warehouses and stock records
       const [warehouses, stockRecords] = await Promise.all([
         Warehouse.list(),
-        Stock.list()
+        PartStock.list()
       ]);
       
       console.log("Found warehouses:", warehouses);
@@ -57,7 +59,7 @@ export default function StockMigration() {
           
           // Only update if there are missing columns
           if (needsUpdate) {
-            await Stock.update(stock.id, updateData);
+            await PartStock.update(stock.id, updateData);
             updated++;
             console.log(`Updated stock ${stock.id} with warehouse columns:`, updateData);
           }
@@ -75,25 +77,25 @@ export default function StockMigration() {
       
       // If no stock records exist, create sample ones for existing parts
       if (stockRecords.length === 0) {
-        const { Part } = await import("@/entities/all");
-        const parts = await Part.list();
+        const partsResponse = await getParts();
+        const parts = partsResponse?.data?.data || [];
         
         for (const part of parts.slice(0, 5)) { // Limit to first 5 parts for testing
           try {
-            const stockData = { part_id: part.id };
+            const stockData = { part_sku: part.sku };
             
             // Add all warehouse columns with 0 quantity
             sortedWarehouses.forEach(warehouse => {
               stockData[warehouse.warehouse_id] = 0;
             });
             
-            await Stock.create(stockData);
+            await PartStock.create(stockData);
             created++;
             console.log(`Created stock record for part ${part.sku}:`, stockData);
             
             await new Promise(resolve => setTimeout(resolve, 200));
           } catch (err) {
-            console.error(`Error creating stock for part ${part.id}:`, err);
+            console.error(`Error creating stock for part ${part.sku}:`, err);
             failed++;
           }
         }
