@@ -155,14 +155,14 @@ export default function UserProfileForm({ user, onSubmit, onCancel, isAdmin = fa
           </div>
           <div className="space-y-2">
             <Label htmlFor="assigned_warehouse_id">מחסן ראשי (לטכנאי שטח)</Label>
-            <Select onValueChange={(value) => handleSelectChange('assigned_warehouse_id', value)} value={formData.assigned_warehouse_id}>
+            <Select onValueChange={(value) => handleSelectChange('assigned_warehouse_id', value === "_none_" ? "" : value)} value={formData.assigned_warehouse_id || "_none_"}>
                 <SelectTrigger>
                     <SelectValue placeholder="בחר מחסן" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value={null}>ללא</SelectItem>
+                    <SelectItem value="_none_">ללא</SelectItem>
                     {warehouses.map(w => (
-                        <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                        <SelectItem key={w.warehouse_id} value={w.warehouse_id}>{w.name}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
