@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Transfer, Part } from "@/entities/all";
+import { Transfer } from "@/entities/Transfer";
+import { getParts } from "@/functions/getParts";
 
 export default function TransferMigration() {
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,8 @@ export default function TransferMigration() {
       // Get all transfers
       const transfers = await Transfer.list();
       const totalTransfers = transfers.length;
-      const parts = await Part.list();
+      const partsResponse = await getParts();
+      const parts = partsResponse?.data?.data || [];
       
       let updated = 0;
       let failed = 0;
