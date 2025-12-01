@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Stock, Part, Warehouse } from '@/entities/all';
+import { Warehouse } from '@/entities/Warehouse';
+import { getParts } from "@/functions/getParts";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
@@ -18,83 +19,57 @@ export default function LowStockAlerts() {
 
     const loadAlerts = async () => {
       try {
-        const [stocks, parts, warehouses] = await Promise.all([
-          Stock.list(),
-          Part.list(),
+        const [partsResponse, warehouses] = await Promise.all([
+          getParts(),
           Warehouse.list()
         ]);
 
         if (!mounted) return;
 
-        // Create lookup maps
-        const partById = {};
-        const partBySku = {};
-        parts.forEach(part => {
-          partById[part.id] = part;
-          partBySku[part.sku] = part;
-        });
+        const parts = partsResponse?.data?.data || [];
 
+        // Create warehouse lookup
         const warehouseById = {};
-        const warehouseByName = {};
         warehouses.forEach(warehouse => {
-          warehouseById[warehouse.id] = warehouse;
-          warehouseByName[warehouse.name] = warehouse;
+          warehouseById[warehouse.warehouse_id] = warehouse;
         });
 
-        // Aggregate stock by part
-        const stockByPart = {};
-        
-        stocks.forEach(stock => {
-          let part = null;
-          let warehouse = null;
-          
-          // Find part by ID or SKU
-          if (stock.part_id && partById[stock.part_id]) {
-            part = partById[stock.part_id];
-          } else if (stock.part_sku && partBySku[stock.part_sku]) {
-            part = partBySku[stock.part_sku];
-          }
-          
-          // Find warehouse by ID or name
-          if (stock.warehouse_id && warehouseById[stock.warehouse_id]) {
-            warehouse = warehouseById[stock.warehouse_id];
-          } else if (stock.warehouse_name && warehouseByName[stock.warehouse_name]) {
-            warehouse = warehouseByName[stock.warehouse_name];
-          }
-
-          if (part && warehouse) {
-            if (!stockByPart[part.sku]) {
-              stockByPart[part.sku] = {
-                part,
-                totalQuantity: 0,
-                warehouses: []
-              };
-            }
-            stockByPart[part.sku].totalQuantity += (stock.quantity || 0);
-            
-            // Track which warehouses have this part
-            if (!stockByPart[part.sku].warehouses.find(w => w.id === warehouse.id)) {
-              stockByPart[part.sku].warehouses.push({
+        // Find items with low stock based on warehouse columns in parts
+        const lowStockItems = parts
+          .filter(part => {
+            // Calculate total stock across all warehouses
+            let totalQuantity = 0;
+            warehouses.forEach(warehouse => {
+              totalQuantity += (part[warehouse.warehouse_id] || 0);
+            });
+            return totalQuantity <= (part.minimum_stock || 0) && part.minimum_stock > 0;
+          })
+          .map(part => {
+            // Build warehouse breakdown
+            const warehouseBreakdown = warehouses
+              .filter(warehouse => (part[warehouse.warehouse_id] || 0) > 0)
+              .map(warehouse => ({
                 id: warehouse.id,
                 name: `${warehouse.number} - ${warehouse.name}`,
-                quantity: stock.quantity || 0
-              });
-            }
-          }
-        });
+                quantity: part[warehouse.warehouse_id] || 0
+              }));
 
-        // Find items with low stock
-        const lowStockItems = Object.values(stockByPart)
-          .filter(item => item.totalQuantity <= (item.part.minimum_stock || 0))
-          .map(item => ({
-            part_id: item.part.id,
-            part_name: item.part.name,
-            part_sku: item.part.sku,
-            total_quantity: item.totalQuantity,
-            minimum_stock: item.part.minimum_stock || 0,
-            unit: item.part.unit || 'pieces',
-            warehouses: item.warehouses
-          }))
+            // Calculate total quantity
+            let totalQuantity = 0;
+            warehouses.forEach(warehouse => {
+              totalQuantity += (part[warehouse.warehouse_id] || 0);
+            });
+
+            return {
+              part_id: part.id,
+              part_name: part.name,
+              part_sku: part.sku,
+              total_quantity: totalQuantity,
+              minimum_stock: part.minimum_stock || 0,
+              unit: part.unit || 'pieces',
+              warehouses: warehouseBreakdown
+            };
+          })
           .sort((a, b) => {
             // Sort by severity (lower stock percentage first)
             const aPercentage = a.minimum_stock > 0 ? a.total_quantity / a.minimum_stock : 0;
