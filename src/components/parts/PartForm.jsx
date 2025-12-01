@@ -380,9 +380,9 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
 
             <div className="space-y-2">
               <Label htmlFor="sale_currency">מטבע מכירה</Label>
-              <Select value={formData.sale_currency} onValueChange={(value) => handleSelectChange('sale_currency', value)}>
+              <Select value={formData.sale_currency || 'ILS'} onValueChange={(value) => handleSelectChange('sale_currency', value)}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="בחר מטבע" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCurrencies.map((currency) => (
