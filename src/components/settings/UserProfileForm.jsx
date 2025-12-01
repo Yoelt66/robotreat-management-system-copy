@@ -166,13 +166,10 @@ export default function UserProfileForm({ user, warehouses: externalWarehouses, 
             <Select 
               onValueChange={(value) => handleSelectChange('assigned_warehouse_id', value === "_none_" ? "" : value)} 
               value={formData.assigned_warehouse_id && formData.assigned_warehouse_id !== "" ? formData.assigned_warehouse_id : "_none_"}
+              key={`warehouse-select-${formData.assigned_warehouse_id}-${warehouses.length}`}
             >
                 <SelectTrigger>
-                    <SelectValue placeholder="בחר מחסן">
-                      {formData.assigned_warehouse_id && formData.assigned_warehouse_id !== "" 
-                        ? (warehouses.find(w => w.warehouse_id === formData.assigned_warehouse_id)?.name || formData.assigned_warehouse_id)
-                        : "ללא"}
-                    </SelectValue>
+                    <SelectValue placeholder="בחר מחסן" />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="_none_">ללא</SelectItem>
