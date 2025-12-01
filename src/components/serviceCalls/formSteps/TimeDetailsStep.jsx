@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useImperativeHandle } from 'react';
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -310,6 +309,31 @@ export default function TimeDetailsStep({ data, onUpdate }) {
             />
           </PopoverContent>
         </Popover>
+      </div>
+
+      <div>
+        <Label>שעת סיום</Label>
+        <Select
+          value={data.end_time || ''}
+          onValueChange={(value) => handleTimeChange('end_time', value)}
+          disabled={loadingMaintenanceSteps || data.no_work_hours}
+        >
+          <SelectTrigger className={data.no_work_hours ? "opacity-60" : ""}>
+            <SelectValue placeholder="בחר שעת סיום" />
+          </SelectTrigger>
+          <SelectContent>
+            <div className="time-options-container max-h-[300px] overflow-y-auto py-1">
+              {generateTimeOptions().map(time => (
+                <SelectItem key={time} value={time}>
+                  {time}
+                </SelectItem>
+              ))}
+            </div>
+          </SelectContent>
+        </Select>
+        {data.start_time && (
+          <p className="text-xs text-gray-500 mt-1">שעת התחלה: {data.start_time}</p>
+        )}
       </div>
 
       <div>
