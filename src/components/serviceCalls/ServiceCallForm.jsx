@@ -236,6 +236,11 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
       newFormData.end_time = newFormData.start_time;
     }
     
+    // If start time changed and end time is now invalid (before or equal to start), reset end time
+    if (field === 'start_time' && newFormData.end_time && newFormData.end_time <= value) {
+      newFormData.end_time = '';
+    }
+    
     setFormData(newFormData);
   };
 
@@ -349,6 +354,12 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
   };
 
   const timeOptions = generateTimeOptions();
+
+  // Filter end time options to only show times after start time
+  const getEndTimeOptions = () => {
+    if (!formData.start_time) return timeOptions;
+    return timeOptions.filter(time => time > formData.start_time);
+  };
 
   const serviceTypeLabels = {
     repair: "תקלה",
@@ -544,12 +555,13 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
                 value={formData.end_time || ""}
                 onValueChange={(value) => handleChange('end_time', value)}
                 disabled={formData.no_work_hours}
+                key={`end-time-${formData.start_time}`}
               >
                 <SelectTrigger id="end_time" className={`font-mono ${formData.no_work_hours ? "opacity-60" : ""}`}>
                   <SelectValue placeholder="בחר שעת סיום" />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeOptions.map((time) => (
+                  {getEndTimeOptions().map((time) => (
                     <SelectItem key={`end-${time}`} value={time} className="font-mono">
                       {time}
                     </SelectItem>
