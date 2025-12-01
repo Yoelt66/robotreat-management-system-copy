@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Stock, Part } from "@/entities/all";
+import { PartStock } from "@/entities/PartStock";
+import { getParts } from "@/functions/getParts";
 
 export default function StockDataMigration() {
   const [loading, setLoading] = useState(false);
@@ -22,10 +23,11 @@ export default function StockDataMigration() {
       console.log("Starting stock data migration...");
       
       // Get all stock records and parts
-      const [stocks, parts] = await Promise.all([
-        Stock.list(),
-        Part.list()
+      const [stocks, partsResponse] = await Promise.all([
+        PartStock.list(),
+        getParts()
       ]);
+      const parts = partsResponse?.data?.data || [];
       
       console.log(`Found ${stocks.length} stock records and ${parts.length} parts`);
       
@@ -51,7 +53,7 @@ export default function StockDataMigration() {
               };
               
               console.log(`Updating stock ${stock.id}: part_id ${stock.part_id} -> ${part.id}`);
-              await Stock.update(stock.id, updateData);
+              await PartStock.update(stock.id, updateData);
               updated++;
             } else {
               console.error(`Part not found for part_id ${stock.part_id}`);
