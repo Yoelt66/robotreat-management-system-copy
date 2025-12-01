@@ -41,7 +41,6 @@ import { Search } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 
 const formatTime = (time) => {
   if (!time) return '--:--';
@@ -112,7 +111,7 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
 
   useEffect(() => {
     loadClients();
-    loadParts();
+    loadPartsData();
     loadUsers();
     loadCurrentUser();
   }, []);
@@ -142,9 +141,10 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
     }
   };
 
-  const loadParts = async () => {
+  const loadPartsData = async () => {
     try {
-      const parts = await Part.list();
+      const partsResponse = await getParts();
+      const parts = partsResponse?.data?.data || partsResponse?.data || [];
       setAvailableParts(parts || []);
     } catch (error) {
       console.error("Error loading parts:", error);
@@ -275,11 +275,11 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
   });
 
   const filteredUsers = users.filter(user => {
-    const searchTerm = userSearch.toLowerCase();
+    const searchTermLower = userSearch.toLowerCase();
     return (
-      user.full_name?.toLowerCase().includes(searchTerm) ||
-      user.nickname?.toLowerCase().includes(searchTerm) ||
-      user.email?.toLowerCase().includes(searchTerm)
+      user.full_name?.toLowerCase().includes(searchTermLower) ||
+      user.nickname?.toLowerCase().includes(searchTermLower) ||
+      user.email?.toLowerCase().includes(searchTermLower)
     );
   });
 
@@ -797,7 +797,7 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
                           }}
                           style={{cursor: "pointer"}}
                         >
-                          <td className="py-2 px-4">{part.part_number}</td>
+                          <td className="py-2 px-4">{part.sku}</td>
                           <td className="py-2 px-4">{part.name}</td>
                           <td className="py-2 px-4">
                             {part.stock_quantity !== undefined ? part.stock_quantity : 'כן'}
