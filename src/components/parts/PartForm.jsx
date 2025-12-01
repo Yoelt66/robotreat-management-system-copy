@@ -340,18 +340,24 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
 
             <div className="space-y-2">
               <Label htmlFor="cost_currency">מטבע עלות</Label>
-              <Select value={formData.cost_currency} onValueChange={(value) => handleSelectChange('cost_currency', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="בחר מטבע" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCurrencies.map((currency) => (
-                    <SelectItem key={currency.code} value={currency.code}>
-                      {currency.name} ({currency.symbol})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {availableCurrencies.length > 0 ? (
+                <Select value={formData.cost_currency} onValueChange={(value) => handleSelectChange('cost_currency', value)}>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {availableCurrencies.find(c => c.code === formData.cost_currency)?.name || formData.cost_currency}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCurrencies.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="p-2 bg-gray-100 rounded border">{formData.cost_currency || 'טוען...'}</div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -380,18 +386,24 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
 
             <div className="space-y-2">
               <Label htmlFor="sale_currency">מטבע מכירה</Label>
-              <Select value={formData.sale_currency} onValueChange={(value) => handleSelectChange('sale_currency', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="בחר מטבע" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCurrencies.map((currency) => (
-                    <SelectItem key={currency.code} value={currency.code}>
-                      {currency.name} ({currency.symbol})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {availableCurrencies.length > 0 ? (
+                <Select value={formData.sale_currency} onValueChange={(value) => handleSelectChange('sale_currency', value)}>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {availableCurrencies.find(c => c.code === formData.sale_currency)?.name || formData.sale_currency}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCurrencies.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="p-2 bg-gray-100 rounded border">{formData.sale_currency || 'טוען...'}</div>
+              )}
             </div>
           </div>
 
