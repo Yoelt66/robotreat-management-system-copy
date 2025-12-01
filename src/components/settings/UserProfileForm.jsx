@@ -50,21 +50,24 @@ export default function UserProfileForm({ user, onSubmit, onCancel, isAdmin = fa
   const [warehouses, setWarehouses] = useState([]);
 
   useEffect(() => {
-    if (user) {
-      setFormData({
-        full_name: user.full_name || '',
-        nickname: user.nickname || '',
-        phone: user.phone || '',
-        department: user.department || '',
-        role: user.role || 'user',
-        assigned_warehouse_id: user.assigned_warehouse_id || '',
-        default_page: user.default_page || 'Dashboard',
-        default_page_filter: user.default_page_filter || ''
-      });
-    }
-    if(isAdmin) {
-        loadWarehouses();
-    }
+    const initForm = async () => {
+      if(isAdmin) {
+        await loadWarehouses();
+      }
+      if (user) {
+        setFormData({
+          full_name: user.full_name || '',
+          nickname: user.nickname || '',
+          phone: user.phone || '',
+          department: user.department || '',
+          role: user.role || 'user',
+          assigned_warehouse_id: user.assigned_warehouse_id || '',
+          default_page: user.default_page || 'Dashboard',
+          default_page_filter: user.default_page_filter || ''
+        });
+      }
+    };
+    initForm();
   }, [user, isAdmin]);
   
   const loadWarehouses = async () => {
