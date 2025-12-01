@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Trash2, AlertTriangle, Plus } from "lucide-react";
-import { Supplier } from "@/entities/Supplier";
-import { Order } from "@/entities/Order";
+import { Supplier, Order } from "@/entities/all";
 import { getParts } from "@/functions/getParts";
 import { createPart } from "@/functions/createPart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -80,11 +79,9 @@ function QuickPartForm({ searchTerm, onCreatePart, onCreateOneTime, onCancel }) 
       };
 
       const response = await createPart(newPart);
-      if (response?.data?.error) {
-        throw new Error(response.data.error);
-      }
+      const createdPart = response?.data?.data || response?.data;
       toast({ title: "פריט נוסף בהצלחה למערכת" });
-      onCreatePart(response?.data?.data || newPart);
+      onCreatePart(createdPart);
     } catch (error) {
       console.error("Error creating part:", error);
       toast({ variant: "destructive", title: "שגיאה ביצירת פריט" });
