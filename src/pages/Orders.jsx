@@ -40,11 +40,6 @@ export default function OrdersPage() {
     try {
       console.log("Starting to load data...");
       
-      // Test each entity individually
-      console.log("Order entity:", Order);
-      console.log("Part entity:", Part);
-      console.log("Warehouse entity:", Warehouse);
-      
       let ordersData = [];
       let partsData = [];
       let warehousesData = [];
