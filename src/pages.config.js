@@ -15,6 +15,10 @@ import ServiceCalls from './pages/ServiceCalls';
 import ItemsManagement from './pages/ItemsManagement';
 import Clients from './pages/Clients';
 import MaintenanceProcedures from './pages/MaintenanceProcedures';
+import Schedule from './pages/Schedule';
+import Customers from './pages/Customers';
+import ServiceUnits from './pages/ServiceUnits';
+import MaintenanceTypes from './pages/MaintenanceTypes';
 import __Layout from './Layout.jsx';
 
 
@@ -36,6 +40,10 @@ export const PAGES = {
     "ItemsManagement": ItemsManagement,
     "Clients": Clients,
     "MaintenanceProcedures": MaintenanceProcedures,
+    "Schedule": Schedule,
+    "Customers": Customers,
+    "ServiceUnits": ServiceUnits,
+    "MaintenanceTypes": MaintenanceTypes,
 }
 
 export const pagesConfig = {
