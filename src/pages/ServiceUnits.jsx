@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ServiceUnit } from "@/entities/ServiceUnit";
 import { Customer } from "@/entities/Customer";
 import { MaintenanceType } from "@/entities/MaintenanceType";
+import { UnitBrand } from "@/entities/UnitBrand";
 import { getParts } from "@/functions/getParts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export default function ServiceUnitsPage() {
   const [units, setUnits] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState([]);
+  const [unitBrands, setUnitBrands] = useState([]);
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -60,12 +62,14 @@ export default function ServiceUnitsPage() {
   const [formData, setFormData] = useState({
     active: true,
     customer_id: "",
+    brand_id: "",
     name: "",
     type: "",
     model: "",
     serial_number: "",
     installation_date: "",
     visit_interval_months: 3,
+    current_visit_step: 1,
     visit_sequence: [],
     notes: "",
   });
@@ -77,15 +81,17 @@ export default function ServiceUnitsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [unitsData, customersData, typesData, partsResponse] = await Promise.all([
+      const [unitsData, customersData, typesData, brandsData, partsResponse] = await Promise.all([
         ServiceUnit.list(),
         Customer.list(),
         MaintenanceType.list(),
+        UnitBrand.list(),
         getParts(),
       ]);
       setUnits(unitsData);
       setCustomers(customersData);
       setMaintenanceTypes(typesData);
+      setUnitBrands(brandsData);
       setParts(partsResponse?.data?.data || []);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -132,12 +138,14 @@ export default function ServiceUnitsPage() {
     setFormData({
       active: unit.active !== false,
       customer_id: unit.customer_id || "",
+      brand_id: unit.brand_id || "",
       name: unit.name || "",
       type: unit.type || "",
       model: unit.model || "",
       serial_number: unit.serial_number || "",
       installation_date: unit.installation_date || "",
       visit_interval_months: unit.visit_interval_months || 3,
+      current_visit_step: unit.current_visit_step || 1,
       visit_sequence: unit.visit_sequence || [],
       notes: unit.notes || "",
     });
@@ -148,15 +156,51 @@ export default function ServiceUnitsPage() {
     setFormData({
       active: true,
       customer_id: "",
+      brand_id: "",
       name: "",
       type: "",
       model: "",
       serial_number: "",
       installation_date: "",
       visit_interval_months: 3,
+      current_visit_step: 1,
       visit_sequence: [],
       notes: "",
     });
+  };
+
+  // Handle brand change - copy defaults from brand
+  const handleBrandChange = (brandId) => {
+    const brand = unitBrands.find((b) => b.id === brandId);
+    if (brand) {
+      const defaultSequence = (brand.default_visit_sequence || []).map((step) => ({
+        ...step,
+        use_custom_parts: false,
+        custom_parts: [],
+      }));
+      
+      setFormData({
+        ...formData,
+        brand_id: brandId,
+        type: "",
+        visit_interval_months: brand.default_visit_interval_months || 3,
+        visit_sequence: defaultSequence,
+        current_visit_step: 1,
+      });
+    } else {
+      setFormData({ ...formData, brand_id: brandId, type: "" });
+    }
+  };
+
+  // Get available unit types for selected brand
+  const getAvailableUnitTypes = () => {
+    if (!formData.brand_id) return [];
+    const brand = unitBrands.find((b) => b.id === formData.brand_id);
+    return brand?.unit_types || [];
+  };
+
+  const getBrandName = (brandId) => {
+    return unitBrands.find((b) => b.id === brandId)?.name || "-";
   };
 
   const getCustomerName = (customerId) => {
