@@ -43,7 +43,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Search, Box, Settings } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import VisitSequenceEditor from "@/components/schedule/VisitSequenceEditor";
 
 export default function ServiceUnitsPage() {
