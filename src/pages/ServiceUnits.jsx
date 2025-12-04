@@ -264,6 +264,7 @@ export default function ServiceUnitsPage() {
               <TableRow>
                 <TableHead>שם</TableHead>
                 <TableHead>לקוח</TableHead>
+                <TableHead>מותג</TableHead>
                 <TableHead>סוג</TableHead>
                 <TableHead>מספר סידורי</TableHead>
                 <TableHead className="text-center">מרווח ביקורים</TableHead>
@@ -274,7 +275,7 @@ export default function ServiceUnitsPage() {
             <TableBody>
               {filteredUnits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={8} className="text-center text-slate-500 py-8">
                     <Box className="h-12 w-12 mx-auto mb-2 text-slate-300" />
                     אין יחידות להצגה
                   </TableCell>
@@ -284,6 +285,7 @@ export default function ServiceUnitsPage() {
                   <TableRow key={unit.id}>
                     <TableCell className="font-medium">{unit.name}</TableCell>
                     <TableCell>{getCustomerName(unit.customer_id)}</TableCell>
+                    <TableCell>{getBrandName(unit.brand_id)}</TableCell>
                     <TableCell>{unit.type || "-"}</TableCell>
                     <TableCell>{unit.serial_number || "-"}</TableCell>
                     <TableCell className="text-center">{unit.visit_interval_months || 3} חודשים</TableCell>
@@ -358,11 +360,45 @@ export default function ServiceUnitsPage() {
               </div>
 
               <div className="space-y-2">
+                <Label>מותג</Label>
+                <Select
+                  value={formData.brand_id}
+                  onValueChange={handleBrandChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="בחר מותג" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unitBrands.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>סוג</Label>
-                <Input
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                />
+                {getAvailableUnitTypes().length > 0 ? (
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="בחר סוג" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getAvailableUnitTypes().map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    placeholder={formData.brand_id ? "לא הוגדרו סוגים למותג" : "בחר מותג קודם או הזן ידנית"}
+                  />
+                )}
               </div>
 
               <div className="space-y-2">
