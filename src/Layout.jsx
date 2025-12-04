@@ -4,7 +4,7 @@ import { createPageUrl } from "@/utils";
 import {
   Warehouse, BoxesIcon, ArrowLeftRight, BarChart3, Upload, Settings, LogOut,
   ClipboardList, ClipboardPlus, ClipboardCheck, History, Undo2, Home, Wrench, Users,
-  Menu, X, Building, Users2, Workflow, Map, Truck
+  Menu, X, Building, Users2, Workflow, Map, Truck, Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,9 +33,11 @@ const stockNavigation = [
 
 const fieldNavigation = [
   { name: "לוח בקרה שטח", icon: Map, path: "FieldDashboard" },
-  { name: "לקוחות", icon: Users2, path: "Clients" },
-  { name: "קריאות שירות", icon: Wrench, path: "ServiceCalls" },
-  { name: "נהלי תחזוקה", icon: Settings, path: "MaintenanceProcedures" },
+  { name: "לוח זמנים", icon: Calendar, path: "Schedule" },
+  { name: "לקוחות", icon: Users2, path: "Customers" },
+  { name: "יחידות שירות", icon: BoxesIcon, path: "ServiceUnits" },
+  { name: "סוגי תחזוקה", icon: Wrench, path: "MaintenanceTypes" },
+  { name: "קריאות שירות", icon: ClipboardList, path: "ServiceCalls" },
 ];
 
 const sharedNavigation = [
