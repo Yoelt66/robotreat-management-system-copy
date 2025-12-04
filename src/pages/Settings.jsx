@@ -83,7 +83,8 @@ export default function Settings() {
             <TabsTrigger value="categories">קטגוריות</TabsTrigger>
             <TabsTrigger value="units">יחידות מידה</TabsTrigger>
             <TabsTrigger value="currencies">מטבעות</TabsTrigger>
-            <TabsTrigger value="import">הגדרות ייבוא</TabsTrigger> {/* Added new trigger */}
+            <TabsTrigger value="import">הגדרות ייבוא</TabsTrigger>
+            <TabsTrigger value="brands">מותגי יחידות</TabsTrigger>
             <TabsTrigger value="database">מסד נתונים</TabsTrigger>
           </TabsList>
 
@@ -119,8 +120,12 @@ export default function Settings() {
             <CurrencySettings />
           </TabsContent>
 
-          <TabsContent value="import" className="space-y-4"> {/* Added new content */}
+          <TabsContent value="import" className="space-y-4">
             <ImportSettings />
+          </TabsContent>
+
+          <TabsContent value="brands" className="space-y-4">
+            <UnitBrandSettings />
           </TabsContent>
 
           <TabsContent value="database" className="space-y-4">
