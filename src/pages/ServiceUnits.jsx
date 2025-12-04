@@ -105,10 +105,10 @@ export default function ServiceUnitsPage() {
     try {
       if (editingUnit) {
         await ServiceUnit.update(editingUnit.id, formData);
-        toast({ title: "היחידה עודכנה בהצלחה", duration: 5000 });
+        toast.success("היחידה עודכנה בהצלחה", { duration: 5000 });
       } else {
         await ServiceUnit.create(formData);
-        toast({ title: "היחידה נוצרה בהצלחה", duration: 5000 });
+        toast.success("היחידה נוצרה בהצלחה", { duration: 5000 });
       }
       setShowForm(false);
       setEditingUnit(null);
@@ -116,7 +116,7 @@ export default function ServiceUnitsPage() {
       await loadData();
     } catch (error) {
       console.error("Error saving unit:", error);
-      toast({ variant: "destructive", title: "שגיאה בשמירה", duration: 5000 });
+      toast.error("שגיאה בשמירה", { duration: 5000 });
     }
   };
 
@@ -124,12 +124,12 @@ export default function ServiceUnitsPage() {
     if (!unitToDelete) return;
     try {
       await ServiceUnit.delete(unitToDelete.id);
-      toast({ title: "היחידה נמחקה בהצלחה", duration: 5000 });
+      toast.success("היחידה נמחקה בהצלחה", { duration: 5000 });
       setUnitToDelete(null);
       await loadData();
     } catch (error) {
       console.error("Error deleting unit:", error);
-      toast({ variant: "destructive", title: "שגיאה במחיקה", duration: 5000 });
+      toast.error("שגיאה במחיקה", { duration: 5000 });
     }
   };
 
