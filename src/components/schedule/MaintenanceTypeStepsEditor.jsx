@@ -29,6 +29,16 @@ export default function MaintenanceTypeStepsEditor({ steps, onChange, parts }) {
     onChange(newSteps);
   };
 
+  const moveStep = (index, direction) => {
+    const newSteps = [...steps];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newSteps.length) return;
+    
+    [newSteps[index], newSteps[targetIndex]] = [newSteps[targetIndex], newSteps[index]];
+    newSteps.forEach((s, i) => { s.step_number = i + 1; });
+    onChange(newSteps);
+  };
+
   const updateStep = (index, field, value) => {
     const newSteps = [...steps];
     newSteps[index] = { ...newSteps[index], [field]: value };
@@ -90,15 +100,35 @@ export default function MaintenanceTypeStepsEditor({ steps, onChange, parts }) {
               <div className="flex items-center gap-2 mb-4">
                 <GripVertical className="h-5 w-5 text-slate-400" />
                 <span className="font-semibold">שלב {step.step_number}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="mr-auto text-red-500 hover:text-red-600"
-                  onClick={() => removeStep(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="mr-auto flex gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={index === 0}
+                    onClick={() => moveStep(index, "up")}
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={index === steps.length - 1}
+                    onClick={() => moveStep(index, "down")}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-600"
+                    onClick={() => removeStep(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-4">

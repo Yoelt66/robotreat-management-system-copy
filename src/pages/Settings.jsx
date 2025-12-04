@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { User, Category, Currency } from "@/entities/all";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,8 @@ import WarehouseSettings from "../components/settings/WarehouseSettings";
 import UnitSettings from "../components/settings/UnitSettings";
 import PermissionSettings from "../components/settings/PermissionSettings";
 import DatabaseSettings from "../components/settings/DatabaseSettings";
-import ImportSettings from "../components/settings/ImportSettings"; // Added import for ImportSettings
+import ImportSettings from "../components/settings/ImportSettings";
+import UnitBrandSettings from "../components/settings/UnitBrandSettings";
 
 export default function Settings() {
   const [currentUser, setCurrentUser] = useState(null);
