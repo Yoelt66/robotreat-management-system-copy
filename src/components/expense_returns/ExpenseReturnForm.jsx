@@ -205,65 +205,83 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     };
 
     const handleFileUpload = async (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
+        const files = Array.from(event.target.files);
+        if (!files.length) return;
 
         setUploading(true);
         setAnalyzing(true);
         
         try {
-            // Upload file
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+            toast.info(`מעלה ${files.length} קבצים...`);
             
-            // Add to receipt URLs
+            // Upload and analyze all files in parallel
+            const results = await Promise.all(
+                files.map(async (file) => {
+                    try {
+                        // Upload file
+                        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                        
+                        // Analyze receipt
+                        const analysisResult = await analyzeReceipt(file_url);
+                        
+                        return { file_url, analysisResult };
+                    } catch (error) {
+                        console.error("Error processing file:", error);
+                        return { file_url: null, analysisResult: null };
+                    }
+                })
+            );
+
+            // Add receipt URLs
+            const newReceiptUrls = results
+                .map(r => r.file_url)
+                .filter(url => url);
+
+            // Process analyzed data
+            const newExpenses = results
+                .filter(r => r.analysisResult)
+                .map(({ analysisResult }) => {
+                    const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                    
+                    // Convert amount to ILS if needed
+                    const amountInILS = currency && currency !== 'ILS' 
+                        ? convertCurrency(amount, currency, invoice_date)
+                        : amount;
+
+                    // Map category to purchase type
+                    const purchaseType = mapCategoryToPurchaseType(accounting_category);
+
+                    return {
+                        invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
+                        invoice_number: invoice_number || '',
+                        business_name: business_name || '',
+                        purchase_type: purchaseType,
+                        amount: amountInILS || 0,
+                        currency: 'ILS',
+                        description: accounting_category || '',
+                        receipt_uploaded: true
+                    };
+                });
+
             setFormData(prev => ({
                 ...prev,
-                receipt_urls: [...prev.receipt_urls, file_url]
+                receipt_urls: [...prev.receipt_urls, ...newReceiptUrls],
+                expenses: [...newExpenses, ...prev.expenses]
             }));
 
-            toast.success("קובץ הועלה בהצלחה, מנתח...");
-
-            // Analyze receipt
-            const analysisResult = await analyzeReceipt(file_url);
-            
-            if (analysisResult) {
-                const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
-                
-                // Convert amount to ILS if needed
-                const amountInILS = currency && currency !== 'ILS' 
-                    ? convertCurrency(amount, currency, invoice_date)
-                    : amount;
-
-                // Map category to purchase type
-                const purchaseType = mapCategoryToPurchaseType(accounting_category);
-
-                // Create new expense with analyzed data
-                const newExpense = {
-                    invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
-                    invoice_number: invoice_number || '',
-                    business_name: business_name || '',
-                    purchase_type: purchaseType,
-                    amount: amountInILS || 0,
-                    currency: 'ILS',
-                    description: accounting_category || '',
-                    receipt_uploaded: true
-                };
-
-                setFormData(prev => ({
-                    ...prev,
-                    expenses: [newExpense, ...prev.expenses]
-                }));
-
-                toast.success("הקבלה נותחה והוספה בהצלחה!");
+            const analyzedCount = newExpenses.length;
+            if (analyzedCount > 0) {
+                toast.success(`${analyzedCount} מתוך ${files.length} חשבוניות נותחו והוספו בהצלחה!`);
             } else {
-                toast.info("הקובץ הועלה, אך לא ניתן לנתח אותו אוטומטית");
+                toast.info("הקבצים הועלו, אך לא ניתן לנתח אותם אוטומטית");
             }
         } catch (error) {
             console.error("File upload error:", error);
-            toast.error("שגיאה בהעלאת הקובץ");
+            toast.error("שגיאה בהעלאת הקבצים");
         } finally {
             setUploading(false);
             setAnalyzing(false);
+            event.target.value = ''; // Reset input
         }
     };
 
@@ -492,7 +510,18 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {formData.expenses.map((expense, index) => (
+                                    {[...formData.expenses]
+                                        .sort((a, b) => {
+                                            // Sort by business name first
+                                            const nameCompare = (a.business_name || '').localeCompare(b.business_name || '');
+                                            if (nameCompare !== 0) return nameCompare;
+                                            
+                                            // Then by date
+                                            const dateA = convertDateForSubmission(a.invoice_date);
+                                            const dateB = convertDateForSubmission(b.invoice_date);
+                                            return dateB.localeCompare(dateA); // Most recent first
+                                        })
+                                        .map((expense, index) => (
                                         <TableRow key={index}>
                                             <TableCell>
                                                 <Input 
@@ -592,6 +621,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                 <input
                                     type="file"
                                     accept="image/*,.pdf"
+                                    multiple
                                     onChange={handleFileUpload}
                                     disabled={uploading}
                                     className="hidden"
@@ -613,15 +643,16 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             ) : (
                                                 <>
                                                     <Upload className="w-4 h-4 ml-2" />
-                                                    העלה קובץ
+                                                    העלה קבצים
                                                 </>
                                             )}
                                         </span>
                                     </Button>
                                 </label>
                                 {analyzing && (
-                                    <span className="text-sm text-slate-500">מנתח את הקבלה...</span>
+                                    <span className="text-sm text-slate-500">מנתח חשבוניות...</span>
                                 )}
+                                <span className="text-xs text-slate-500">ניתן לבחור מספר קבצים</span>
                             </div>
                         </div>
                         
