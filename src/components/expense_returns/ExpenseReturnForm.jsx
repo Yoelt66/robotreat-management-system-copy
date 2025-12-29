@@ -855,8 +855,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             </TableCell>
                                             <TableCell>
                                                 {expense.original_currency && expense.original_currency !== 'ILS' ? (
-                                                    <div className="text-sm">
-                                                        <span>{expense.original_amount?.toFixed(2) || '0.00'}</span>
+                                                    <div className="text-sm whitespace-nowrap">
+                                                        <span className="font-medium">{expense.original_amount?.toFixed(2) || '0.00'}</span>
                                                         <span className="text-slate-500 mr-1">{expense.original_currency}</span>
                                                     </div>
                                                 ) : (
@@ -865,7 +865,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             </TableCell>
                                             <TableCell>
                                                 {expense.exchange_rate ? (
-                                                    <span className="text-sm text-slate-600">{expense.exchange_rate.toFixed(4)}</span>
+                                                    <span className="text-sm text-slate-600 font-mono">{expense.exchange_rate.toFixed(4)}</span>
                                                 ) : (
                                                     <span className="text-slate-400">-</span>
                                                 )}
