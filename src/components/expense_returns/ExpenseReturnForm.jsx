@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X, RefreshCw } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink } from "lucide-react";
 import { User } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -242,8 +242,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             // Process analyzed data
             const newExpenses = results
                 .filter(r => r.analysisResult)
-                .map(({ file_url, analysisResult }) => {
+                .map(({ file_url, file_name, analysisResult }) => {
                     const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                    
+                    // Check for missing data
+                    const missingFields = [];
+                    if (!business_name) missingFields.push('שם העסק');
+                    if (!invoice_date) missingFields.push('תאריך');
+                    if (!amount || amount === 0) missingFields.push('סכום');
                     
                     // Convert amount to ILS if needed
                     const amountInILS = currency && currency !== 'ILS' 
@@ -262,7 +268,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                         currency: 'ILS',
                         description: accounting_category || '',
                         receipt_uploaded: true,
-                        receipt_url: file_url
+                        receipt_url: file_url,
+                        receipt_file_name: file_name,
+                        missing_fields: missingFields
                     };
                 });
 
@@ -274,8 +282,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             }));
 
             const analyzedCount = newExpenses.length;
+            const incompleteParsing = newExpenses.filter(e => e.missing_fields?.length > 0);
+            
             if (analyzedCount > 0) {
-                toast.success(`${analyzedCount} מתוך ${files.length} חשבוניות נותחו והוספו בהצלחה!`);
+                if (incompleteParsing.length > 0) {
+                    toast.success(`${analyzedCount} חשבוניות נותחו. ${incompleteParsing.length} דורשות השלמה ידנית.`, { duration: 6000 });
+                } else {
+                    toast.success(`${analyzedCount} מתוך ${files.length} חשבוניות נותחו בהצלחה!`);
+                }
             } else {
                 toast.info("הקבצים הועלו, אך לא ניתן לנתח אותם אוטומטית");
             }
@@ -297,8 +311,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         }));
     };
 
-    const reanalyzeExpense = async (index) => {
-        const expense = formData.expenses[index];
+    const reanalyzeExpense = async (originalIndex) => {
+        const expense = formData.expenses[originalIndex];
         if (!expense.receipt_url) {
             toast.error("לא נמצא קובץ מקושר להוצאה זו");
             return;
@@ -306,11 +320,21 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
         setAnalyzing(true);
         try {
-            toast.info("מנתח מחדש...");
+            toast.info("מנתח מחדש את הקובץ המקושר...");
             const analysisResult = await analyzeReceipt(expense.receipt_url);
             
             if (analysisResult) {
                 const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                
+                // Check for missing data and ask user
+                const missingFields = [];
+                if (!business_name) missingFields.push('שם העסק');
+                if (!invoice_date) missingFields.push('תאריך חשבונית');
+                if (!amount || amount === 0) missingFields.push('סכום');
+                
+                if (missingFields.length > 0) {
+                    toast.info(`לא ניתן לזהות: ${missingFields.join(', ')}. אנא הזן ידנית.`, { duration: 5000 });
+                }
                 
                 const amountInILS = currency && currency !== 'ILS' 
                     ? convertCurrency(amount, currency, invoice_date)
@@ -318,12 +342,12 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
                 const purchaseType = mapCategoryToPurchaseType(accounting_category);
 
-                handleExpenseChange(index, 'invoice_date', invoice_date || format(new Date(), 'dd/MM/yyyy'));
-                handleExpenseChange(index, 'invoice_number', invoice_number || '');
-                handleExpenseChange(index, 'business_name', business_name || '');
-                handleExpenseChange(index, 'purchase_type', purchaseType);
-                handleExpenseChange(index, 'amount', parseFloat(amountInILS?.toFixed(2)) || 0);
-                handleExpenseChange(index, 'description', accounting_category || '');
+                handleExpenseChange(originalIndex, 'invoice_date', invoice_date || expense.invoice_date || format(new Date(), 'dd/MM/yyyy'));
+                handleExpenseChange(originalIndex, 'invoice_number', invoice_number || expense.invoice_number || '');
+                handleExpenseChange(originalIndex, 'business_name', business_name || expense.business_name || '');
+                handleExpenseChange(originalIndex, 'purchase_type', purchaseType);
+                handleExpenseChange(originalIndex, 'amount', parseFloat(amountInILS?.toFixed(2)) || expense.amount || 0);
+                handleExpenseChange(originalIndex, 'description', accounting_category || expense.description || '');
 
                 toast.success("הוצאה נותחה מחדש בהצלחה!");
             } else {
@@ -551,6 +575,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                         <TableHead>סוג רכישה</TableHead>
                                         <TableHead>סכום</TableHead>
                                         <TableHead>תיאור</TableHead>
+                                        <TableHead>קובץ</TableHead>
                                         <TableHead></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -566,25 +591,30 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             const dateB = convertDateForSubmission(b.invoice_date);
                                             return dateB.localeCompare(dateA); // Most recent first
                                         })
-                                        .map((expense, index) => (
-                                        <TableRow key={index}>
+                                        .map((expense, sortedIndex) => {
+                                            // Find the original index in unsorted array
+                                            const originalIndex = formData.expenses.indexOf(expense);
+                                            const hasIncompleteData = expense.missing_fields && expense.missing_fields.length > 0;
+                                            
+                                            return (
+                                        <TableRow key={originalIndex} className={hasIncompleteData ? 'bg-yellow-50' : ''}>
                                             <TableCell>
                                                 <Input 
                                                     value={expense.invoice_date} 
-                                                    onChange={e => handleExpenseDateChange(index, e.target.value)}
+                                                    onChange={e => handleExpenseDateChange(originalIndex, e.target.value)}
                                                     placeholder="dd/mm/yyyy"
                                                     className="w-32"
                                                 />
-                                                {dateErrors[`expense_${index}_date`] && (
+                                                {dateErrors[`expense_${originalIndex}_date`] && (
                                                     <div className="text-xs text-red-600 mt-1">
-                                                        {dateErrors[`expense_${index}_date`]}
+                                                        {dateErrors[`expense_${originalIndex}_date`]}
                                                     </div>
                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 <Input 
                                                     value={expense.invoice_number} 
-                                                    onChange={e => handleExpenseChange(index, 'invoice_number', e.target.value)}
+                                                    onChange={e => handleExpenseChange(originalIndex, 'invoice_number', e.target.value)}
                                                     placeholder="מספר חשבונית"
                                                     className="w-28"
                                                 />
@@ -592,7 +622,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             <TableCell>
                                                 <Input 
                                                     value={expense.business_name} 
-                                                    onChange={e => handleExpenseChange(index, 'business_name', e.target.value)}
+                                                    onChange={e => handleExpenseChange(originalIndex, 'business_name', e.target.value)}
                                                     placeholder="שם העסק"
                                                     className="w-32"
                                                 />
@@ -600,7 +630,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             <TableCell>
                                                 <Select 
                                                     value={expense.purchase_type} 
-                                                    onValueChange={val => handleExpenseChange(index, 'purchase_type', val)}
+                                                    onValueChange={val => handleExpenseChange(originalIndex, 'purchase_type', val)}
                                                 >
                                                     <SelectTrigger className="w-28">
                                                         <SelectValue />
@@ -617,17 +647,31 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                     type="number" 
                                                     step="0.01"
                                                     value={expense.amount} 
-                                                    onChange={e => handleExpenseChange(index, 'amount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
+                                                    onChange={e => handleExpenseChange(originalIndex, 'amount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                                                     className="w-20"
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Input 
                                                     value={expense.description} 
-                                                    onChange={e => handleExpenseChange(index, 'description', e.target.value)}
+                                                    onChange={e => handleExpenseChange(originalIndex, 'description', e.target.value)}
                                                     placeholder="תיאור"
                                                     className="w-32"
                                                 />
+                                            </TableCell>
+                                            <TableCell>
+                                                {expense.receipt_url && (
+                                                    <a 
+                                                        href={expense.receipt_url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                                                        title={expense.receipt_file_name || 'צפה בקובץ'}
+                                                    >
+                                                        <FileText className="h-4 w-4" />
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </a>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex gap-1">
@@ -636,25 +680,26 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                             type="button"
                                                             variant="ghost" 
                                                             size="icon"
-                                                            onClick={() => reanalyzeExpense(formData.expenses.indexOf(expense))}
+                                                            onClick={() => reanalyzeExpense(originalIndex)}
                                                             disabled={analyzing}
-                                                            title="נתח מחדש"
+                                                            title="נתח מחדש את הקובץ המקושר"
                                                         >
-                                                            <RefreshCw className="h-4 w-4 text-blue-500" />
+                                                            <RefreshCw className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''} text-blue-500`} />
                                                         </Button>
                                                     )}
                                                     <Button 
                                                         type="button"
                                                         variant="ghost" 
                                                         size="icon" 
-                                                        onClick={() => handleRemoveExpense(formData.expenses.indexOf(expense))}
+                                                        onClick={() => handleRemoveExpense(originalIndex)}
                                                     >
                                                         <Trash2 className="h-4 w-4 text-red-500" />
                                                     </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                            );
+                                        })}
                                 </TableBody>
                             </Table>
                         </div>
