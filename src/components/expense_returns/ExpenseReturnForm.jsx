@@ -186,15 +186,40 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         }
     };
 
-    const convertCurrency = (amount, fromCurrency, invoiceDate) => {
-        if (!amount || fromCurrency === 'ILS') return amount;
+    const getExchangeRateFromBankOfIsrael = async (fromCurrency, invoiceDate) => {
+        if (!fromCurrency || fromCurrency === 'ILS') return 1;
+        
+        try {
+            // Use LLM to fetch exchange rate from Bank of Israel for specific date
+            const result = await base44.integrations.Core.InvokeLLM({
+                prompt: `מה היה שער החליפין של ${fromCurrency} לשקל ישראלי (ILS) בתאריך ${invoiceDate}?
+                חפש את המידע באתר בנק ישראל או מקורות רשמיים אחרים.
+                החזר רק את השער כמספר (לדוגמה: 3.65), ללא טקסט נוסף.`,
+                add_context_from_internet: true,
+                response_json_schema: {
+                    type: "object",
+                    properties: {
+                        exchange_rate: { type: "number" }
+                    }
+                }
+            });
+            
+            return result.exchange_rate || 1;
+        } catch (error) {
+            console.error("Error fetching exchange rate:", error);
+            // Fallback to default if API fails
+            const currency = currencies.find(c => c.code === fromCurrency);
+            return currency?.rate_to_ils || 1;
+        }
+    };
 
-        // Find currency rate
-        const currency = currencies.find(c => c.code === fromCurrency);
-        if (!currency) return amount;
+    const convertCurrency = async (amount, fromCurrency, invoiceDate) => {
+        if (!amount || fromCurrency === 'ILS') return { amountInILS: amount, exchangeRate: null };
 
-        // Convert to ILS using the rate
-        return amount * currency.rate_to_ils;
+        const exchangeRate = await getExchangeRateFromBankOfIsrael(fromCurrency, invoiceDate);
+        const amountInILS = amount * exchangeRate;
+        
+        return { amountInILS, exchangeRate };
     };
 
     const mapCategoryToPurchaseType = (category) => {
@@ -243,43 +268,50 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 .filter(r => r.file_url)
                 .map(r => ({ url: r.file_url, name: r.file_name }));
 
-            // Process analyzed data
-            const newExpenses = results
-                .filter(r => r.analysisResult)
-                .map(({ file_url, file_name, analysisResult }) => {
-                    const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
-                    
-                    // Check for missing data
-                    const missingFields = [];
-                    if (!business_name) missingFields.push('שם העסק');
-                    if (!invoice_date) missingFields.push('תאריך');
-                    if (!amount || amount === 0) missingFields.push('סכום');
-                    
-                    // Convert amount to ILS if needed
-                    const amountInILS = currency && currency !== 'ILS' 
-                        ? convertCurrency(amount, currency, invoice_date)
-                        : amount;
+            // Process analyzed data - with async conversion
+            const newExpenses = await Promise.all(
+                results
+                    .filter(r => r.analysisResult)
+                    .map(async ({ file_url, file_name, analysisResult }) => {
+                        const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                        
+                        // Check for missing data
+                        const missingFields = [];
+                        if (!business_name) missingFields.push('שם העסק');
+                        if (!invoice_date) missingFields.push('תאריך');
+                        if (!amount || amount === 0) missingFields.push('סכום');
+                        
+                        // Convert amount to ILS if needed using Bank of Israel rates
+                        let amountInILS = amount;
+                        let exchangeRate = null;
+                        
+                        if (currency && currency !== 'ILS') {
+                            const conversionResult = await convertCurrency(amount, currency, invoice_date);
+                            amountInILS = conversionResult.amountInILS;
+                            exchangeRate = conversionResult.exchangeRate;
+                        }
 
-                    // Map category to purchase type
-                    const purchaseType = mapCategoryToPurchaseType(accounting_category);
+                        // Map category to purchase type
+                        const purchaseType = mapCategoryToPurchaseType(accounting_category);
 
-                    return {
-                        invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
-                        invoice_number: invoice_number || '',
-                        business_name: business_name || '',
-                        purchase_type: purchaseType,
-                        amount: parseFloat(amountInILS?.toFixed(2)) || 0,
-                        currency: 'ILS',
-                        original_amount: amount || 0,
-                        original_currency: currency || 'ILS',
-                        exchange_rate: currency && currency !== 'ILS' ? currencies.find(c => c.code === currency)?.rate_to_ils : null,
-                        description: accounting_category || '',
-                        receipt_uploaded: true,
-                        receipt_url: file_url,
-                        receipt_file_name: file_name,
-                        missing_fields: missingFields
-                    };
-                });
+                        return {
+                            invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
+                            invoice_number: invoice_number || '',
+                            business_name: business_name || '',
+                            purchase_type: purchaseType,
+                            amount: parseFloat(amountInILS?.toFixed(2)) || 0,
+                            currency: 'ILS',
+                            original_amount: amount || 0,
+                            original_currency: currency || 'ILS',
+                            exchange_rate: exchangeRate,
+                            description: accounting_category || '',
+                            receipt_uploaded: true,
+                            receipt_url: file_url,
+                            receipt_file_name: file_name,
+                            missing_fields: missingFields
+                        };
+                    })
+            );
 
             setFormData(prev => ({
                 ...prev,
@@ -343,13 +375,17 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                     toast.info(`לא ניתן לזהות: ${missingFields.join(', ')}. אנא הזן ידנית.`, { duration: 5000 });
                 }
                 
-                const amountInILS = currency && currency !== 'ILS' 
-                    ? convertCurrency(amount, currency, invoice_date)
-                    : amount;
+                // Convert amount to ILS using Bank of Israel rates
+                let amountInILS = amount;
+                let exchangeRate = null;
+                
+                if (currency && currency !== 'ILS') {
+                    const conversionResult = await convertCurrency(amount, currency, invoice_date || expense.invoice_date);
+                    amountInILS = conversionResult.amountInILS;
+                    exchangeRate = conversionResult.exchangeRate;
+                }
 
                 const purchaseType = mapCategoryToPurchaseType(accounting_category);
-
-                const exchangeRate = currency && currency !== 'ILS' ? currencies.find(c => c.code === currency)?.rate_to_ils : null;
                 
                 handleExpenseChange(originalIndex, 'invoice_date', invoice_date || expense.invoice_date || format(new Date(), 'dd/MM/yyyy'));
                 handleExpenseChange(originalIndex, 'invoice_number', invoice_number || expense.invoice_number || '');
