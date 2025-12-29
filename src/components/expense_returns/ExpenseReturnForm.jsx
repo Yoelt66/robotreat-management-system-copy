@@ -8,11 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, Upload, X } from "lucide-react";
 import { User } from "@/entities/all";
-import { UploadFile } from "@/integrations/Core";
+import { Currency } from "@/entities/Currency";
+import { base44 } from "@/api/base44Client";
 import { format } from 'date-fns';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 const purchaseTypes = {
   tools: "כלי עבודה",
@@ -45,7 +46,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     });
     
     const [users, setUsers] = useState([]);
+    const [currencies, setCurrencies] = useState([]);
     const [uploading, setUploading] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
     const [dateErrors, setDateErrors] = useState({}); // Add date errors state
 
     useEffect(() => {
@@ -77,15 +80,19 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             });
         }
         
-        const loadUsers = async () => {
+        const loadData = async () => {
             try {
-                const userData = await User.list();
+                const [userData, currencyData] = await Promise.all([
+                    User.list(),
+                    Currency.list()
+                ]);
                 setUsers(userData);
+                setCurrencies(currencyData);
             } catch (error) {
-                console.error("Failed to load users:", error);
+                console.error("Failed to load data:", error);
             }
         };
-        loadUsers();
+        loadData();
     }, [initialReturn]);
 
     useEffect(() => {
@@ -127,23 +134,136 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         }));
     };
 
+    const analyzeReceipt = async (fileUrl) => {
+        try {
+            const accountingCategories = [
+                "דלק והובלה",
+                "כלי עבודה וציוד",
+                "חלקי חילוף ותחזוקה",
+                "ציוד משרדי",
+                "נסיעות וארוחות",
+                "לינה",
+                "שונות"
+            ];
+
+            const prompt = `נתח את החשבונית/קבלה המצורפת וחלץ את הפרטים הבאים:
+1. שם העסק/שם בית העסק
+2. מספר חשבונית (אם קיים)
+3. תאריך החשבונית (בפורמט dd/mm/yyyy)
+4. סכום החשבונית
+5. מטבע (ILS/USD/EUR/GBP או אחר)
+6. קטגוריה חשבונאית מתאימה מתוך: ${accountingCategories.join(', ')}
+
+אם לא ניתן לזהות שדה מסוים, השאר אותו ריק או null.
+עבור הקטגוריה החשבונאית, בחר את הקטגוריה המתאימה ביותר על פי תוכן החשבונית.`;
+
+            const result = await base44.integrations.Core.InvokeLLM({
+                prompt,
+                file_urls: [fileUrl],
+                response_json_schema: {
+                    type: "object",
+                    properties: {
+                        business_name: { type: "string" },
+                        invoice_number: { type: "string" },
+                        invoice_date: { type: "string" },
+                        amount: { type: "number" },
+                        currency: { type: "string" },
+                        accounting_category: { type: "string" }
+                    }
+                }
+            });
+
+            return result;
+        } catch (error) {
+            console.error("Receipt analysis error:", error);
+            return null;
+        }
+    };
+
+    const convertCurrency = (amount, fromCurrency, invoiceDate) => {
+        if (!amount || fromCurrency === 'ILS') return amount;
+
+        // Find currency rate
+        const currency = currencies.find(c => c.code === fromCurrency);
+        if (!currency) return amount;
+
+        // Convert to ILS using the rate
+        return amount * currency.rate_to_ils;
+    };
+
+    const mapCategoryToPurchaseType = (category) => {
+        const mapping = {
+            "דלק והובלה": "fuel",
+            "כלי עבודה וציוד": "tools",
+            "חלקי חילוף ותחזוקה": "parts",
+            "ציוד משרדי": "office_supplies",
+            "נסיעות וארוחות": "meals",
+            "לינה": "accommodation",
+            "שונות": "other"
+        };
+        return mapping[category] || "other";
+    };
+
     const handleFileUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         setUploading(true);
+        setAnalyzing(true);
+        
         try {
-            const { file_url } = await UploadFile({ file });
+            // Upload file
+            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+            
+            // Add to receipt URLs
             setFormData(prev => ({
                 ...prev,
                 receipt_urls: [...prev.receipt_urls, file_url]
             }));
-            toast({ title: "קובץ הועלה בהצלחה" });
+
+            toast.success("קובץ הועלה בהצלחה, מנתח...");
+
+            // Analyze receipt
+            const analysisResult = await analyzeReceipt(file_url);
+            
+            if (analysisResult) {
+                const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                
+                // Convert amount to ILS if needed
+                const amountInILS = currency && currency !== 'ILS' 
+                    ? convertCurrency(amount, currency, invoice_date)
+                    : amount;
+
+                // Map category to purchase type
+                const purchaseType = mapCategoryToPurchaseType(accounting_category);
+
+                // Create new expense with analyzed data
+                const newExpense = {
+                    invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
+                    invoice_number: invoice_number || '',
+                    business_name: business_name || '',
+                    purchase_type: purchaseType,
+                    amount: amountInILS || 0,
+                    currency: 'ILS',
+                    description: accounting_category || '',
+                    receipt_uploaded: true
+                };
+
+                setFormData(prev => ({
+                    ...prev,
+                    expenses: [newExpense, ...prev.expenses]
+                }));
+
+                toast.success("הקבלה נותחה והוספה בהצלחה!");
+            } else {
+                toast.info("הקובץ הועלה, אך לא ניתן לנתח אותו אוטומטית");
+            }
         } catch (error) {
             console.error("File upload error:", error);
-            toast({ variant: "destructive", title: "שגיאה בהעלאת הקובץ" });
+            toast.error("שגיאה בהעלאת הקובץ");
         } finally {
             setUploading(false);
+            setAnalyzing(false);
         }
     };
 
@@ -478,13 +598,30 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                     id="receipt-upload"
                                 />
                                 <label htmlFor="receipt-upload">
-                                    <Button type="button" variant="outline" disabled={uploading} asChild>
+                                    <Button type="button" variant="outline" disabled={uploading || analyzing} asChild>
                                         <span>
-                                            <Upload className="w-4 h-4 ml-2" />
-                                            {uploading ? 'מעלה...' : 'העלה קובץ'}
+                                            {analyzing ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                                                    מנתח...
+                                                </>
+                                            ) : uploading ? (
+                                                <>
+                                                    <Upload className="w-4 h-4 ml-2" />
+                                                    מעלה...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-4 h-4 ml-2" />
+                                                    העלה קובץ
+                                                </>
+                                            )}
                                         </span>
                                     </Button>
                                 </label>
+                                {analyzing && (
+                                    <span className="text-sm text-slate-500">מנתח את הקבלה...</span>
+                                )}
                             </div>
                         </div>
                         
