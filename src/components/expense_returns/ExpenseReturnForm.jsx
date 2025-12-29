@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, FileDown } from "lucide-react";
 import { User } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { jsPDF } from 'jspdf';
 
 const purchaseTypes = {
   tools: "כלי עבודה",
@@ -111,6 +112,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             purchase_type: 'other',
             amount: 0,
             currency: 'ILS',
+            original_amount: 0,
+            original_currency: 'ILS',
+            exchange_rate: null,
             description: '',
             receipt_uploaded: false
         };
@@ -266,6 +270,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                         purchase_type: purchaseType,
                         amount: parseFloat(amountInILS?.toFixed(2)) || 0,
                         currency: 'ILS',
+                        original_amount: amount || 0,
+                        original_currency: currency || 'ILS',
+                        exchange_rate: currency && currency !== 'ILS' ? currencies.find(c => c.code === currency)?.rate_to_ils : null,
                         description: accounting_category || '',
                         receipt_uploaded: true,
                         receipt_url: file_url,
@@ -342,11 +349,16 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
                 const purchaseType = mapCategoryToPurchaseType(accounting_category);
 
+                const exchangeRate = currency && currency !== 'ILS' ? currencies.find(c => c.code === currency)?.rate_to_ils : null;
+                
                 handleExpenseChange(originalIndex, 'invoice_date', invoice_date || expense.invoice_date || format(new Date(), 'dd/MM/yyyy'));
                 handleExpenseChange(originalIndex, 'invoice_number', invoice_number || expense.invoice_number || '');
                 handleExpenseChange(originalIndex, 'business_name', business_name || expense.business_name || '');
                 handleExpenseChange(originalIndex, 'purchase_type', purchaseType);
                 handleExpenseChange(originalIndex, 'amount', parseFloat(amountInILS?.toFixed(2)) || expense.amount || 0);
+                handleExpenseChange(originalIndex, 'original_amount', amount || expense.original_amount || 0);
+                handleExpenseChange(originalIndex, 'original_currency', currency || expense.original_currency || 'ILS');
+                handleExpenseChange(originalIndex, 'exchange_rate', exchangeRate);
                 handleExpenseChange(originalIndex, 'description', accounting_category || expense.description || '');
 
                 toast.success("הוצאה נותחה מחדש בהצלחה!");
@@ -511,6 +523,136 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
     const isAdmin = currentUser?.role === 'admin';
 
+    const generatePDF = () => {
+        const doc = new jsPDF();
+        
+        // Add Hebrew font support (using Arial Unicode MS)
+        doc.setFont("helvetica");
+        
+        let y = 20;
+        
+        // Title
+        doc.setFontSize(18);
+        doc.text("Expense Return Report", 105, y, { align: "center" });
+        doc.text(formData.return_number, 105, y + 7, { align: "center" });
+        y += 20;
+        
+        // Employee details
+        doc.setFontSize(11);
+        doc.text(`Employee: ${formData.employee_name}`, 20, y);
+        y += 7;
+        doc.text(`Email: ${formData.employee_email}`, 20, y);
+        y += 7;
+        doc.text(`Submission Date: ${formData.submission_date}`, 20, y);
+        y += 10;
+        
+        // Expenses table header
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Expenses Details:", 20, y);
+        y += 7;
+        
+        doc.setFontSize(9);
+        doc.text("Date", 20, y);
+        doc.text("Business", 45, y);
+        doc.text("Type", 90, y);
+        doc.text("Orig. Amount", 120, y);
+        doc.text("Rate", 155, y);
+        doc.text("ILS Amount", 175, y);
+        y += 5;
+        
+        doc.setFont("helvetica", "normal");
+        
+        // Sort expenses like in the table
+        const sortedExpenses = [...formData.expenses].sort((a, b) => {
+            const nameCompare = (a.business_name || '').localeCompare(b.business_name || '');
+            if (nameCompare !== 0) return nameCompare;
+            const dateA = convertDateForSubmission(a.invoice_date);
+            const dateB = convertDateForSubmission(b.invoice_date);
+            return dateB.localeCompare(dateA);
+        });
+        
+        // Expenses rows
+        sortedExpenses.forEach((expense) => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            
+            doc.text(expense.invoice_date || '', 20, y);
+            doc.text((expense.business_name || '').substring(0, 20), 45, y);
+            doc.text(purchaseTypes[expense.purchase_type] || '', 90, y);
+            
+            // Original amount and currency
+            if (expense.original_currency && expense.original_currency !== 'ILS') {
+                doc.text(`${expense.original_amount?.toFixed(2) || '0.00'} ${expense.original_currency}`, 120, y);
+                doc.text(expense.exchange_rate?.toFixed(4) || '-', 155, y);
+            } else {
+                doc.text('-', 120, y);
+                doc.text('-', 155, y);
+            }
+            
+            doc.text(`${expense.amount?.toFixed(2) || '0.00'}`, 175, y);
+            y += 6;
+        });
+        
+        y += 5;
+        
+        // Total
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(`Total Amount (ILS): ${formData.total_amount.toFixed(2)}`, 20, y);
+        y += 10;
+        
+        // Approval details (if admin data exists)
+        if (formData.status !== 'pending' && (formData.approved_by || formData.bank_reference || formData.return_date)) {
+            y += 5;
+            doc.setFontSize(12);
+            doc.text("Approval & Payment Details:", 20, y);
+            y += 7;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            
+            if (formData.approved_by) {
+                doc.text(`Approved by: ${formData.approved_by}`, 20, y);
+                y += 6;
+            }
+            if (formData.approval_date) {
+                doc.text(`Approval Date: ${formData.approval_date}`, 20, y);
+                y += 6;
+            }
+            if (formData.bank_reference) {
+                doc.text(`Bank Reference: ${formData.bank_reference}`, 20, y);
+                y += 6;
+            }
+            if (formData.return_date) {
+                doc.text(`Payment Date: ${formData.return_date}`, 20, y);
+                y += 6;
+            }
+            doc.text(`Status: ${
+                formData.status === 'pending' ? 'Pending' :
+                formData.status === 'approved' ? 'Approved' :
+                formData.status === 'rejected' ? 'Rejected' :
+                formData.status === 'paid' ? 'Paid' : formData.status
+            }`, 20, y);
+        }
+        
+        // Notes
+        if (formData.notes) {
+            y += 10;
+            doc.setFont("helvetica", "bold");
+            doc.text("Notes:", 20, y);
+            y += 6;
+            doc.setFont("helvetica", "normal");
+            const notesLines = doc.splitTextToSize(formData.notes, 170);
+            doc.text(notesLines, 20, y);
+        }
+        
+        // Save PDF
+        doc.save(`expense_return_${formData.return_number}.pdf`);
+        toast.success("PDF נוצר בהצלחה");
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -557,9 +699,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>פירוט הוצאות</CardTitle>
-                    <Button type="button" onClick={handleAddExpense} size="sm">
-                        <Plus className="w-4 h-4 ml-2" /> הוסף הוצאה
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button type="button" onClick={generatePDF} variant="outline" size="sm">
+                            <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
+                        </Button>
+                        <Button type="button" onClick={handleAddExpense} size="sm">
+                            <Plus className="w-4 h-4 ml-2" /> הוסף הוצאה
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {formData.expenses.length === 0 ? (
@@ -573,7 +720,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                         <TableHead>מספר חשבונית</TableHead>
                                         <TableHead>שם העסק</TableHead>
                                         <TableHead>סוג רכישה</TableHead>
-                                        <TableHead>סכום</TableHead>
+                                        <TableHead>סכום מקורי</TableHead>
+                                        <TableHead>שער</TableHead>
+                                        <TableHead>סכום ₪</TableHead>
                                         <TableHead>תיאור</TableHead>
                                         <TableHead>קובץ</TableHead>
                                         <TableHead></TableHead>
@@ -643,12 +792,29 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                 </Select>
                                             </TableCell>
                                             <TableCell>
+                                                {expense.original_currency && expense.original_currency !== 'ILS' ? (
+                                                    <div className="text-sm">
+                                                        <span>{expense.original_amount?.toFixed(2) || '0.00'}</span>
+                                                        <span className="text-slate-500 mr-1">{expense.original_currency}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {expense.exchange_rate ? (
+                                                    <span className="text-sm text-slate-600">{expense.exchange_rate.toFixed(4)}</span>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
                                                 <Input 
                                                     type="number" 
                                                     step="0.01"
                                                     value={expense.amount} 
                                                     onChange={e => handleExpenseChange(originalIndex, 'amount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
-                                                    className="w-20"
+                                                    className="w-24"
                                                 />
                                             </TableCell>
                                             <TableCell>
