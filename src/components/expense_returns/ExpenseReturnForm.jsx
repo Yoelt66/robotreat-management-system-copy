@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw } from "lucide-react";
 import { User } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -42,7 +42,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         approved_by: '',
         approval_date: '',
         notes: '',
-        receipt_urls: []
+        receipt_urls: [],
+        receipt_files: [] // Store file info with original names
     });
     
     const [users, setUsers] = useState([]);
@@ -224,23 +225,23 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                         // Analyze receipt
                         const analysisResult = await analyzeReceipt(file_url);
                         
-                        return { file_url, analysisResult };
+                        return { file_url, file_name: file.name, analysisResult };
                     } catch (error) {
                         console.error("Error processing file:", error);
-                        return { file_url: null, analysisResult: null };
+                        return { file_url: null, file_name: file.name, analysisResult: null };
                     }
                 })
             );
 
-            // Add receipt URLs
-            const newReceiptUrls = results
-                .map(r => r.file_url)
-                .filter(url => url);
+            // Add receipt files with names
+            const newReceiptFiles = results
+                .filter(r => r.file_url)
+                .map(r => ({ url: r.file_url, name: r.file_name }));
 
             // Process analyzed data
             const newExpenses = results
                 .filter(r => r.analysisResult)
-                .map(({ analysisResult }) => {
+                .map(({ file_url, analysisResult }) => {
                     const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
                     
                     // Convert amount to ILS if needed
@@ -256,16 +257,18 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                         invoice_number: invoice_number || '',
                         business_name: business_name || '',
                         purchase_type: purchaseType,
-                        amount: amountInILS || 0,
+                        amount: parseFloat(amountInILS?.toFixed(2)) || 0,
                         currency: 'ILS',
                         description: accounting_category || '',
-                        receipt_uploaded: true
+                        receipt_uploaded: true,
+                        receipt_url: file_url
                     };
                 });
 
             setFormData(prev => ({
                 ...prev,
-                receipt_urls: [...prev.receipt_urls, ...newReceiptUrls],
+                receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
+                receipt_files: [...prev.receipt_files, ...newReceiptFiles],
                 expenses: [...newExpenses, ...prev.expenses]
             }));
 
@@ -288,8 +291,49 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     const handleRemoveFile = (index) => {
         setFormData(prev => ({
             ...prev,
-            receipt_urls: prev.receipt_urls.filter((_, i) => i !== index)
+            receipt_urls: prev.receipt_urls.filter((_, i) => i !== index),
+            receipt_files: prev.receipt_files.filter((_, i) => i !== index)
         }));
+    };
+
+    const reanalyzeExpense = async (index) => {
+        const expense = formData.expenses[index];
+        if (!expense.receipt_url) {
+            toast.error("לא נמצא קובץ מקושר להוצאה זו");
+            return;
+        }
+
+        setAnalyzing(true);
+        try {
+            toast.info("מנתח מחדש...");
+            const analysisResult = await analyzeReceipt(expense.receipt_url);
+            
+            if (analysisResult) {
+                const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+                
+                const amountInILS = currency && currency !== 'ILS' 
+                    ? convertCurrency(amount, currency, invoice_date)
+                    : amount;
+
+                const purchaseType = mapCategoryToPurchaseType(accounting_category);
+
+                handleExpenseChange(index, 'invoice_date', invoice_date || format(new Date(), 'dd/MM/yyyy'));
+                handleExpenseChange(index, 'invoice_number', invoice_number || '');
+                handleExpenseChange(index, 'business_name', business_name || '');
+                handleExpenseChange(index, 'purchase_type', purchaseType);
+                handleExpenseChange(index, 'amount', parseFloat(amountInILS?.toFixed(2)) || 0);
+                handleExpenseChange(index, 'description', accounting_category || '');
+
+                toast.success("הוצאה נותחה מחדש בהצלחה!");
+            } else {
+                toast.error("לא ניתן לנתח את הקובץ");
+            }
+        } catch (error) {
+            console.error("Reanalysis error:", error);
+            toast.error("שגיאה בניתוח מחדש");
+        } finally {
+            setAnalyzing(false);
+        }
     };
 
     // Convert dd/MM/yyyy to yyyy-MM-dd for form submission
@@ -572,7 +616,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                     type="number" 
                                                     step="0.01"
                                                     value={expense.amount} 
-                                                    onChange={e => handleExpenseChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                                                    onChange={e => handleExpenseChange(index, 'amount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                                                     className="w-20"
                                                 />
                                             </TableCell>
@@ -585,14 +629,28 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Button 
-                                                    type="button"
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    onClick={() => handleRemoveExpense(index)}
-                                                >
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
+                                                <div className="flex gap-1">
+                                                    {expense.receipt_url && (
+                                                        <Button 
+                                                            type="button"
+                                                            variant="ghost" 
+                                                            size="icon"
+                                                            onClick={() => reanalyzeExpense(formData.expenses.indexOf(expense))}
+                                                            disabled={analyzing}
+                                                            title="נתח מחדש"
+                                                        >
+                                                            <RefreshCw className="h-4 w-4 text-blue-500" />
+                                                        </Button>
+                                                    )}
+                                                    <Button 
+                                                        type="button"
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        onClick={() => handleRemoveExpense(formData.expenses.indexOf(expense))}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -656,14 +714,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             </div>
                         </div>
                         
-                        {formData.receipt_urls.length > 0 && (
+                        {formData.receipt_files.length > 0 && (
                             <div>
                                 <Label>קבצים שהועלו:</Label>
                                 <div className="mt-2 space-y-2">
-                                    {formData.receipt_urls.map((url, index) => (
+                                    {formData.receipt_files.map((file, index) => (
                                         <div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded">
-                                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                                קובץ {index + 1}
+                                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                                                {file.name}
                                             </a>
                                             <Button 
                                                 type="button"
