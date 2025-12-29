@@ -761,27 +761,28 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 </div>
             </div>
 
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">פירוט הוצאות</h3>
+                <div className="flex gap-2">
+                    <Button 
+                        type="button" 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            generatePDF();
+                        }} 
+                        variant="outline" 
+                        size="sm"
+                    >
+                        <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
+                    </Button>
+                    <Button type="button" onClick={handleAddExpense} size="sm">
+                        <Plus className="w-4 h-4 ml-2" /> הוסף הוצאה
+                    </Button>
+                </div>
+            </div>
+            
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>פירוט הוצאות</CardTitle>
-                    <div className="flex gap-2">
-                        <Button 
-                            type="button" 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                generatePDF();
-                            }} 
-                            variant="outline" 
-                            size="sm"
-                        >
-                            <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
-                        </Button>
-                        <Button type="button" onClick={handleAddExpense} size="sm">
-                            <Plus className="w-4 h-4 ml-2" /> הוסף הוצאה
-                        </Button>
-                    </div>
-                </CardHeader>
                 <CardContent>
                     {formData.expenses.length === 0 ? (
                         <p className="text-gray-500 text-center py-4">לא נוספו הוצאות עדיין</p>
@@ -956,7 +957,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <Card>
                 <CardHeader>
                     <CardTitle>העלאת קבלות</CardTitle>
-                </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
                         <div>
