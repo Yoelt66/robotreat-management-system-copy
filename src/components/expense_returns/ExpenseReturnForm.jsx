@@ -74,7 +74,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 submission_date: formatForDisplay(initialReturn.submission_date),
                 return_date: formatForDisplay(initialReturn.return_date),
                 approval_date: formatForDisplay(initialReturn.approval_date),
-                expenses: initialReturn.expenses.map(exp => ({
+                receipt_files: initialReturn.receipt_files || (initialReturn.receipt_urls || []).map((url, i) => ({ url, name: `קובץ ${i + 1}` })),
+                expenses: (initialReturn.expenses || []).map(exp => ({
                     ...exp,
                     invoice_date: formatForDisplay(exp.invoice_date)
                 }))
@@ -714,11 +715,11 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             </div>
                         </div>
                         
-                        {formData.receipt_files.length > 0 && (
+                        {(formData.receipt_files || []).length > 0 && (
                             <div>
                                 <Label>קבצים שהועלו:</Label>
                                 <div className="mt-2 space-y-2">
-                                    {formData.receipt_files.map((file, index) => (
+                                    {(formData.receipt_files || []).map((file, index) => (
                                         <div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded">
                                             <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
                                                 {file.name}
