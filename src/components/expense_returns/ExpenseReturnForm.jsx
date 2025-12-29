@@ -560,10 +560,13 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     const isAdmin = currentUser?.role === 'admin';
 
     const generatePDF = async () => {
+        console.log("Generating PDF...");
+        
         // Load Hebrew font
         const fontUrl = 'https://cdn.jsdelivr.net/npm/open-sans-hebrew@1.1.0/fonts/OpenSansHebrew-Regular.ttf';
         
         try {
+            toast.info("יוצר PDF...");
             const doc = new jsPDF();
             
             // Try to add Hebrew font support
@@ -762,7 +765,16 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>פירוט הוצאות</CardTitle>
                     <div className="flex gap-2">
-                        <Button type="button" onClick={generatePDF} variant="outline" size="sm">
+                        <Button 
+                            type="button" 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                generatePDF();
+                            }} 
+                            variant="outline" 
+                            size="sm"
+                        >
                             <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
                         </Button>
                         <Button type="button" onClick={handleAddExpense} size="sm">
