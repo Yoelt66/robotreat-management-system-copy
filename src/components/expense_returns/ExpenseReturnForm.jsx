@@ -766,11 +766,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 <div className="flex gap-2">
                     <Button 
                         type="button" 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            generatePDF();
-                        }} 
+                        onClick={generatePDF} 
                         variant="outline" 
                         size="sm"
                     >
