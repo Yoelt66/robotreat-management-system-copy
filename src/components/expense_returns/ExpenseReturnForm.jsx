@@ -957,6 +957,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <Card>
                 <CardHeader>
                     <CardTitle>העלאת קבלות</CardTitle>
+                </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
                         <div>
