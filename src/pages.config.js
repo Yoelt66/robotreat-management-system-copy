@@ -1,49 +1,51 @@
+import Clients from './pages/Clients';
+import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
-import Transfers from './pages/Transfers';
-import Import from './pages/Import';
-import Settings from './pages/Settings';
 import DeliveryNotes from './pages/DeliveryNotes';
+import ExpenseReturns from './pages/ExpenseReturns';
+import FieldDashboard from './pages/FieldDashboard';
+import History from './pages/History';
+import Home from './pages/Home';
+import Import from './pages/Import';
+import ItemsManagement from './pages/ItemsManagement';
+import MaintenanceProcedures from './pages/MaintenanceProcedures';
+import MaintenanceTypes from './pages/MaintenanceTypes';
 import NewOrders from './pages/NewOrders';
 import Orders from './pages/Orders';
-import History from './pages/History';
-import Welcome from './pages/Welcome';
-import ExpenseReturns from './pages/ExpenseReturns';
 import PartsManagement from './pages/PartsManagement';
-import StockDashboard from './pages/StockDashboard';
-import FieldDashboard from './pages/FieldDashboard';
-import ServiceCalls from './pages/ServiceCalls';
-import ItemsManagement from './pages/ItemsManagement';
-import Clients from './pages/Clients';
-import MaintenanceProcedures from './pages/MaintenanceProcedures';
 import Schedule from './pages/Schedule';
-import Customers from './pages/Customers';
+import ServiceCalls from './pages/ServiceCalls';
 import ServiceUnits from './pages/ServiceUnits';
-import MaintenanceTypes from './pages/MaintenanceTypes';
+import Settings from './pages/Settings';
+import StockDashboard from './pages/StockDashboard';
+import Transfers from './pages/Transfers';
+import Welcome from './pages/Welcome';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "Clients": Clients,
+    "Customers": Customers,
     "Dashboard": Dashboard,
-    "Transfers": Transfers,
-    "Import": Import,
-    "Settings": Settings,
     "DeliveryNotes": DeliveryNotes,
+    "ExpenseReturns": ExpenseReturns,
+    "FieldDashboard": FieldDashboard,
+    "History": History,
+    "Home": Home,
+    "Import": Import,
+    "ItemsManagement": ItemsManagement,
+    "MaintenanceProcedures": MaintenanceProcedures,
+    "MaintenanceTypes": MaintenanceTypes,
     "NewOrders": NewOrders,
     "Orders": Orders,
-    "History": History,
-    "Welcome": Welcome,
-    "ExpenseReturns": ExpenseReturns,
     "PartsManagement": PartsManagement,
-    "StockDashboard": StockDashboard,
-    "FieldDashboard": FieldDashboard,
-    "ServiceCalls": ServiceCalls,
-    "ItemsManagement": ItemsManagement,
-    "Clients": Clients,
-    "MaintenanceProcedures": MaintenanceProcedures,
     "Schedule": Schedule,
-    "Customers": Customers,
+    "ServiceCalls": ServiceCalls,
     "ServiceUnits": ServiceUnits,
-    "MaintenanceTypes": MaintenanceTypes,
+    "Settings": Settings,
+    "StockDashboard": StockDashboard,
+    "Transfers": Transfers,
+    "Welcome": Welcome,
 }
 
 export const pagesConfig = {

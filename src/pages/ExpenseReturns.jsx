@@ -6,7 +6,8 @@ import ExpenseReturnList from '../components/expense_returns/ExpenseReturnList';
 import ExpenseReturnForm from '../components/expense_returns/ExpenseReturnForm';
 import ExpenseReturnDetailsModal from '../components/expense_returns/ExpenseReturnDetailsModal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { toast } from '@/components/ui/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 export default function ExpenseReturnsPage() {
     const [returns, setReturns] = useState([]);
@@ -14,6 +15,7 @@ export default function ExpenseReturnsPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingReturn, setEditingReturn] = useState(null);
     const [viewingReturn, setViewingReturn] = useState(null);
+    const [deletingReturn, setDeletingReturn] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
@@ -31,7 +33,7 @@ export default function ExpenseReturnsPage() {
             setCurrentUser(userData);
         } catch (error) {
             console.error("Failed to load expense returns:", error);
-            toast({ variant: "destructive", title: "שגיאה בטעינת החזרות הוצאות" });
+            toast.error("שגיאה בטעינת החזרות הוצאות");
         } finally {
             setLoading(false);
         }
@@ -41,17 +43,17 @@ export default function ExpenseReturnsPage() {
         try {
             if (editingReturn) {
                 await ExpenseReturn.update(editingReturn.id, formData);
-                toast({ title: "החזרת הוצאות עודכנה בהצלחה" });
+                toast.success("החזרת הוצאות עודכנה בהצלחה");
             } else {
                 await ExpenseReturn.create(formData);
-                toast({ title: "החזרת הוצאות חדשה נוצרה" });
+                toast.success("החזרת הוצאות חדשה נוצרה");
             }
             setShowForm(false);
             setEditingReturn(null);
             await loadData();
         } catch (error) {
             console.error("Failed to save expense return:", error);
-            toast({ variant: "destructive", title: "שגיאה בשמירת החזרת ההוצאות" });
+            toast.error("שגיאה בשמירת החזרת ההוצאות");
         }
     };
 
@@ -69,6 +71,20 @@ export default function ExpenseReturnsPage() {
         setShowForm(true);
     };
 
+    const handleDelete = async () => {
+        if (!deletingReturn) return;
+        
+        try {
+            await ExpenseReturn.delete(deletingReturn.id);
+            toast.success("החזרת הוצאות נמחקה בהצלחה");
+            setDeletingReturn(null);
+            await loadData();
+        } catch (error) {
+            console.error("Failed to delete expense return:", error);
+            toast.error("שגיאה במחיקת החזרת ההוצאות");
+        }
+    };
+
     return (
         <div className="p-6" dir="rtl">
             <div className="max-w-7xl mx-auto space-y-6">
@@ -84,6 +100,7 @@ export default function ExpenseReturnsPage() {
                     loading={loading}
                     onEdit={handleEdit}
                     onView={handleView}
+                    onDelete={setDeletingReturn}
                     currentUser={currentUser}
                 />
 
@@ -112,6 +129,24 @@ export default function ExpenseReturnsPage() {
                         onClose={() => setViewingReturn(null)}
                     />
                 )}
+
+                <AlertDialog open={!!deletingReturn} onOpenChange={() => setDeletingReturn(null)}>
+                    <AlertDialogContent dir="rtl">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>אישור מחיקה</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                האם אתה בטוח שברצונך למחוק את החזרת ההוצאות "{deletingReturn?.return_number}"?
+                                פעולה זו אינה ניתנת לביטול.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>ביטול</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                                מחק
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </div>
     );
