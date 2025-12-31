@@ -55,36 +55,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     const [dateErrors, setDateErrors] = useState({}); // Add date errors state
 
     useEffect(() => {
-        if (initialReturn) {
-            const formatForDisplay = (date) => {
-                if (!date) return '';
-                try {
-                    // Attempt to parse the date string.
-                    // new Date() can handle ISO 8601 strings (e.g., "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm:ss.sssZ").
-                    // If the date is already in "dd/MM/yyyy" format, new Date() might return "Invalid Date".
-                    // The convertDateForSubmission function implies dates are stored as YYYY-MM-DD on the backend.
-                    // So, assuming `initialReturn` comes with YYYY-MM-DD or ISO strings for dates.
-                    return format(new Date(date), 'dd/MM/yyyy');
-                } catch (e) {
-                    // If parsing fails (e.g., date is "Invalid Date" or malformed), return an empty string.
-                    return '';
-                }
-            };
-
-            setFormData({
-                ...initialReturn,
-                submission_date: formatForDisplay(initialReturn.submission_date),
-                return_date: formatForDisplay(initialReturn.return_date),
-                approval_date: formatForDisplay(initialReturn.approval_date),
-                approved_by: initialReturn.approved_by || '',
-                receipt_files: initialReturn.receipt_files || (initialReturn.receipt_urls || []).map((url, i) => ({ url, name: `קובץ ${i + 1}` })),
-                expenses: (initialReturn.expenses || []).map(exp => ({
-                    ...exp,
-                    invoice_date: formatForDisplay(exp.invoice_date)
-                }))
-            });
-        }
-        
         const loadData = async () => {
             try {
                 const [userData, currencyData] = await Promise.all([
@@ -98,6 +68,33 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             }
         };
         loadData();
+    }, []);
+
+    useEffect(() => {
+        if (initialReturn) {
+            const formatForDisplay = (date) => {
+                if (!date) return '';
+                try {
+                    return format(new Date(date), 'dd/MM/yyyy');
+                } catch (e) {
+                    return '';
+                }
+            };
+
+            setFormData(prev => ({
+                ...prev,
+                ...initialReturn,
+                submission_date: formatForDisplay(initialReturn.submission_date),
+                return_date: formatForDisplay(initialReturn.return_date),
+                approval_date: formatForDisplay(initialReturn.approval_date),
+                approved_by: initialReturn.approved_by || '',
+                receipt_files: initialReturn.receipt_files || (initialReturn.receipt_urls || []).map((url, i) => ({ url, name: `קובץ ${i + 1}` })),
+                expenses: (initialReturn.expenses || []).map(exp => ({
+                    ...exp,
+                    invoice_date: formatForDisplay(exp.invoice_date)
+                }))
+            }));
+        }
     }, [initialReturn]);
 
     useEffect(() => {
