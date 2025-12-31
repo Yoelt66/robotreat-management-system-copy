@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, FileDown } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink } from "lucide-react";
 import { User } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -14,7 +14,6 @@ import { format } from 'date-fns';
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
-import { jsPDF } from 'jspdf';
 
 const purchaseTypes = {
   tools: "כלי עבודה",
@@ -559,179 +558,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
     const isAdmin = currentUser?.role === 'admin';
 
-    const handleGeneratePDF = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        console.log("PDF button clicked!");
-        
-        if (formData.expenses.length === 0) {
-            toast.error("אין הוצאות ליצירת PDF");
-            return;
-        }
-        
-        generatePDF();
-    };
-
-    const generatePDF = async () => {
-        console.log("Generating PDF...");
-        
-        // Load Hebrew font
-        const fontUrl = 'https://cdn.jsdelivr.net/npm/open-sans-hebrew@1.1.0/fonts/OpenSansHebrew-Regular.ttf';
-        
-        try {
-            toast.info("יוצר PDF...");
-            const doc = new jsPDF();
-            
-            // Try to add Hebrew font support
-            try {
-                const response = await fetch(fontUrl);
-                const fontData = await response.arrayBuffer();
-                const fontBase64 = btoa(String.fromCharCode(...new Uint8Array(fontData)));
-                doc.addFileToVFS('OpenSansHebrew.ttf', fontBase64);
-                doc.addFont('OpenSansHebrew.ttf', 'OpenSansHebrew', 'normal');
-                doc.setFont('OpenSansHebrew');
-            } catch (fontError) {
-                console.warn("Could not load Hebrew font, using default", fontError);
-                doc.setFont("helvetica");
-            }
-            
-            let y = 20;
-            
-            // Title - RTL
-            doc.setFontSize(18);
-            doc.text("דוח החזר הוצאות", 190, y, { align: "right" });
-            doc.text(formData.return_number, 190, y + 7, { align: "right" });
-            y += 20;
-            
-            // Employee details - RTL
-            doc.setFontSize(11);
-            doc.text(`עובד: ${formData.employee_name}`, 190, y, { align: "right" });
-            y += 7;
-            doc.text(`אימייל: ${formData.employee_email}`, 190, y, { align: "right" });
-            y += 7;
-            doc.text(`תאריך הגשה: ${formData.submission_date}`, 190, y, { align: "right" });
-            y += 10;
-            
-            // Expenses table header
-            doc.setFontSize(12);
-            doc.setFont("OpenSansHebrew", "bold");
-            doc.text("פירוט הוצאות:", 190, y, { align: "right" });
-            y += 7;
-            
-            doc.setFontSize(9);
-            doc.text("תאריך", 190, y, { align: "right" });
-            doc.text("עסק", 160, y, { align: "right" });
-            doc.text("סוג", 120, y, { align: "right" });
-            doc.text("סכום מקורי", 90, y, { align: "right" });
-            doc.text("שער", 60, y, { align: "right" });
-            doc.text("סכום ש״ח", 30, y, { align: "right" });
-            y += 5;
-            
-            doc.setFont("OpenSansHebrew", "normal");
-            
-            // Sort expenses
-            const sortedExpenses = [...formData.expenses].sort((a, b) => {
-                const nameCompare = (a.business_name || '').localeCompare(b.business_name || '');
-                if (nameCompare !== 0) return nameCompare;
-                const dateA = convertDateForSubmission(a.invoice_date);
-                const dateB = convertDateForSubmission(b.invoice_date);
-                return dateB.localeCompare(dateA);
-            });
-            
-            // Expenses rows
-            sortedExpenses.forEach((expense) => {
-                if (y > 270) {
-                    doc.addPage();
-                    y = 20;
-                }
-                
-                doc.text(expense.invoice_date || '', 190, y, { align: "right" });
-                doc.text((expense.business_name || '').substring(0, 20), 160, y, { align: "right" });
-                doc.text(purchaseTypes[expense.purchase_type] || '', 120, y, { align: "right" });
-                
-                // Original amount and currency
-                if (expense.original_currency && expense.original_currency !== 'ILS') {
-                    doc.text(`${expense.original_amount?.toFixed(2) || '0.00'} ${expense.original_currency}`, 90, y, { align: "right" });
-                    doc.text(expense.exchange_rate?.toFixed(4) || '-', 60, y, { align: "right" });
-                } else {
-                    doc.text('-', 90, y, { align: "right" });
-                    doc.text('-', 60, y, { align: "right" });
-                }
-                
-                doc.text(`${expense.amount?.toFixed(2) || '0.00'}`, 30, y, { align: "right" });
-                y += 6;
-            });
-            
-            y += 5;
-            
-            // Total
-            doc.setFont("OpenSansHebrew", "bold");
-            doc.setFontSize(11);
-            doc.text(`סה״כ לפירעון: ₪${formData.total_amount.toFixed(2)}`, 190, y, { align: "right" });
-            y += 10;
-            
-            // Approval details
-            if (formData.status !== 'pending' && (formData.approved_by || formData.bank_reference || formData.return_date)) {
-                y += 5;
-                doc.setFontSize(12);
-                doc.text("פרטי אישור ותשלום:", 190, y, { align: "right" });
-                y += 7;
-                doc.setFont("OpenSansHebrew", "normal");
-                doc.setFontSize(10);
-                
-                if (formData.approved_by) {
-                    doc.text(`מאושר על ידי: ${formData.approved_by}`, 190, y, { align: "right" });
-                    y += 6;
-                }
-                if (formData.approval_date) {
-                    doc.text(`תאריך אישור: ${formData.approval_date}`, 190, y, { align: "right" });
-                    y += 6;
-                }
-                if (formData.bank_reference) {
-                    doc.text(`אסמכתא בנק: ${formData.bank_reference}`, 190, y, { align: "right" });
-                    y += 6;
-                }
-                if (formData.return_date) {
-                    doc.text(`תאריך תשלום: ${formData.return_date}`, 190, y, { align: "right" });
-                    y += 6;
-                }
-                
-                const statusText = 
-                    formData.status === 'pending' ? 'ממתין לאישור' :
-                    formData.status === 'approved' ? 'מאושר' :
-                    formData.status === 'rejected' ? 'נדחה' :
-                    formData.status === 'paid' ? 'שולם' : formData.status;
-                doc.text(`סטטוס: ${statusText}`, 190, y, { align: "right" });
-            }
-            
-            // Notes
-            if (formData.notes) {
-                y += 10;
-                doc.setFont("OpenSansHebrew", "bold");
-                doc.text("הערות:", 190, y, { align: "right" });
-                y += 6;
-                doc.setFont("OpenSansHebrew", "normal");
-                const notesLines = doc.splitTextToSize(formData.notes, 170);
-                notesLines.forEach(line => {
-                    if (y > 280) {
-                        doc.addPage();
-                        y = 20;
-                    }
-                    doc.text(line, 190, y, { align: "right" });
-                    y += 6;
-                });
-            }
-            
-            // Save PDF
-            doc.save(`החזר_הוצאות_${formData.return_number}.pdf`);
-            toast.success("PDF נוצר בהצלחה");
-        } catch (error) {
-            console.error("Error generating PDF:", error);
-            toast.error("שגיאה ביצירת PDF");
-        }
-    };
-
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1125,14 +951,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <div className="flex justify-start gap-2 pt-4">
                 <Button type="submit" disabled={formData.expenses.length === 0}>
                     שמור החזרת הוצאות
-                </Button>
-                <Button 
-                    type="button" 
-                    onClick={handleGeneratePDF} 
-                    variant="outline"
-                    disabled={formData.expenses.length === 0}
-                >
-                    <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
                 </Button>
                 <Button type="button" variant="ghost" onClick={onCancel}>ביטול</Button>
             </div>
