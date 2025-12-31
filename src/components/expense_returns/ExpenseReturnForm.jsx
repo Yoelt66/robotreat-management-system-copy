@@ -31,7 +31,7 @@ const purchaseTypes = {
 
 export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit, onCancel }) {
     const [formData, setFormData] = useState({
-        return_number: `EXP-${Date.now().toString().slice(-6)}`,
+        return_number: 'טוען...',
         employee_name: currentUser?.nickname || currentUser?.full_name || '',
         employee_email: currentUser?.email || '',
         status: 'pending',

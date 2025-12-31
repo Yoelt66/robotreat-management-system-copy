@@ -39,13 +39,38 @@ export default function ExpenseReturnsPage() {
         }
     };
 
+    const generateReturnNumber = async () => {
+        const now = new Date();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const year = String(now.getFullYear()).slice(-2);
+        const prefix = `EXPR${month}${year}`;
+        
+        // Get all returns with the same prefix
+        const allReturns = await ExpenseReturn.list();
+        const returnsWithPrefix = allReturns.filter(r => r.return_number?.startsWith(prefix));
+        
+        // Find the highest sequence number
+        let maxSequence = 0;
+        returnsWithPrefix.forEach(r => {
+            const sequencePart = r.return_number.slice(-3);
+            const sequence = parseInt(sequencePart, 10);
+            if (!isNaN(sequence) && sequence > maxSequence) {
+                maxSequence = sequence;
+            }
+        });
+        
+        const nextSequence = String(maxSequence + 1).padStart(3, '0');
+        return `${prefix}${nextSequence}`;
+    };
+
     const handleFormSubmit = async (formData) => {
         try {
             if (editingReturn) {
                 await ExpenseReturn.update(editingReturn.id, formData);
                 toast.success("החזרת הוצאות עודכנה בהצלחה");
             } else {
-                await ExpenseReturn.create(formData);
+                const returnNumber = await generateReturnNumber();
+                await ExpenseReturn.create({ ...formData, return_number: returnNumber });
                 toast.success("החזרת הוצאות חדשה נוצרה");
             }
             setShowForm(false);
