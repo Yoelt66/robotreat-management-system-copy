@@ -1128,7 +1128,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 </Button>
                 <Button 
                     type="button" 
-                    onClick={generatePDF} 
+                    onClick={handleGeneratePDF} 
                     variant="outline"
                     disabled={formData.expenses.length === 0}
                 >
