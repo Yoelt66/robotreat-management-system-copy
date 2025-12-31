@@ -74,6 +74,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 submission_date: formatForDisplay(initialReturn.submission_date),
                 return_date: formatForDisplay(initialReturn.return_date),
                 approval_date: formatForDisplay(initialReturn.approval_date),
+                approved_by: initialReturn.approved_by || '',
                 receipt_files: initialReturn.receipt_files || (initialReturn.receipt_urls || []).map((url, i) => ({ url, name: `קובץ ${i + 1}` })),
                 expenses: (initialReturn.expenses || []).map(exp => ({
                     ...exp,
@@ -672,15 +673,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     <div class="notes">
         <h3>הערות</h3>
         <p>${formData.notes.replace(/\n/g, '<br>')}</p>
-    </div>
-    ` : ''}
-
-    ${formData.receipt_files && formData.receipt_files.length > 0 ? `
-    <div class="info-section">
-        <h3>קבלות מצורפות (${formData.receipt_files.length})</h3>
-        <ul>
-            ${formData.receipt_files.map(file => `<li>${file.name}</li>`).join('')}
-        </ul>
     </div>
     ` : ''}
 
