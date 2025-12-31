@@ -774,14 +774,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">פירוט הוצאות</h3>
                 <div className="flex gap-2">
-                    <Button 
-                        type="button" 
-                        onClick={generatePDF} 
-                        variant="outline" 
-                        size="sm"
-                    >
-                        <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
-                    </Button>
                     <Button type="button" onClick={handleAddExpense} size="sm">
                         <Plus className="w-4 h-4 ml-2" /> הוסף הוצאה
                     </Button>
