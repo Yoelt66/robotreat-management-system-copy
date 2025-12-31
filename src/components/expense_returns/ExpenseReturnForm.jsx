@@ -19,6 +19,7 @@ const purchaseTypes = {
   tools: "כלי עבודה",
   fuel: "דלק",
   software: "תוכנה",
+  vehicle: "רכב",
   parts: "חלקי חילוף",
   office_supplies: "ציוד משרד",
   travel: "נסיעות",
