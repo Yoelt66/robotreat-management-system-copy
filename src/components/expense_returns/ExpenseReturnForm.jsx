@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, Printer } from "lucide-react";
 import { User } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -558,6 +558,145 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
     const isAdmin = currentUser?.role === 'admin';
 
+    const handleExportToPrint = () => {
+        if (formData.expenses.length === 0) {
+            toast.error("אין הוצאות לייצא");
+            return;
+        }
+
+        // Sort expenses
+        const sortedExpenses = [...formData.expenses].sort((a, b) => {
+            const nameCompare = (a.business_name || '').localeCompare(b.business_name || '');
+            if (nameCompare !== 0) return nameCompare;
+            const dateA = convertDateForSubmission(a.invoice_date);
+            const dateB = convertDateForSubmission(b.invoice_date);
+            return dateB.localeCompare(dateA);
+        });
+
+        const statusText = 
+            formData.status === 'pending' ? 'ממתין לאישור' :
+            formData.status === 'approved' ? 'מאושר' :
+            formData.status === 'rejected' ? 'נדחה' :
+            formData.status === 'paid' ? 'שולם' : formData.status;
+
+        const html = `
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>החזר הוצאות - ${formData.return_number}</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; direction: rtl; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .header h2 { margin: 5px 0; font-size: 18px; color: #666; }
+        .info-section { margin: 20px 0; }
+        .info-section h3 { font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .info-row { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .total-row { font-weight: bold; font-size: 18px; background-color: #f9f9f9; }
+        .notes { margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 5px; }
+        @media print {
+            body { padding: 20px; }
+            button { display: none; }
+        }
+        .print-button { margin: 20px 0; padding: 10px 30px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <button class="print-button" onclick="window.print()">🖨️ הדפס / שמור כ-PDF</button>
+    
+    <div class="header">
+        <h1>דוח החזר הוצאות</h1>
+        <h2>מספר החזרה: ${formData.return_number}</h2>
+    </div>
+
+    <div class="info-section">
+        <h3>פרטי עובד</h3>
+        <div class="info-row"><strong>שם:</strong> ${formData.employee_name}</div>
+        <div class="info-row"><strong>אימייל:</strong> ${formData.employee_email}</div>
+        <div class="info-row"><strong>תאריך הגשה:</strong> ${formData.submission_date}</div>
+        <div class="info-row"><strong>סטטוס:</strong> ${statusText}</div>
+    </div>
+
+    <div class="info-section">
+        <h3>פירוט הוצאות</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>תאריך</th>
+                    <th>מס׳ חשבונית</th>
+                    <th>שם העסק</th>
+                    <th>סוג רכישה</th>
+                    <th>סכום מקורי</th>
+                    <th>שער</th>
+                    <th>סכום ₪</th>
+                    <th>תיאור</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sortedExpenses.map(exp => `
+                    <tr>
+                        <td>${exp.invoice_date || '-'}</td>
+                        <td>${exp.invoice_number || '-'}</td>
+                        <td>${exp.business_name || '-'}</td>
+                        <td>${purchaseTypes[exp.purchase_type] || exp.purchase_type}</td>
+                        <td>${exp.original_currency && exp.original_currency !== 'ILS' ? 
+                            `${exp.original_amount?.toFixed(2) || '0.00'} ${exp.original_currency}` : '-'}</td>
+                        <td>${exp.exchange_rate ? exp.exchange_rate.toFixed(4) : '-'}</td>
+                        <td>₪${exp.amount?.toFixed(2) || '0.00'}</td>
+                        <td>${exp.description || '-'}</td>
+                    </tr>
+                `).join('')}
+                <tr class="total-row">
+                    <td colspan="6">סה״כ לפירעון:</td>
+                    <td colspan="2">₪${formData.total_amount.toFixed(2)}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    ${(formData.approved_by || formData.bank_reference || formData.return_date) ? `
+    <div class="info-section">
+        <h3>פרטי אישור ותשלום</h3>
+        ${formData.approved_by ? `<div class="info-row"><strong>מאושר על ידי:</strong> ${formData.approved_by}</div>` : ''}
+        ${formData.approval_date ? `<div class="info-row"><strong>תאריך אישור:</strong> ${formData.approval_date}</div>` : ''}
+        ${formData.bank_reference ? `<div class="info-row"><strong>אסמכתא בנק:</strong> ${formData.bank_reference}</div>` : ''}
+        ${formData.return_date ? `<div class="info-row"><strong>תאריך תשלום:</strong> ${formData.return_date}</div>` : ''}
+    </div>
+    ` : ''}
+
+    ${formData.notes ? `
+    <div class="notes">
+        <h3>הערות</h3>
+        <p>${formData.notes.replace(/\n/g, '<br>')}</p>
+    </div>
+    ` : ''}
+
+    ${formData.receipt_files && formData.receipt_files.length > 0 ? `
+    <div class="info-section">
+        <h3>קבלות מצורפות (${formData.receipt_files.length})</h3>
+        <ul>
+            ${formData.receipt_files.map(file => `<li>${file.name}</li>`).join('')}
+        </ul>
+    </div>
+    ` : ''}
+
+    <div style="margin-top: 40px; text-align: center; color: #666; font-size: 12px;">
+        נוצר ב: ${new Date().toLocaleDateString('he-IL')} ${new Date().toLocaleTimeString('he-IL')}
+    </div>
+</body>
+</html>
+        `;
+
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(html);
+        printWindow.document.close();
+        toast.success("נפתח חלון הדפסה - תוכל להדפיס או לשמור כ-PDF");
+    };
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -951,6 +1090,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             <div className="flex justify-start gap-2 pt-4">
                 <Button type="submit" disabled={formData.expenses.length === 0}>
                     שמור החזרת הוצאות
+                </Button>
+                <Button 
+                    type="button" 
+                    onClick={handleExportToPrint} 
+                    variant="outline"
+                    disabled={formData.expenses.length === 0}
+                >
+                    <Printer className="w-4 h-4 ml-2" /> ייצא להדפסה
                 </Button>
                 <Button type="button" variant="ghost" onClick={onCancel}>ביטול</Button>
             </div>
