@@ -18,6 +18,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 const purchaseTypes = {
   tools: "כלי עבודה",
   fuel: "דלק",
+  software: "תוכנה",
   parts: "חלקי חילוף",
   office_supplies: "ציוד משרד",
   travel: "נסיעות",
@@ -115,7 +116,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             original_amount: 0,
             original_currency: 'ILS',
             exchange_rate: null,
-            description: '',
             receipt_uploaded: false
         };
         setFormData(prev => ({ 
@@ -304,7 +304,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             original_amount: amount || 0,
                             original_currency: currency || 'ILS',
                             exchange_rate: exchangeRate,
-                            description: accounting_category || '',
                             receipt_uploaded: true,
                             receipt_url: file_url,
                             receipt_file_name: file_name,
@@ -395,7 +394,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 handleExpenseChange(originalIndex, 'original_amount', amount || expense.original_amount || 0);
                 handleExpenseChange(originalIndex, 'original_currency', currency || expense.original_currency || 'ILS');
                 handleExpenseChange(originalIndex, 'exchange_rate', exchangeRate);
-                handleExpenseChange(originalIndex, 'description', accounting_category || expense.description || '');
 
                 toast.success("הוצאה נותחה מחדש בהצלחה!");
             } else {
@@ -587,23 +585,26 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     <meta charset="UTF-8">
     <title>החזר הוצאות - ${formData.return_number}</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 40px; direction: rtl; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-        .header h1 { margin: 0; font-size: 28px; }
-        .header h2 { margin: 5px 0; font-size: 18px; color: #666; }
-        .info-section { margin: 20px 0; }
-        .info-section h3 { font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-        .info-row { margin: 8px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
-        th { background-color: #f5f5f5; font-weight: bold; }
-        .total-row { font-weight: bold; font-size: 18px; background-color: #f9f9f9; }
-        .notes { margin: 20px 0; padding: 15px; background-color: #f9f9f9; border-radius: 5px; }
+        body { font-family: Arial, sans-serif; padding: 30px; direction: rtl; font-size: 11px; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .header h1 { margin: 0; font-size: 20px; }
+        .header h2 { margin: 5px 0; font-size: 14px; color: #666; }
+        .info-section { margin: 15px 0; }
+        .info-section h3 { font-size: 13px; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 8px; }
+        .info-row { margin: 5px 0; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: right; white-space: nowrap; }
+        th { background-color: #f5f5f5; font-weight: bold; font-size: 10px; }
+        td { font-size: 10px; }
+        .total-row { font-weight: bold; font-size: 12px; background-color: #f9f9f9; }
+        .notes { margin: 15px 0; padding: 10px; background-color: #f9f9f9; border-radius: 5px; font-size: 11px; }
         @media print {
-            body { padding: 20px; }
+            body { padding: 15px; font-size: 10px; }
             button { display: none; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
         }
-        .print-button { margin: 20px 0; padding: 10px 30px; font-size: 16px; cursor: pointer; }
+        .print-button { margin: 15px 0; padding: 8px 25px; font-size: 14px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -634,8 +635,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                     <th>סכום מקורי</th>
                     <th>שער</th>
                     <th>סכום ₪</th>
-                    <th>תיאור</th>
-                </tr>
+                    </tr>
             </thead>
             <tbody>
                 ${sortedExpenses.map(exp => `
@@ -648,12 +648,11 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             `${exp.original_amount?.toFixed(2) || '0.00'} ${exp.original_currency}` : '-'}</td>
                         <td>${exp.exchange_rate ? exp.exchange_rate.toFixed(4) : '-'}</td>
                         <td>₪${exp.amount?.toFixed(2) || '0.00'}</td>
-                        <td>${exp.description || '-'}</td>
-                    </tr>
+                        </tr>
                 `).join('')}
                 <tr class="total-row">
                     <td colspan="6">סה״כ לפירעון:</td>
-                    <td colspan="2">₪${formData.total_amount.toFixed(2)}</td>
+                    <td>₪${formData.total_amount.toFixed(2)}</td>
                 </tr>
             </tbody>
         </table>
@@ -757,7 +756,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                         <TableHead>סכום מקורי</TableHead>
                                         <TableHead>שער</TableHead>
                                         <TableHead>סכום ₪</TableHead>
-                                        <TableHead>תיאור</TableHead>
                                         <TableHead>קובץ</TableHead>
                                         <TableHead></TableHead>
                                     </TableRow>
@@ -849,14 +847,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                     value={expense.amount} 
                                                     onChange={e => handleExpenseChange(originalIndex, 'amount', parseFloat(parseFloat(e.target.value).toFixed(2)) || 0)}
                                                     className="w-24"
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input 
-                                                    value={expense.description} 
-                                                    onChange={e => handleExpenseChange(originalIndex, 'description', e.target.value)}
-                                                    placeholder="תיאור"
-                                                    className="w-32"
                                                 />
                                             </TableCell>
                                             <TableCell>
