@@ -1122,6 +1122,14 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 <Button type="submit" disabled={formData.expenses.length === 0}>
                     שמור החזרת הוצאות
                 </Button>
+                <Button 
+                    type="button" 
+                    onClick={generatePDF} 
+                    variant="outline"
+                    disabled={formData.expenses.length === 0}
+                >
+                    <FileDown className="w-4 h-4 ml-2" /> ייצא ל-PDF
+                </Button>
                 <Button type="button" variant="ghost" onClick={onCancel}>ביטול</Button>
             </div>
         </form>
