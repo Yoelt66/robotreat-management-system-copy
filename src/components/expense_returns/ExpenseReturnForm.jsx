@@ -559,18 +559,22 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
     const isAdmin = currentUser?.role === 'admin';
 
-    const generatePDF = async (e) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+    const handleGeneratePDF = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         
-        console.log("Generating PDF...");
+        console.log("PDF button clicked!");
         
         if (formData.expenses.length === 0) {
             toast.error("אין הוצאות ליצירת PDF");
             return;
         }
+        
+        generatePDF();
+    };
+
+    const generatePDF = async () => {
+        console.log("Generating PDF...");
         
         // Load Hebrew font
         const fontUrl = 'https://cdn.jsdelivr.net/npm/open-sans-hebrew@1.1.0/fonts/OpenSansHebrew-Regular.ttf';
