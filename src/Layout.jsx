@@ -28,6 +28,7 @@ const stockNavigation = [
   { name: "הזמנה חדשה", icon: ClipboardPlus, path: "NewOrders" },
   { name: "רשימת הזמנות", icon: ClipboardList, path: "Orders" },
   { name: "תעודות משלוח", icon: ClipboardCheck, path: "DeliveryNotes" },
+  { name: "ניהול חשבוניות", icon: ClipboardCheck, path: "Invoices" },
   { name: "החזר הוצאות", icon: Undo2, path: "ExpenseReturns" },
 ];
 

@@ -20,6 +20,7 @@ import Settings from './pages/Settings';
 import StockDashboard from './pages/StockDashboard';
 import Transfers from './pages/Transfers';
 import Welcome from './pages/Welcome';
+import Invoices from './pages/Invoices';
 import __Layout from './Layout.jsx';
 
 
@@ -46,6 +47,7 @@ export const PAGES = {
     "StockDashboard": StockDashboard,
     "Transfers": Transfers,
     "Welcome": Welcome,
+    "Invoices": Invoices,
 }
 
 export const pagesConfig = {
