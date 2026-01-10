@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Upload, FileText, Pencil, Trash2, Loader2, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
+import { format, addDays, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
 export default function InvoicesPage() {
@@ -25,6 +26,7 @@ export default function InvoicesPage() {
   const [deletingInvoice, setDeletingInvoice] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
+  const [selectedInvoices, setSelectedInvoices] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -189,6 +191,57 @@ export default function InvoicesPage() {
     return statusMatch && supplierMatch;
   });
 
+  const calculateDays = (invoiceDate, paymentDate) => {
+    if (!invoiceDate) return 0;
+    const startDate = new Date(invoiceDate);
+    const endDate = paymentDate ? new Date(paymentDate) : new Date();
+    return differenceInDays(endDate, startDate);
+  };
+
+  const toggleInvoiceSelection = (invoiceId) => {
+    setSelectedInvoices((prev) =>
+      prev.includes(invoiceId)
+        ? prev.filter((id) => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
+  };
+
+  const selectedInvoicesData = invoices.filter((inv) =>
+    selectedInvoices.includes(inv.id)
+  );
+
+  const totalSelectedAmount = selectedInvoicesData.reduce(
+    (sum, inv) => sum + (inv.amount || 0),
+    0
+  );
+
+  const handleMarkAsPaid = async () => {
+    if (selectedInvoices.length === 0) {
+      toast.error("אנא בחר חשבוניות לסימון");
+      return;
+    }
+
+    try {
+      const paymentDate = format(new Date(), "yyyy-MM-dd");
+      
+      await Promise.all(
+        selectedInvoices.map((invoiceId) =>
+          Invoice.update(invoiceId, {
+            status: "paid",
+            payment_date: paymentDate,
+          })
+        )
+      );
+
+      toast.success(`${selectedInvoices.length} חשבוניות סומנו כשולמו`);
+      setSelectedInvoices([]);
+      await loadData();
+    } catch (error) {
+      console.error("Failed to mark invoices as paid:", error);
+      toast.error("שגיאה בעדכון החשבוניות");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -231,6 +284,35 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {selectedInvoices.length > 0 && (
+        <Card className="bg-emerald-50 border-emerald-200">
+          <CardContent className="py-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-lg font-semibold">
+                  {selectedInvoices.length} חשבוניות נבחרו
+                </span>
+                <span className="text-xl font-bold mr-4">
+                  סכום כולל: ₪{totalSelectedAmount.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleMarkAsPaid} variant="default">
+                  <CheckCircle className="h-4 w-4 ml-2" />
+                  סמן כשולם
+                </Button>
+                <Button
+                  onClick={() => setSelectedInvoices([])}
+                  variant="outline"
+                >
+                  ביטול בחירה
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -263,12 +345,14 @@ export default function InvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>מספר חשבונית</TableHead>
                 <TableHead>ספק</TableHead>
                 <TableHead>תאריך חשבונית</TableHead>
                 <TableHead>סכום</TableHead>
                 <TableHead>סטטוס</TableHead>
                 <TableHead>תאריך תשלום / לתשלום</TableHead>
+                <TableHead>ימים</TableHead>
                 <TableHead>קובץ</TableHead>
                 <TableHead className="text-center">פעולות</TableHead>
               </TableRow>
@@ -276,102 +360,120 @@ export default function InvoicesPage() {
             <TableBody>
               {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={10} className="text-center text-slate-500 py-8">
                     <FileText className="h-12 w-12 mx-auto mb-2 text-slate-300" />
                     אין חשבוניות להצגה
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((invoice) => (
-                  <TableRow
-                    key={invoice.id}
-                    className={
-                      invoice.status === "paid"
-                        ? "bg-green-50"
-                        : "bg-red-50"
-                    }
-                  >
-                    <TableCell className="font-medium">
-                      {invoice.invoice_number}
-                    </TableCell>
-                    <TableCell>{invoice.supplier_name}</TableCell>
-                    <TableCell>
-                      {invoice.invoice_date
-                        ? format(new Date(invoice.invoice_date), "dd/MM/yyyy")
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {invoice.currency === "ILS" ? "₪" : invoice.currency}
-                      {invoice.amount?.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          invoice.status === "paid" ? "default" : "secondary"
-                        }
-                        className={
-                          invoice.status === "paid"
-                            ? "bg-green-600"
-                            : "bg-red-600"
-                        }
-                      >
-                        {invoice.status === "paid" ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 ml-1" />
-                            שולם
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle className="h-3 w-3 ml-1" />
-                            פתוח
-                          </>
+                filteredInvoices.map((invoice) => {
+                  const daysFromInvoice = calculateDays(
+                    invoice.invoice_date,
+                    invoice.status === "paid" ? invoice.payment_date : null
+                  );
+
+                  return (
+                    <TableRow
+                      key={invoice.id}
+                      className={
+                        invoice.status === "paid"
+                          ? "bg-green-50"
+                          : "bg-red-50"
+                      }
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedInvoices.includes(invoice.id)}
+                          onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {invoice.invoice_number}
+                      </TableCell>
+                      <TableCell>{invoice.supplier_name}</TableCell>
+                      <TableCell>
+                        {invoice.invoice_date
+                          ? format(new Date(invoice.invoice_date), "dd/MM/yyyy")
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {invoice.currency === "ILS" ? "₪" : invoice.currency}
+                        {invoice.amount?.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            invoice.status === "paid" ? "default" : "secondary"
+                          }
+                          className={
+                            invoice.status === "paid"
+                              ? "bg-green-600"
+                              : "bg-red-600"
+                          }
+                        >
+                          {invoice.status === "paid" ? (
+                            <>
+                              <CheckCircle className="h-3 w-3 ml-1" />
+                              שולם
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="h-3 w-3 ml-1" />
+                              פתוח
+                            </>
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {invoice.status === "paid"
+                          ? invoice.payment_date
+                            ? format(new Date(invoice.payment_date), "dd/MM/yyyy")
+                            : "-"
+                          : invoice.due_date
+                          ? format(new Date(invoice.due_date), "dd/MM/yyyy")
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-medium">
+                          {daysFromInvoice} ימים
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {invoice.invoice_file_url && (
+                          <a
+                            href={invoice.invoice_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
+                            title={invoice.invoice_file_name || "צפה בקובץ"}
+                          >
+                            <FileText className="h-4 w-4" />
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
                         )}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {invoice.status === "paid"
-                        ? invoice.payment_date
-                          ? format(new Date(invoice.payment_date), "dd/MM/yyyy")
-                          : "-"
-                        : invoice.due_date
-                        ? format(new Date(invoice.due_date), "dd/MM/yyyy")
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {invoice.invoice_file_url && (
-                        <a
-                          href={invoice.invoice_file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
-                          title={invoice.invoice_file_name || "צפה בקובץ"}
-                        >
-                          <FileText className="h-4 w-4" />
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(invoice)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:text-red-600"
-                          onClick={() => setDeletingInvoice(invoice)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(invoice)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => setDeletingInvoice(invoice)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
