@@ -63,7 +63,11 @@ export default function DataImporter({
             const preImportData = preImportTask ? await preImportTask() : {};
             addLog('איסוף נתונים מקדימים הושלם.', 'info');
             
-            const fileContent = await file.text();
+            // Read file with proper encoding support for Hebrew
+            const arrayBuffer = await file.arrayBuffer();
+            const decoder = new TextDecoder('utf-8');
+            const fileContent = decoder.decode(arrayBuffer);
+            
             const fileName = file.name.toLowerCase();
             const isTabDelimited = fileName.endsWith('.txt') || fileName.endsWith('.tsv');
             const delimiter = isTabDelimited ? '\t' : ',';
