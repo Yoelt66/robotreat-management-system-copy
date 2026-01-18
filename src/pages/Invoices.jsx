@@ -43,7 +43,7 @@ export default function InvoicesPage() {
       setSuppliers(suppliersData);
     } catch (error) {
       console.error("Failed to load data:", error);
-      toast.error("שגיאה בטעינת הנתונים");
+      toast.error("שגיאה בטעינת הנתונים", { duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function InvoicesPage() {
     setUploading(true);
 
     try {
-      toast.info(`מעלה ומנתח ${files.length} חשבוניות...`);
+      toast.info(`מעלה ומנתח ${files.length} חשבוניות...`, { duration: 3000 });
 
       const results = await Promise.all(
         files.map(async (file) => {
@@ -136,11 +136,11 @@ export default function InvoicesPage() {
         await Invoice.create(invoice);
       }
 
-      toast.success(`${newInvoices.length} חשבוניות נוספו בהצלחה!`);
+      toast.success(`${newInvoices.length} חשבוניות נוספו בהצלחה!`, { duration: 3000 });
       await loadData();
     } catch (error) {
       console.error("File upload error:", error);
-      toast.error("שגיאה בהעלאת החשבוניות");
+      toast.error("שגיאה בהעלאת החשבוניות", { duration: 3000 });
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -157,12 +157,12 @@ export default function InvoicesPage() {
 
     try {
       await Invoice.delete(deletingInvoice.id);
-      toast.success("החשבונית נמחקה בהצלחה");
+      toast.success("החשבונית נמחקה בהצלחה", { duration: 3000 });
       setDeletingInvoice(null);
       await loadData();
     } catch (error) {
       console.error("Failed to delete invoice:", error);
-      toast.error("שגיאה במחיקת החשבונית");
+      toast.error("שגיאה במחיקת החשבונית", { duration: 3000 });
     }
   };
 
@@ -170,17 +170,17 @@ export default function InvoicesPage() {
     try {
       if (editingInvoice) {
         await Invoice.update(editingInvoice.id, formData);
-        toast.success("החשבונית עודכנה בהצלחה");
+        toast.success("החשבונית עודכנה בהצלחה", { duration: 3000 });
       } else {
         await Invoice.create(formData);
-        toast.success("החשבונית נוצרה בהצלחה");
+        toast.success("החשבונית נוצרה בהצלחה", { duration: 3000 });
       }
       setShowForm(false);
       setEditingInvoice(null);
       await loadData();
     } catch (error) {
       console.error("Failed to save invoice:", error);
-      toast.error("שגיאה בשמירת החשבונית");
+      toast.error("שגיאה בשמירת החשבונית", { duration: 3000 });
     }
   };
 
@@ -217,7 +217,7 @@ export default function InvoicesPage() {
 
   const handleMarkAsPaid = async () => {
     if (selectedInvoices.length === 0) {
-      toast.error("אנא בחר חשבוניות לסימון");
+      toast.error("אנא בחר חשבוניות לסימון", { duration: 3000 });
       return;
     }
 
@@ -233,12 +233,12 @@ export default function InvoicesPage() {
         )
       );
 
-      toast.success(`${selectedInvoices.length} חשבוניות סומנו כשולמו`);
+      toast.success(`${selectedInvoices.length} חשבוניות סומנו כשולמו`, { duration: 3000 });
       setSelectedInvoices([]);
       await loadData();
     } catch (error) {
       console.error("Failed to mark invoices as paid:", error);
-      toast.error("שגיאה בעדכון החשבוניות");
+      toast.error("שגיאה בעדכון החשבוניות", { duration: 3000 });
     }
   };
 
