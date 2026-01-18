@@ -350,7 +350,7 @@ export default function ImportSettings() {
       setMappings(data);
     } catch (error) {
       console.error("Error loading import mappings:", error);
-      toast({ variant: "destructive", title: "שגיאה בטעינת הגדרות ייבוא" });
+      toast({ variant: "destructive", title: "שגיאה בטעינת הגדרות ייבוא", duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -370,11 +370,11 @@ export default function ImportSettings() {
     if (confirm("האם אתה בטוח שברצונך למחוק הגדרת מיפוי זו?")) {
       try {
         await ImportMapping.delete(mappingId);
-        toast({ title: "הגדרת המיפוי נמחקה בהצלחה" });
+        toast({ title: "הגדרת המיפוי נמחקה בהצלחה", duration: 3000 });
         loadMappings();
       } catch (error) {
         console.error("Error deleting mapping:", error);
-        toast({ variant: "destructive", title: "שגיאה במחיקת הגדרת המיפוי" });
+        toast({ variant: "destructive", title: "שגיאה במחיקת הגדרת המיפוי", duration: 3000 });
       }
     }
   };
@@ -391,10 +391,10 @@ export default function ImportSettings() {
 
       if (editingMapping) {
         await ImportMapping.update(editingMapping.id, data);
-        toast({ title: "הגדרת המיפוי עודכנה בהצלחה" });
+        toast({ title: "הגדרת המיפוי עודכנה בהצלחה", duration: 3000 });
       } else {
         await ImportMapping.create(data);
-        toast({ title: "הגדרת מיפוי חדשה נוצרה" });
+        toast({ title: "הגדרת מיפוי חדשה נוצרה", duration: 3000 });
       }
       
       setShowForm(false);
@@ -402,7 +402,7 @@ export default function ImportSettings() {
       await loadMappings();
     } catch (error) {
       console.error("Error saving mapping:", error);
-      toast({ variant: "destructive", title: "שגיאה בשמירת הגדרת המיפוי" });
+      toast({ variant: "destructive", title: "שגיאה בשמירת הגדרת המיפוי", duration: 3000 });
     }
   };
 
