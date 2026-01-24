@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
             throw new Error(`חסרים שדות חובה: sku=${formattedRow.sku}, name=${formattedRow.name}`);
           }
           
-          // Validate and normalize category
+          // Validate and normalize category - auto-create if needed
           let categoryCode = formattedRow.category || null;
           if (categoryCode) {
             // Try to find by code first
@@ -300,19 +300,31 @@ Deno.serve(async (req) => {
               if (categoryByName) {
                 categoryCode = categoryByName.code;
               } else {
-                addLog(`אזהרה: קטגוריה "${categoryCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
-                categoryCode = allCategories.length > 0 ? allCategories[0].code : null;
+                // Create new category automatically
+                addLog(`יוצר קטגוריה חדשה: ${categoryCode}`, 'info');
+                try {
+                  const newCategory = await apiCallWithRetry(
+                    () => base44.asServiceRole.entities.Category.create({
+                      code: categoryCode,
+                      name: categoryCode,
+                      color: 'bg-gray-100 text-gray-800'
+                    }),
+                    MAX_RETRIES,
+                    `Create category ${categoryCode}`
+                  );
+                  categoryMap.set(categoryCode, newCategory);
+                  allCategories.push(newCategory);
+                } catch (catError) {
+                  addLog(`שגיאה ביצירת קטגוריה ${categoryCode}: ${catError.message}. משתמש בברירת מחדל.`, 'warn');
+                  categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                }
               }
             }
           } else {
-            categoryCode = allCategories.length > 0 ? allCategories[0].code : null;
+            categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
           }
           
-          if (!categoryCode) {
-            throw new Error(`לא נמצאה קטגוריה עבור פריט ${formattedRow.sku}. יש להוסיף קטגוריות בהגדרות המערכת.`);
-          }
-          
-          // Validate and normalize unit
+          // Validate and normalize unit - auto-create if needed
           let unitCode = formattedRow.unit || null;
           if (unitCode) {
             // Try to find by code first
@@ -322,16 +334,29 @@ Deno.serve(async (req) => {
               if (unitByName) {
                 unitCode = unitByName.code;
               } else {
-                addLog(`אזהרה: יחידת מידה "${unitCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
-                unitCode = allUnits.length > 0 ? allUnits[0].code : null;
+                // Create new unit automatically
+                addLog(`יוצר יחידת מידה חדשה: ${unitCode}`, 'info');
+                try {
+                  const newUnit = await apiCallWithRetry(
+                    () => base44.asServiceRole.entities.Unit.create({
+                      code: unitCode,
+                      name: unitCode,
+                      type: 'quantity',
+                      is_active: true
+                    }),
+                    MAX_RETRIES,
+                    `Create unit ${unitCode}`
+                  );
+                  unitMap.set(unitCode, newUnit);
+                  allUnits.push(newUnit);
+                } catch (unitError) {
+                  addLog(`שגיאה ביצירת יחידת מידה ${unitCode}: ${unitError.message}. משתמש בברירת מחדל.`, 'warn');
+                  unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                }
               }
             }
           } else {
-            unitCode = allUnits.length > 0 ? allUnits[0].code : null;
-          }
-          
-          if (!unitCode) {
-            throw new Error(`לא נמצאה יחידת מידה עבור פריט ${formattedRow.sku}. יש להוסיף יחידות מידה בהגדרות המערכת.`);
+            unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
           }
           
           const partPayload = {
