@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +19,8 @@ export default function CategoryForm({ category, onSubmit, onCancel }) {
     supplier_number: category?.supplier_number || '', // Changed default to '' instead of null for consistency with Select
     cost_currency: category?.cost_currency || 'ILS',
     sale_currency: category?.sale_currency || 'ILS',
-    import_percentage: category?.import_percentage || 15,
-    margin_percentage: category?.margin_percentage || 30,
+    import_percentage: category?.import_percentage !== undefined ? category.import_percentage : 10,
+    margin_percentage: category?.margin_percentage !== undefined ? category.margin_percentage : 45,
   });
 
   const [currencies, setCurrencies] = useState([]);
@@ -184,8 +183,8 @@ export default function CategoryForm({ category, onSubmit, onCancel }) {
                 type="number"
                 min="0"
                 step="0.1"
-                value={formData.import_percentage}
-                onChange={(e) => setFormData(prev => ({ ...prev, import_percentage: parseFloat(e.target.value) || 0 }))} // Use parseFloat and default to 0
+                value={formData.import_percentage !== undefined ? formData.import_percentage : ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, import_percentage: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
                 placeholder="15" // Added placeholder
               />
             </div>
@@ -197,8 +196,8 @@ export default function CategoryForm({ category, onSubmit, onCancel }) {
                 type="number"
                 min="0"
                 step="0.1"
-                value={formData.margin_percentage}
-                onChange={(e) => setFormData(prev => ({ ...prev, margin_percentage: parseFloat(e.target.value) || 0 }))} // Use parseFloat and default to 0
+                value={formData.margin_percentage !== undefined ? formData.margin_percentage : ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, margin_percentage: e.target.value === '' ? 0 : parseFloat(e.target.value) }))}
                 placeholder="30" // Added placeholder
               />
             </div>
