@@ -126,9 +126,9 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
     
     let finalValue = type === 'checkbox' ? checked : value;
     
-    // Convert empty strings to 0 for percentage fields
-    if ((name === 'import_percentage' || name === 'markup_percentage') && value === '') {
-      finalValue = 0;
+    // Convert to number for numeric fields
+    if (type === 'number') {
+      finalValue = value === '' ? 0 : parseFloat(value);
     }
     
     setFormData(prev => ({

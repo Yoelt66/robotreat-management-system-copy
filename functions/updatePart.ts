@@ -80,7 +80,8 @@ Deno.serve(async (req) => {
         for (const field of pricingFields) {
             if (partData[field] !== undefined && hasChanged(existingPricing[field], partData[field])) {
                 if (numericPricingFields.includes(field)) {
-                    pricingUpdate[field] = parseFloat(partData[field]) || 0;
+                    const numValue = parseFloat(partData[field]);
+                    pricingUpdate[field] = isNaN(numValue) ? 0 : numValue;
                 } else if (field === 'is_manual') {
                     pricingUpdate[field] = Boolean(partData[field]);
                 } else {
