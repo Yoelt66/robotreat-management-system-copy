@@ -798,6 +798,12 @@ export default function Import() {
                   }
                 }
               });
+              
+              // Special handling for is_manual based on manual_sale_price
+              if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
+                updateData.is_manual = true;
+                hasChanges = true;
+              }
 
               // בדיקת שדות PartSupplier - flatten to root level for updatePart
               supplierFields.forEach(field => {
