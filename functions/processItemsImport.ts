@@ -186,6 +186,19 @@ Deno.serve(async (req) => {
       addLog(`מגביל ניתוח ל-${dataToAnalyze.length} שורות ראשונות למניעת timeout`, 'info');
     }
 
+    // Load parts data ONLY if we're processing changes (not in preview mode)
+    if (selectedChanges && selectedChanges.length > 0) {
+      addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים...`, 'info');
+      [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
+      ]);
+    } else {
+      addLog('מצב תצוגה מקדימה - לא טוענים נתוני פריטים קיימים', 'info');
+    }
+
     const changes = [];
     for (const rowValues of dataToAnalyze) {
       const formattedRow = {};
