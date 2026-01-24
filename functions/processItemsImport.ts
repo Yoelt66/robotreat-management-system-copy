@@ -186,17 +186,78 @@ Deno.serve(async (req) => {
       addLog(`מגביל ניתוח ל-${dataToAnalyze.length} שורות ראשונות למניעת timeout`, 'info');
     }
 
-    // Load parts data ONLY if we're processing changes (not in preview mode)
-    if (selectedChanges && selectedChanges.length > 0) {
-      addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים...`, 'info');
-      [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
-      ]);
-    } else {
-      addLog('מצב תצוגה מקדימה - לא טוענים נתוני פריטים קיימים', 'info');
+    // Preview mode - return early without loading parts
+    if (!selectedChanges || selectedChanges.length === 0) {
+      addLog('מצב תצוגה מקדימה - מחזיר דוגמה בלבד', 'info');
+      const changes = [];
+      const previewRows = parsedData.slice(0, Math.min(20, parsedData.length));
+      
+      for (const rowValues of previewRows) {
+        const formattedRow = {};
+        sortedFieldMapping.forEach((field, index) => {
+          let value = rowValues[index];
+          if (value === null || value === undefined || value === '') {
+            value = null;
+          } else if (typeof value === 'string') {
+            value = value.trim();
+            if (value === '') value = null;
+          }
+          formattedRow[field.key] = value;
+        });
+        
+        if (!formattedRow.sku) continue;
+        
+        changes.push({
+          sku: formattedRow.sku,
+          name: formattedRow.name || 'לא מוגדר',
+          type: 'preview'
+        });
+      }
+      
+      addLog('תצוגה מקדימה הושלמה בהצלחה', 'success');
+      return Response.json({
+        success: true,
+        preview: true,
+        changes: changes,
+        stats: {
+          created: 0,
+          updated: 0,
+          errors: 0,
+          total: changes.length
+        },
+        logs
+      });
+    }
+    
+    // ACTUAL PROCESSING - load parts data
+    addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים...`, 'info');
+    [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
+    ]);
+    
+    // Rebuild maps after loading parts
+    const pricingMap2 = new Map(partPricingData.map(p => [p.part_sku, p]));
+    const supplierMap2 = new Map(partSupplierData.map(p => [p.part_sku, p]));
+    
+    const stockByPart2 = new Map();
+    partStockData.forEach(stock => {
+      if (!stockByPart2.has(stock.part_sku)) {
+        stockByPart2.set(stock.part_sku, {});
+      }
+      stockByPart2.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
+    });
+    
+    if (partCoreData.length > 0) {
+      allParts = partCoreData.map(core => {
+        const pricing = pricingMap2.get(core.sku) || {};
+        const supplier = supplierMap2.get(core.sku) || {};
+        const stocks = stockByPart2.get(core.sku) || {};
+        return { ...core, ...pricing, ...supplier, ...stocks };
+      });
+      partMap = new Map(allParts.map(p => [p.sku, p]));
     }
 
     const changes = [];
