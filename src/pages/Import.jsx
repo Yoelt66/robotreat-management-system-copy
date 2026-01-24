@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Warehouse, Category, Currency, ImportMapping, User } from "@/entities/all";
+import { Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -504,7 +505,7 @@ export default function Import() {
       }
 
       addLog('מעלה קובץ...', 'info');
-      const uploadResponse = await User.integrations.Core.UploadFile({ file: uploadedFile });
+      const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
       const fileUrl = uploadResponse.file_url;
       addLog('הקובץ הועלה בהצלחה, מתחיל עיבוד...', 'success');
       
@@ -515,7 +516,7 @@ export default function Import() {
       setProgress(10);
       addLog('מעבד ייבוא בשרת...', 'info');
       
-      const response = await User.functions.invoke('processItemsImport', {
+      const response = await base44.functions.invoke('processItemsImport', {
         file_url: fileUrl,
         fieldMapping: fieldMapping,
         hasHeaders: hasHeaders,
