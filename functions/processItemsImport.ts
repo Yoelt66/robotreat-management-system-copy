@@ -301,11 +301,15 @@ Deno.serve(async (req) => {
                 categoryCode = categoryByName.code;
               } else {
                 addLog(`אזהרה: קטגוריה "${categoryCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
-                categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                categoryCode = allCategories.length > 0 ? allCategories[0].code : null;
               }
             }
           } else {
-            categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+            categoryCode = allCategories.length > 0 ? allCategories[0].code : null;
+          }
+          
+          if (!categoryCode) {
+            throw new Error(`לא נמצאה קטגוריה עבור פריט ${formattedRow.sku}. יש להוסיף קטגוריות בהגדרות המערכת.`);
           }
           
           // Validate and normalize unit
@@ -319,11 +323,15 @@ Deno.serve(async (req) => {
                 unitCode = unitByName.code;
               } else {
                 addLog(`אזהרה: יחידת מידה "${unitCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
-                unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                unitCode = allUnits.length > 0 ? allUnits[0].code : null;
               }
             }
           } else {
-            unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+            unitCode = allUnits.length > 0 ? allUnits[0].code : null;
+          }
+          
+          if (!unitCode) {
+            throw new Error(`לא נמצאה יחידת מידה עבור פריט ${formattedRow.sku}. יש להוסיף יחידות מידה בהגדרות המערכת.`);
           }
           
           const partPayload = {
