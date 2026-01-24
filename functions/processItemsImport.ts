@@ -126,35 +126,36 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // getParts returns {success: true, data: [...]} format through axios response wrapper
+    // Debug what we actually got from getParts
     let allParts = [];
 
-    // Debug response structure safely
-    addLog(`getParts status: ${partsResponse?.status}`, 'info');
-    addLog(`Has data field: ${!!partsResponse?.data}`, 'info');
-    if (partsResponse?.data) {
-      addLog(`data.success: ${partsResponse.data.success}`, 'info');
-      addLog(`data.data is array: ${Array.isArray(partsResponse.data.data)}`, 'info');
-      if (Array.isArray(partsResponse.data.data)) {
-        addLog(`data.data length: ${partsResponse.data.data.length}`, 'info');
+    // Check if partsResponse.data itself is the {success, data} object
+    if (partsResponse?.data?.success && Array.isArray(partsResponse.data.data)) {
+      allParts = partsResponse.data.data;
+      addLog(`טוען ${allParts.length} פריטים מ-partsResponse.data.data`, 'info');
+    } 
+    // Or maybe the invoke() strips one level and data is directly the result
+    else if (typeof partsResponse?.data === 'object' && partsResponse.data !== null) {
+      // Log what keys are in the data object
+      const keys = Object.keys(partsResponse.data);
+      addLog(`partsResponse.data keys: ${keys.join(', ')}`, 'info');
+
+      // Check if "success" and "data" are the keys
+      if ('success' in partsResponse.data && 'data' in partsResponse.data) {
+        if (Array.isArray(partsResponse.data.data)) {
+          allParts = partsResponse.data.data;
+          addLog(`טוען ${allParts.length} פריטים מתוך data.data`, 'info');
+        }
+      }
+      // Or maybe data itself is the array?
+      else if (Array.isArray(partsResponse.data)) {
+        allParts = partsResponse.data;
+        addLog(`partsResponse.data עצמו הוא מערך עם ${allParts.length} פריטים`, 'info');
       }
     }
 
-    // The response from functions.invoke is an axios response: {data: {...}, status: 200, ...}
-    // getParts itself returns: {success: true, data: [...]}
-    // So we need: partsResponse.data.data
-    if (partsResponse?.data?.success && Array.isArray(partsResponse.data.data)) {
-      allParts = partsResponse.data.data;
-      addLog(`טוען פריטים מ-partsResponse.data.data`, 'info');
-    } else if (Array.isArray(partsResponse?.data?.data)) {
-      allParts = partsResponse.data.data;
-      addLog(`טוען פריטים מ-partsResponse.data.data (ללא בדיקת success)`, 'info');
-    } else if (Array.isArray(partsResponse?.data)) {
-      allParts = partsResponse.data;
-      addLog(`טוען פריטים מ-partsResponse.data`, 'info');
-    } else {
-      allParts = [];
-      addLog(`לא נמצא מבנה תקין של פריטים בתשובה`, 'error');
+    if (allParts.length === 0) {
+      addLog(`לא הצלחנו לטעון פריטים. מבנה התשובה לא ברור.`, 'error');
     }
     
     addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
