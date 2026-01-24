@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ImportMapping, Client, Device, ServiceCall, User, Part } from "@/entities/all";
+import { ImportMapping, Client, Device, ServiceCall, User, Part, Warehouse } from "@/entities/all";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -335,6 +335,7 @@ export default function ImportSettings() {
   const [editingMapping, setEditingMapping] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     loadMappings();
@@ -403,6 +404,66 @@ export default function ImportSettings() {
     }
   };
 
+  const handleRefreshMappings = async () => {
+    if (!confirm("פעולה זו תוסיף את כל השדות החדשים לתבניות הקיימות. האם להמשיך?")) {
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      const warehouses = await Warehouse.list() || [];
+      
+      const allFields = [
+        { key: 'sku', label: 'מקט', checked: true, is_required: true },
+        { key: 'name', label: 'שם פריט', checked: true, is_required: true },
+        { key: 'category', label: 'קטגוריה', checked: true, is_required: false },
+        { key: 'unit', label: 'יחידת מידה', checked: true, is_required: false },
+        { key: 'minimum_stock', label: 'מלאי מינימום', checked: true, is_required: false },
+        { key: 'notes', label: 'הערות', checked: true, is_required: false },
+        { key: 'cost_price', label: 'מחיר עלות', checked: true, is_required: false },
+        { key: 'current_location', label: 'מיקום נוכחי', checked: false, is_required: false },
+        { key: 'supplier_part_number', label: 'מקט אצל ספק', checked: false, is_required: false },
+        { key: 'replaced_sku', label: 'מקט חלופי', checked: false, is_required: false },
+        { key: 'supplier_number', label: 'מספר ספק', checked: false, is_required: false },
+        { key: 'cost_currency', label: 'מטבע עלות', checked: false, is_required: false },
+        { key: 'sale_currency', label: 'מטבע מכירה', checked: false, is_required: false },
+        { key: 'import_percentage', label: 'אחוז ייבוא', checked: false, is_required: false },
+        { key: 'markup_percentage', label: 'אחוז רווח', checked: false, is_required: false },
+        { key: 'manual_sale_price', label: 'מחיר מכירה ידני', checked: false, is_required: false },
+        { key: 'exchange_rate', label: 'שער חליפין', checked: false, is_required: false },
+        ...warehouses.map(w => ({
+          key: w.warehouse_id,
+          label: `מלאי: ${w.name}`,
+          checked: false,
+          is_required: false
+        }))
+      ];
+
+      for (const mapping of mappings) {
+        const existingMapping = Array.isArray(mapping.mapping) ? mapping.mapping : [];
+        const existingKeys = new Set(existingMapping.map(f => f.key));
+        
+        const newFields = allFields.filter(f => !existingKeys.has(f.key));
+        
+        if (newFields.length > 0) {
+          const updatedMapping = [...existingMapping, ...newFields];
+          await ImportMapping.update(mapping.id, { 
+            ...mapping, 
+            mapping: updatedMapping 
+          });
+        }
+      }
+
+      await loadMappings();
+      alert(`עודכנו ${mappings.length} תבניות בהצלחה!`);
+    } catch (error) {
+      console.error("Error refreshing mappings:", error);
+      alert("שגיאה בעדכון התבניות");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (loading) return <div>טוען הגדרות ייבוא...</div>;
 
   return (
@@ -411,10 +472,15 @@ export default function ImportSettings() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>הגדרות מיפוי לייבוא פריטים</CardTitle>
             {!showForm && (
-              <Button onClick={handleAddNew}>
-                <Plus className="h-4 w-4 ml-2" />
-                הוסף הגדרה חדשה
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={handleRefreshMappings} variant="outline" disabled={isRefreshing || mappings.length === 0}>
+                  {isRefreshing ? "מעדכן..." : "רענן תבניות"}
+                </Button>
+                <Button onClick={handleAddNew}>
+                  <Plus className="h-4 w-4 ml-2" />
+                  הוסף הגדרה חדשה
+                </Button>
+              </div>
             )}
           </CardHeader>
           <CardContent>
