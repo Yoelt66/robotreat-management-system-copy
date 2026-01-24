@@ -176,22 +176,22 @@ export default function ItemsManagement() {
   };
 
   const filterAndSortParts = () => {
-    let filtered = parts;
+    let filtered = [];
 
-    // Search filter - minimum 4 characters
+    // Search filter - minimum 4 characters - show nothing until valid search
     if (searchTerm && searchTerm.length >= 4) {
-      filtered = filtered.filter(part =>
+      filtered = parts.filter(part =>
         part.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         part.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         part.supplier_part_number?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-    } else if (searchTerm.length > 0 && searchTerm.length < 4) {
-      // Show all parts if search term is less than 4 characters
-      filtered = parts;
+    } else {
+      // Don't show any parts until search term is at least 4 characters
+      filtered = [];
     }
 
     // Category filter
-    if (categoryFilter !== "all") {
+    if (categoryFilter !== "all" && filtered.length > 0) {
       filtered = filtered.filter(part => part.category === categoryFilter);
     }
 
@@ -429,7 +429,9 @@ export default function ItemsManagement() {
                 {filteredParts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8 + warehouses.length} className="text-center py-8 text-gray-500">
-                      {searchTerm.length > 0 && searchTerm.length < 4 
+                      {searchTerm.length === 0
+                        ? "הזן מק״ט או שם פריט לחיפוש (מינימום 4 תווים)"
+                        : searchTerm.length < 4 
                         ? "הזן לפחות 4 תווים לחיפוש" 
                         : "לא נמצאו פריטים"}
                     </TableCell>
