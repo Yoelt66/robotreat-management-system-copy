@@ -127,21 +127,26 @@ Deno.serve(async (req) => {
     ]);
 
     // Debug the response structure
-    addLog(`getParts response structure: ${JSON.stringify(Object.keys(partsResponse || {}))}`, 'info');
-    if (partsResponse?.data) {
-      addLog(`partsResponse.data structure: ${JSON.stringify(Object.keys(partsResponse.data))}`, 'info');
-    }
+    addLog(`getParts full response: ${JSON.stringify(partsResponse).substring(0, 500)}`, 'info');
 
-    // getParts returns {success: true, data: [...]} format
+    // getParts returns {success: true, data: [...]} format through axios response wrapper
     let allParts = [];
+
+    // The response from functions.invoke is an axios response: {data: {...}, status: 200, ...}
+    // getParts itself returns: {success: true, data: [...]}
+    // So we need: partsResponse.data.data
     if (partsResponse?.data?.success && Array.isArray(partsResponse.data.data)) {
       allParts = partsResponse.data.data;
+      addLog(`טוען פריטים מ-partsResponse.data.data`, 'info');
     } else if (Array.isArray(partsResponse?.data?.data)) {
       allParts = partsResponse.data.data;
+      addLog(`טוען פריטים מ-partsResponse.data.data (ללא בדיקת success)`, 'info');
     } else if (Array.isArray(partsResponse?.data)) {
       allParts = partsResponse.data;
+      addLog(`טוען פריטים מ-partsResponse.data`, 'info');
     } else {
       allParts = [];
+      addLog(`לא נמצא מבנה תקין של פריטים בתשובה`, 'error');
     }
     
     addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
