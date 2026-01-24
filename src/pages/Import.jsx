@@ -539,7 +539,7 @@ export default function Import() {
               'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 
               'replaced_sku', 'requires_serial_number', 'cost_price', 'cost_currency', 
               'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 
-              'is_manual', 'supplier_number', 'supplier_part_number'
+              'supplier_number', 'supplier_part_number'
             ];
             
             allFields.forEach(field => {
