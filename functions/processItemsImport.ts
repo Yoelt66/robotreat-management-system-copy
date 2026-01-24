@@ -464,13 +464,32 @@ Deno.serve(async (req) => {
     
     if (itemsToUpdate.length > 0) {
       addLog('מתחיל שלב עדכון נתונים עבור פריטים קיימים...', 'info');
-      
-      const allPartsForUpdateResponse = await apiCallWithRetry(
-        () => base44.asServiceRole.functions.invoke('getParts', {}),
-        MAX_RETRIES,
-        "getParts (post-creation)"
-      );
-      const allPartsForUpdate = allPartsForUpdateResponse?.data?.data || [];
+
+      // Reload parts data from entities (same method as initial load)
+      const [updatedPartCore, updatedPricing, updatedSupplier, updatedStock] = await Promise.all([
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list (update)").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list (update)").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list (update)").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list (update)").catch(() => [])
+      ]);
+
+      const updatedPricingMap = new Map(updatedPricing.map(p => [p.part_sku, p]));
+      const updatedSupplierMap = new Map(updatedSupplier.map(p => [p.part_sku, p]));
+      const updatedStockByPart = new Map();
+      updatedStock.forEach(stock => {
+        if (!updatedStockByPart.has(stock.part_sku)) {
+          updatedStockByPart.set(stock.part_sku, {});
+        }
+        updatedStockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
+      });
+
+      const allPartsForUpdate = updatedPartCore.map(core => {
+        const pricing = updatedPricingMap.get(core.sku) || {};
+        const supplier = updatedSupplierMap.get(core.sku) || {};
+        const stocks = updatedStockByPart.get(core.sku) || {};
+        return { ...core, ...pricing, ...supplier, ...stocks };
+      });
+
       const partMapUpdated = new Map(allPartsForUpdate.map(p => [p.sku, p]));
 
       addLog(`מעדכן נתונים מלאים עבור ${itemsToUpdate.length} פריטים קיימים...`, 'info');
