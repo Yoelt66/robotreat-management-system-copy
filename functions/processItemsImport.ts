@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     const changes = [];
     for (const rowValues of dataToAnalyze) {
       const formattedRow = {};
-      
+
       sortedFieldMapping.forEach((field, index) => {
         let value = rowValues[index];
         if (value === null || value === undefined || value === '') {
@@ -217,6 +217,19 @@ Deno.serve(async (req) => {
       });
 
       if (!formattedRow.sku) continue;
+
+      // Skip detailed change analysis in preview mode - just track what would be created/updated
+      if (!selectedChanges || selectedChanges.length === 0) {
+        const existingPart = partMap.get(formattedRow.sku);
+        changes.push({
+          sku: formattedRow.sku,
+          name: formattedRow.name || (existingPart?.name) || 'לא מוגדר',
+          type: existingPart ? 'update' : 'new',
+          shouldUpdate: true,
+          changes: existingPart ? ['עדכון'] : ['יצירה חדשה']
+        });
+        continue;
+      }
 
       // Apply category settings
       if (formattedRow.category) {
