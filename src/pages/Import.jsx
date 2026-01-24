@@ -696,22 +696,18 @@ export default function Import() {
                 quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
               })),
               
-              // PartPricing fields
-              pricing: {
-                cost_price: parseFloat(formattedRow.cost_price) || 0,
-                cost_currency: formattedRow.cost_currency || 'ILS',
-                sale_currency: formattedRow.sale_currency || 'ILS',
-                import_percentage: parseFloat(formattedRow.import_percentage) || 15,
-                markup_percentage: parseFloat(formattedRow.markup_percentage) || 30,
-                manual_sale_price: formattedRow.manual_sale_price ? parseFloat(formattedRow.manual_sale_price) : null,
-                is_manual: formattedRow.is_manual || false
-              },
+              // PartPricing fields - flatten to root level
+              cost_price: parseFloat(formattedRow.cost_price) || 0,
+              cost_currency: formattedRow.cost_currency || 'ILS',
+              sale_currency: formattedRow.sale_currency || 'ILS',
+              import_percentage: formattedRow.import_percentage !== undefined ? parseFloat(formattedRow.import_percentage) : 10,
+              markup_percentage: formattedRow.markup_percentage !== undefined ? parseFloat(formattedRow.markup_percentage) : 45,
+              manual_sale_price: formattedRow.manual_sale_price ? parseFloat(formattedRow.manual_sale_price) : 0,
+              is_manual: formattedRow.is_manual || false,
               
-              // PartSupplier fields
-              supplier: {
-                supplier_number: formattedRow.supplier_number || '',
-                supplier_part_number: formattedRow.supplier_part_number || ''
-              }
+              // PartSupplier fields - flatten to root level
+              supplier_number: formattedRow.supplier_number || '',
+              supplier_part_number: formattedRow.supplier_part_number || ''
             };
             
             const response = await apiCallWithRetry(() => createPart(partPayload), MAX_RETRIES, `Create ${formattedRow.sku}`);
@@ -780,8 +776,7 @@ export default function Import() {
                 }
               });
 
-              // בדיקת שדות PartPricing
-              const pricingUpdate = {};
+              // בדיקת שדות PartPricing - flatten to root level for updatePart
               pricingFields.forEach(field => {
                 if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
                   const numericFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
@@ -794,49 +789,22 @@ export default function Import() {
                     : existingPart[field] || '';
                   
                   if (change.type === 'new' || String(existingValue) !== String(newValue)) {
-                    pricingUpdate[field] = newValue;
+                    updateData[field] = newValue;
                     hasChanges = true;
                   }
                 }
               });
-              
-              if (Object.keys(pricingUpdate).length > 0) {
-                updateData.pricing = pricingUpdate;
-              }
 
-              // בדיקת שדות PartSupplier
-              const supplierUpdate = {};
+              // בדיקת שדות PartSupplier - flatten to root level for updatePart
               supplierFields.forEach(field => {
                 if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
                   const existingValue = existingPart[field] || '';
                   if (change.type === 'new' || String(existingValue) !== String(formattedRow[field])) {
-                    supplierUpdate[field] = formattedRow[field];
+                    updateData[field] = formattedRow[field];
                     hasChanges = true;
                   }
                 }
               });
-              
-              if (Object.keys(supplierUpdate).length > 0) {
-                updateData.supplier = supplierUpdate;
-              }
-
-              // בדיקת שדות PartStock (מחסנים)
-              const stockUpdate = {};
-              allWarehouses.forEach(wh => {
-                const stockVal = formattedRow[String(wh.warehouse_id)];
-                if (stockVal !== undefined && stockVal !== null && stockVal !== '') {
-                  const newQuantity = parseFloat(stockVal) || 0;
-                  const currentQuantity = existingPart[wh.warehouse_id] || 0;
-                  if (change.type === 'new' || currentQuantity !== newQuantity) {
-                    stockUpdate[wh.warehouse_id] = newQuantity;
-                    hasChanges = true;
-                  }
-                }
-              });
-              
-              if (Object.keys(stockUpdate).length > 0) {
-                updateData.stock = stockUpdate;
-              }
 
               // ביצוע עדכון רק אם יש שינויים
               if (hasChanges) {
