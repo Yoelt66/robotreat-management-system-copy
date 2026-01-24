@@ -75,7 +75,7 @@ function ChangeDetectionModal({ detectedChanges, onConfirm, onCancel, onToggleUp
       <div className="bg-white rounded-lg max-w-6xl w-full m-4 max-h-[90vh] overflow-hidden">
         <div className="p-6 border-b">
           <h2 className="text-xl font-bold">בדיקת שינויים לפני ייבוא</h2>
-          <p className="text-gray-600 mt-2">נמצאו {detectedChanges.length} פריטים. בחר אילו שינויים לבצע:</p>
+          <p className="text-gray-600 mt-2">נמצאו {detectedChanges.filter(c => c.type !== 'no_change').length} פריטים עם שינויים מתוך {detectedChanges.length} פריטים. בחר אילו שינויים לבצע:</p>
         </div>
         
         <div className="p-6 overflow-y-auto max-h-[60vh]">
@@ -108,47 +108,50 @@ function ChangeDetectionModal({ detectedChanges, onConfirm, onCancel, onToggleUp
               </TableRow>
             </TableHeader>
             <TableBody>
-              {detectedChanges.slice(0, 100).map((change, index) => (
-                <TableRow key={change.sku} className={!change.shouldUpdate ? 'opacity-50' : ''}>
-                  <TableCell>
-                    <Checkbox
-                      checked={change.shouldUpdate}
-                      onCheckedChange={(checked) => onToggleUpdate(index, checked)}
-                      disabled={change.type === 'no_change'}
-                    />
-                  </TableCell>
-                  <TableCell className="font-mono">{change.sku}</TableCell>
-                  <TableCell>{change.name}</TableCell>
-                  <TableCell>
-                    <Badge className={getChangeDisplay(change).className}>
-                      {getChangeDisplay(change).label}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {change.changes && change.changes.length > 0 ? (
-                      <div className="space-y-1">
-                        {change.changes.slice(0, 3).map((ch, idx) => (
-                          <div key={idx} className="text-sm">
-                            <span className="font-medium">{ch.field}:</span>
-                            <span className="text-red-600"> {ch.old}</span>
-                            <span> → </span>
-                            <span className="text-green-600">{ch.new}</span>
-                          </div>
-                        ))}
-                        {change.changes.length > 3 && (
-                          <div className="text-xs text-gray-500">ועוד {change.changes.length - 3} שינויים...</div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500">ללא שינויים</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {detectedChanges.length > 100 && (
+              {detectedChanges.filter(change => change.type !== 'no_change').slice(0, 100).map((change, index) => {
+                const originalIndex = detectedChanges.indexOf(change);
+                return (
+                  <TableRow key={change.sku} className={!change.shouldUpdate ? 'opacity-50' : ''}>
+                    <TableCell>
+                      <Checkbox
+                        checked={change.shouldUpdate}
+                        onCheckedChange={(checked) => onToggleUpdate(originalIndex, checked)}
+                        disabled={change.type === 'no_change'}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono">{change.sku}</TableCell>
+                    <TableCell>{change.name}</TableCell>
+                    <TableCell>
+                      <Badge className={getChangeDisplay(change).className}>
+                        {getChangeDisplay(change).label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {change.changes && change.changes.length > 0 ? (
+                        <div className="space-y-1">
+                          {change.changes.slice(0, 3).map((ch, idx) => (
+                            <div key={idx} className="text-sm">
+                              <span className="font-medium">{ch.field}:</span>
+                              <span className="text-red-600"> {ch.old}</span>
+                              <span> → </span>
+                              <span className="text-green-600">{ch.new}</span>
+                            </div>
+                          ))}
+                          {change.changes.length > 3 && (
+                            <div className="text-xs text-gray-500">ועוד {change.changes.length - 3} שינויים...</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500">ללא שינויים</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {detectedChanges.filter(c => c.type !== 'no_change').length > 100 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-gray-500">
-                    מוצגות 100 שורות ראשונות מתוך {detectedChanges.length}
+                    מוצגות 100 שורות ראשונות מתוך {detectedChanges.filter(c => c.type !== 'no_change').length}
                   </TableCell>
                 </TableRow>
               )}
