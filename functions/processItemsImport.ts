@@ -281,9 +281,14 @@ Deno.serve(async (req) => {
         try {
           const formattedRow = change.newData;
           
+          // Validate required fields
+          if (!formattedRow.sku || !formattedRow.name) {
+            throw new Error(`חסרים שדות חובה: sku=${formattedRow.sku}, name=${formattedRow.name}`);
+          }
+          
           const partPayload = {
-            sku: formattedRow.sku,
-            name: formattedRow.name,
+            sku: String(formattedRow.sku).trim(),
+            name: String(formattedRow.name).trim(),
             category: formattedRow.category || 'other',
             unit: formattedRow.unit || 'pieces',
             minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
@@ -317,7 +322,8 @@ Deno.serve(async (req) => {
           }
           createdCount++;
         } catch (e) {
-          addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${e.message}`, 'error');
+          const errorDetails = e.response?.data || e.message;
+          addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
           errorCount++;
         }
       }
