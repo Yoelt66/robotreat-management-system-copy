@@ -126,40 +126,36 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // Debug what we actually got from getParts
+    // Parse response from getParts
     let allParts = [];
 
-    // Log the type and structure of the response data
-    addLog(`partsResponse type: ${typeof partsResponse}`, 'info');
-    addLog(`partsResponse.data type: ${typeof partsResponse?.data}`, 'info');
+    try {
+      // If the response data is a string, parse it
+      let responseData = partsResponse?.data;
+      if (typeof responseData === 'string') {
+        addLog(`התשובה היא string, מנסה לפרסר...`, 'info');
+        responseData = JSON.parse(responseData);
+      }
 
-    if (partsResponse?.data && typeof partsResponse.data === 'object') {
-      const keys = Object.keys(partsResponse.data);
-      addLog(`partsResponse.data keys: ${keys.join(', ')}`, 'info');
-      addLog(`partsResponse.data is Array: ${Array.isArray(partsResponse.data)}`, 'info');
-
-      // If data is directly an array of parts
-      if (Array.isArray(partsResponse.data)) {
-        allParts = partsResponse.data;
-        addLog(`partsResponse.data עצמו הוא מערך עם ${allParts.length} פריטים`, 'info');
+      // Now extract the parts array
+      if (Array.isArray(responseData)) {
+        allParts = responseData;
+        addLog(`טוען ${allParts.length} פריטים ישירות מהתשובה`, 'info');
+      } else if (responseData?.success && Array.isArray(responseData.data)) {
+        allParts = responseData.data;
+        addLog(`טוען ${allParts.length} פריטים מ-data.data`, 'info');
+      } else if (Array.isArray(responseData?.data)) {
+        allParts = responseData.data;
+        addLog(`טוען ${allParts.length} פריטים מ-data`, 'info');
+      } else {
+        addLog(`מבנה תשובה לא מוכר`, 'error');
       }
-      // If data has success and data properties
-      else if (partsResponse.data.success && Array.isArray(partsResponse.data.data)) {
-        allParts = partsResponse.data.data;
-        addLog(`טוען ${allParts.length} פריטים מ-partsResponse.data.data`, 'info');
-      }
-      // If data has only data property (no success)
-      else if (Array.isArray(partsResponse.data.data)) {
-        allParts = partsResponse.data.data;
-        addLog(`טוען ${allParts.length} פריטים מ-partsResponse.data.data (ללא success)`, 'info');
-      }
-      else {
-        addLog(`מבנה התשובה לא מוכר. דוגמה: ${JSON.stringify(partsResponse.data).substring(0, 300)}`, 'error');
-      }
+    } catch (parseError) {
+      addLog(`שגיאה בפירוש תשובת getParts: ${parseError.message}`, 'error');
     }
 
     if (allParts.length === 0) {
-      addLog(`לא הצלחנו לטעון פריטים.`, 'error');
+      addLog(`לא הצלחנו לטעון פריטים קיימים`, 'error');
     }
     
     addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
