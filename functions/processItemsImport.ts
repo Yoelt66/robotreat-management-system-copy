@@ -387,15 +387,24 @@ Deno.serve(async (req) => {
           // Log the payload for debugging
           addLog(`יוצר פריט ${formattedRow.sku} עם הנתונים: ${JSON.stringify(partPayload, null, 2)}`, 'info');
           
-          const response = await apiCallWithRetry(
-            () => base44.asServiceRole.functions.invoke('createPart', partPayload),
-            MAX_RETRIES,
-            `Create ${formattedRow.sku}`
-          );
+          let response;
+          try {
+            response = await base44.asServiceRole.functions.invoke('createPart', partPayload);
+          } catch (invokeError) {
+            // Get detailed error from the backend function
+            const errorDetails = invokeError.response?.data || invokeError.message;
+            addLog(`שגיאת קריאה ל-createPart: ${JSON.stringify(errorDetails)}`, 'error');
+            throw invokeError;
+          }
           
           if (response?.data?.error) {
             throw new Error(response.data.error);
           }
+          
+          if (!response?.data?.success) {
+            throw new Error('התשובה מהשרת לא מצביעה על הצלחה');
+          }
+          
           createdCount++;
         } catch (e) {
           const errorDetails = e.response?.data || e.message;
