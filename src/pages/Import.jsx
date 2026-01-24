@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
-import { getParts } from "@/functions/getParts";
-import { createPart } from "@/functions/createPart";
-import { updatePart } from "@/functions/updatePart";
+import { Warehouse, Category, Currency, ImportMapping, User } from "@/entities/all";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -15,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 
-import { Upload, Settings, CheckCircle, Loader2, Info, ChevronDown, AlertCircle, File, Terminal } from "lucide-react";
+import { Upload, Settings, CheckCircle, Loader2, Info, ChevronDown, AlertCircle, File, Terminal, Zap } from "lucide-react";
 import ImportFieldMapping from "../components/import/ImportFieldMapping";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
@@ -29,33 +26,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-const MAX_RETRIES = 3;
-const UPDATE_BATCH_SIZE = 30; // Further decreased for stability
-const DELAY_BETWEEN_BATCHES = 1000; // Increased delay to 1 second
 const PREVIEW_ROWS = 10; // Show only first 10 rows in preview
-const CONCURRENCY_LIMIT = 5; // Process 5 updates at a time to avoid rate limits
 
-async function apiCallWithRetry(apiCall, retries, callName) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const result = await apiCall();
-      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between calls
-      return result;
-    } catch (error) {
-      console.error(`API call failed attempt ${i + 1}/${retries} for ${callName}:`, error);
-      
-      if (error.message && error.message.includes('429')) {
-        const waitTime = Math.min(2000 * Math.pow(2, i), 15000); // Increased max wait time
-        console.log(`Rate limit hit, waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-      
-      if (i === retries - 1) throw new Error(`Failed to load ${callName} after ${retries} attempts: ${error.message}`);
-    }
-  }
-}
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function ChangeDetectionModal({ detectedChanges, onConfirm, onCancel, onToggleUpdate }) {
   const getChangeDisplay = (change) => {
@@ -203,10 +176,10 @@ export default function Import() {
       setLoading(true);
       try {
         const [categories, warehouses, currencies, mappings] = await Promise.all([
-          apiCallWithRetry(() => Category.list(), MAX_RETRIES, "Category.list"),
-          apiCallWithRetry(() => Warehouse.list(), MAX_RETRIES, "Warehouse.list"),
-          apiCallWithRetry(() => Currency.list(), MAX_RETRIES, "Currency.list"),
-          apiCallWithRetry(() => ImportMapping.list(), MAX_RETRIES, "ImportMapping.list")
+          Category.list(),
+          Warehouse.list(),
+          Currency.list(),
+          ImportMapping.list()
         ]);
         
         const safeWarehouses = warehouses || [];
@@ -442,206 +415,47 @@ export default function Import() {
   
   const analyzeChanges = async () => {
     if (data.length === 0) {
-
+      alert('אין נתונים לייבוא');
       return;
     }
     if (!selectedMapping) {
-
+      alert('יש לבחור תבנית מיפוי');
       return;
     }
 
-    setIsAnalyzing(true);
-    addLog('מתחיל ניתוח שינויים...', 'info');
-
-    try {
-      // Load data in batches to avoid overwhelming the system
-      addLog('טוען נתוני מערכת קיימים...', 'info');
-      const [partsResponse, allCategories] = await Promise.all([
-        apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts"),
-        apiCallWithRetry(() => Category.list(), MAX_RETRIES, "Category.list").catch(() => [])
-      ]);
+    // Simply show the change detection modal with all rows marked for update
+    const changes = data.map(row => {
+      const formattedRow = {};
+      const sortedActiveFields = fieldMapping
+        .filter(field => field.checked)
+        .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
       
-      const allParts = partsResponse?.data?.data || [];
-      const partMap = new Map(allParts.map(p => [p.sku, p]));
-      const categoryMap = new Map(allCategories.map(c => [c.code, c]));
-      
-      const changes = [];
-      const batchSize = 100; // Process in smaller batches
-      
-      addLog(`מנתח ${data.length} שורות בקבוצות של ${batchSize}...`, 'info');
-
-      for (let i = 0; i < data.length; i += batchSize) {
-        const batch = data.slice(i, i + batchSize);
-        addLog(`מעבד קבוצה ${Math.floor(i / batchSize) + 1}/${Math.ceil(data.length / batchSize)}`, 'info');
-
-        for (const row of batch) {
-          const formattedRow = {};
-          
-          // Map row array to object based on the sorted fieldMapping
-          const sortedActiveFields = fieldMapping
-            .filter(field => field.checked)
-            .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
-            
-          sortedActiveFields.forEach((field, index) => {
-             let value = row[index]; // 'row' is now an array, and 'index' is its column index in the processed data.
-              if (value === null || value === undefined || value === '') {
-                value = null;
-              } else if (typeof value === 'string') {
-                value = value.trim();
-                if (value === '') {
-                  value = null;
-                }
-              }
-              formattedRow[field.key] = value;
-          });
-
-          if (!formattedRow.sku) continue;
-
-          // Apply category settings if category is specified
-          if (formattedRow.category) {
-            // Try to find by code first, then by name
-            let categorySettings = categoryMap.get(formattedRow.category);
-            if (!categorySettings) {
-              // Search by name if code didn't match
-              categorySettings = allCategories.find(c => c.name === formattedRow.category);
-            }
-            
-            if (categorySettings) {
-              if (!formattedRow.supplier_number && categorySettings.supplier_number) {
-                formattedRow.supplier_number = categorySettings.supplier_number;
-              }
-              
-              if (!formattedRow.cost_currency && categorySettings.cost_currency) {
-                formattedRow.cost_currency = categorySettings.cost_currency;
-              }
-              if (!formattedRow.sale_currency && categorySettings.sale_currency) {
-                formattedRow.sale_currency = categorySettings.sale_currency;
-              }
-              
-              if (formattedRow.import_percentage === undefined || formattedRow.import_percentage === null) {
-                if (categorySettings.import_percentage !== undefined && categorySettings.import_percentage !== null) {
-                  formattedRow.import_percentage = categorySettings.import_percentage;
-                }
-              }
-              if (formattedRow.markup_percentage === undefined || formattedRow.markup_percentage === null) {
-                if (categorySettings.margin_percentage !== undefined && categorySettings.margin_percentage !== null) {
-                  formattedRow.markup_percentage = categorySettings.margin_percentage;
-                }
-              }
-            }
-          }
-
-          const existingPart = partMap.get(formattedRow.sku);
-          
-          if (!existingPart) {
-            // New item
-            changes.push({
-              sku: formattedRow.sku,
-              name: formattedRow.name || 'לא מוגדר',
-              type: 'new',
-              shouldUpdate: true,
-              changes: [{ field: 'סטטוס', old: 'לא קיים', new: 'פריט חדש' }],
-              newData: formattedRow
-            });
-          } else {
-            // Existing item - check for changes
-            const itemChanges = [];
-            
-            // Check field changes - all fields from all entities
-            const allFields = [
-              'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 
-              'replaced_sku', 'requires_serial_number', 'cost_price', 'cost_currency', 
-              'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 
-              'supplier_number', 'supplier_part_number'
-            ];
-            
-            allFields.forEach(field => {
-              if (formattedRow[field] !== undefined && formattedRow[field] !== null) {
-                const oldValue = existingPart[field];
-                const newValue = formattedRow[field];
-                
-                if (String(oldValue || '') !== String(newValue || '')) {
-                  itemChanges.push({
-                    field: field,
-                    old: oldValue || 'ריק',
-                    new: newValue || 'ריק'
-                  });
-                }
-              }
-            });
-
-            // Check stock changes
-            const allWarehouses = referenceData.warehouses;
-            const stockChanges = [];
-            
-            allWarehouses.forEach(warehouse => {
-              // Find the corresponding value in formattedRow using the warehouse ID as key
-              const stockValue = formattedRow[String(warehouse.warehouse_id)]; 
-              
-              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-                const newQuantity = parseInt(stockValue) || 0;
-                const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
-                
-                if (newQuantity !== currentQuantity) {
-                  stockChanges.push({
-                    field: `מלאי ${warehouse.name}`,
-                    old: currentQuantity,
-                    new: newQuantity
-                  });
-                }
-              }
-            });
-
-            const allChanges = [...itemChanges, ...stockChanges];
-            
-            if (allChanges.length > 0) {
-              const changeType = itemChanges.length > 0 ? 'update' : 'stock_only';
-              changes.push({
-                sku: formattedRow.sku,
-                name: formattedRow.name || existingPart.name,
-                type: changeType,
-                shouldUpdate: true,
-                changes: allChanges,
-                newData: formattedRow,
-                existingData: existingPart
-              });
-            } else {
-              changes.push({
-                sku: formattedRow.sku,
-                name: formattedRow.name || existingPart.name,
-                type: 'no_change',
-                shouldUpdate: false,
-                changes: [],
-                newData: formattedRow,
-                existingData: existingPart
-              });
-            }
+      sortedActiveFields.forEach((field, index) => {
+        let value = row[index];
+        if (value === null || value === undefined || value === '') {
+          value = null;
+        } else if (typeof value === 'string') {
+          value = value.trim();
+          if (value === '') {
+            value = null;
           }
         }
+        formattedRow[field.key] = value;
+      });
 
-        // Small delay between batches to avoid overwhelming the UI
-        if (i + batchSize < data.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
+      return {
+        sku: formattedRow.sku || 'לא מוגדר',
+        name: formattedRow.name || 'לא מוגדר',
+        type: 'new',
+        shouldUpdate: true,
+        changes: [{ field: 'סטטוס', old: 'יובא', new: 'יעובד על השרת' }],
+        newData: formattedRow
+      };
+    });
 
-      setDetectedChanges(changes);
-      setShowChangeDetection(true);
-      
-      const significantChanges = changes.filter(c => c.type !== 'no_change');
-      addLog(`ניתוח הושלם. נמצאו ${significantChanges.length} פריטים עם שינויים מתוך ${changes.length} פריטים`, 'success');
-      
-      if (significantChanges.length === 0) {
-
-      }
-
-    } catch (error) {
-      console.error("Error analyzing changes:", error);
-      addLog(`שגיאה בניתוח שינויים: ${error.message}`, "error");
-
-    } finally {
-      setIsAnalyzing(false);
-    }
+    setDetectedChanges(changes);
+    setShowChangeDetection(true);
+    addLog(`מוכן לייבא ${changes.length} פריטים. ניתוח השינויים יתבצע בשרת.`, 'info');
   };
 
   const handleMappingSelection = (mapping) => {
@@ -671,231 +485,73 @@ export default function Import() {
     ));
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     setShowChangeDetection(false);
     const changesToImport = detectedChanges.filter(c => c.shouldUpdate);
-    handleImportWithChanges(changesToImport);
+    await handleImportWithBackend(changesToImport);
   };
 
-  const handleImportWithChanges = async (changes) => {
+  const handleImportWithBackend = async (changes) => {
     setIsImporting(true);
     setProgress(0);
     setLogs([]);
-    addLog(`התחלת תהליך ייבוא עם ${changes.length} שינויים.`);
+    addLog(`מעלה קובץ לשרת...`, 'info');
 
     try {
-      const [initialPartsResponse, allWarehouses] = await Promise.all([
-        apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts"),
-        apiCallWithRetry(() => Warehouse.list(), MAX_RETRIES, "Warehouse.list")
-      ]);
-
-      const initialParts = initialPartsResponse?.data?.data || [];
-      let maxPartBusinessId = initialParts.reduce((max, p) => Math.max(max, parseInt(p.part_id) || 0), 0);
-
-      const newItems = changes.filter(c => c.type === 'new');
-      const allItemsToProcess = changes.filter(c => c.type !== 'no_change');
-      const totalItemsToProcess = allItemsToProcess.length;
-
-      let createdCount = 0;
-      let updatedCount = 0;
-      let errorCount = 0;
-      let processedCount = 0;
-
-      // Phase 1: Create new items using backend function
-      if (newItems.length > 0) {
-        addLog(`יוצר רשומות בסיסיות עבור ${newItems.length} פריטים חדשים...`, 'info');
-        
-        for (const change of newItems) {
-          try {
-            maxPartBusinessId++;
-            const formattedRow = change.newData;
-            
-            // בניית payload מלא לפונקציית createPart
-            const partPayload = {
-              // PartCore fields
-              sku: formattedRow.sku,
-              name: formattedRow.name,
-              category: formattedRow.category || 'other',
-              unit: formattedRow.unit || 'pieces',
-              minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
-              notes: formattedRow.notes || '',
-              current_location: formattedRow.current_location || '',
-              replaced_sku: formattedRow.replaced_sku || '',
-              requires_serial_number: formattedRow.requires_serial_number || false,
-              
-              // Warehouses for PartStock
-              warehouses: allWarehouses.map(wh => ({
-                warehouse_id: wh.warehouse_id,
-                quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
-              })),
-              
-              // PartPricing fields - flatten to root level
-              cost_price: parseFloat(formattedRow.cost_price) || 0,
-              cost_currency: formattedRow.cost_currency || 'ILS',
-              sale_currency: formattedRow.sale_currency || 'ILS',
-              import_percentage: formattedRow.import_percentage !== undefined && formattedRow.import_percentage !== null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
-              markup_percentage: formattedRow.markup_percentage !== undefined && formattedRow.markup_percentage !== null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
-              manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
-              is_manual: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? true : false,
-              
-              // PartSupplier fields - flatten to root level
-              supplier_number: formattedRow.supplier_number || '',
-              supplier_part_number: formattedRow.supplier_part_number || ''
-            };
-            
-            const response = await apiCallWithRetry(() => createPart(partPayload), MAX_RETRIES, `Create ${formattedRow.sku}`);
-            if (response?.data?.error) {
-              throw new Error(response.data.error);
-            }
-            createdCount++;
-          } catch(e) {
-            addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${e.message}`, 'error');
-            errorCount++;
-          }
-        }
-        addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
+      // Step 1: Upload the file
+      if (!uploadedFile) {
+        throw new Error('לא נמצא קובץ להעלאה');
       }
 
-      // Phase 2: Update all items (new and existing) with full data
-      addLog('מתחיל שלב עדכון נתונים מלא...','info');
-      const allPartsForUpdateResponse = await apiCallWithRetry(() => getParts(), MAX_RETRIES, "getParts (post-creation)");
-      const allPartsForUpdate = allPartsForUpdateResponse?.data?.data || [];
-      const partMap = new Map(allPartsForUpdate.map(p => [p.sku, p]));
+      addLog('מעלה קובץ...', 'info');
+      const uploadResponse = await User.integrations.Core.UploadFile({ file: uploadedFile });
+      const fileUrl = uploadResponse.file_url;
+      addLog('הקובץ הועלה בהצלחה, מתחיל עיבוד...', 'success');
       
-      if (allItemsToProcess.length > 0) {
-        addLog(`מעדכן נתונים מלאים עבור ${allItemsToProcess.length} פריטים...`, 'info');
-        
-        for (let i = 0; i < allItemsToProcess.length; i += UPDATE_BATCH_SIZE) {
-          const batch = allItemsToProcess.slice(i, i + UPDATE_BATCH_SIZE);
-          addLog(`מעבד קבוצת עדכונים ${Math.floor(i / UPDATE_BATCH_SIZE) + 1}/${Math.ceil(allItemsToProcess.length / UPDATE_BATCH_SIZE)}`, 'info');
+      // Step 2: Get selected SKUs
+      const selectedSkus = changes.map(c => c.sku);
 
-          // Process the batch sequentially to avoid rate limits
-          for (const change of batch) {
-            try {
-              const formattedRow = change.newData;
-              const existingPart = partMap.get(formattedRow.sku);
-              
-              if (!existingPart) {
-                throw new Error('פריט לא נמצא לעדכון לאחר שלב היצירה.');
-              }
+      // Step 3: Call backend function to process import
+      setProgress(10);
+      addLog('מעבד ייבוא בשרת...', 'info');
+      
+      const response = await User.functions.invoke('processItemsImport', {
+        file_url: fileUrl,
+        fieldMapping: fieldMapping,
+        hasHeaders: hasHeaders,
+        selectedChanges: selectedSkus
+      });
 
-              // הפרדת נתונים לפי אנטיטיז
-              const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
-              const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
-              const supplierFields = ['supplier_number', 'supplier_part_number'];
-              
-              const updateData = {
-                sku: existingPart.sku
-              };
-              
-              let hasChanges = false;
-              
-              // בדיקת שדות PartCore
-              coreFields.forEach(field => {
-                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                  const numericFields = ['minimum_stock'];
-                  const newValue = numericFields.includes(field)
-                    ? parseFloat(formattedRow[field]) || 0
-                    : formattedRow[field];
-                  
-                  const existingValue = numericFields.includes(field)
-                    ? parseFloat(existingPart[field]) || 0
-                    : existingPart[field] || '';
-                  
-                  if (change.type === 'new' || String(existingValue) !== String(newValue)) {
-                    updateData[field] = newValue;
-                    hasChanges = true;
-                  }
-                }
-              });
-
-              // בדיקת שדות PartPricing - flatten to root level for updatePart
-              pricingFields.forEach(field => {
-                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                  const numericFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
-                  const newValue = numericFields.includes(field)
-                    ? parseFloat(formattedRow[field]) || 0
-                    : formattedRow[field];
-                  
-                  const existingValue = numericFields.includes(field)
-                    ? parseFloat(existingPart[field]) || 0
-                    : existingPart[field] || '';
-                  
-                  if (change.type === 'new' || String(existingValue) !== String(newValue)) {
-                    updateData[field] = newValue;
-                    hasChanges = true;
-                  }
-                }
-              });
-              
-              // Special handling for is_manual based on manual_sale_price
-              if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
-                updateData.is_manual = true;
-                hasChanges = true;
-              }
-
-              // בדיקת שדות PartSupplier - flatten to root level for updatePart
-              supplierFields.forEach(field => {
-                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                  const existingValue = existingPart[field] || '';
-                  if (change.type === 'new' || String(existingValue) !== String(formattedRow[field])) {
-                    updateData[field] = formattedRow[field];
-                    hasChanges = true;
-                  }
-                }
-              });
-
-              // ביצוע עדכון רק אם יש שינויים
-              if (hasChanges) {
-                const response = await apiCallWithRetry(() => updatePart(updateData), MAX_RETRIES, `Part Update ${existingPart.sku}`);
-                if (response?.data?.error) {
-                  throw new Error(response.data.error);
-                }
-
-                if (change.type !== 'new') {
-                  updatedCount++;
-                }
-              } else if (change.type !== 'new') {
-                addLog(`פריט ${existingPart.sku} ללא שינויים - מדלג`, 'info');
-              }
-            } catch (e) {
-                errorCount++;
-                const failedSku = change.sku || 'לא ידוע';
-                const errorMessage = e.message || 'שגיאה לא ידועה';
-                addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${errorMessage}`, 'error');
-            }
-          }
-
-          processedCount += batch.length;
-          setProgress(processedCount / totalItemsToProcess * 100);
-          
-          if (i + UPDATE_BATCH_SIZE < allItemsToProcess.length) {
-            await delay(DELAY_BETWEEN_BATCHES);
-          }
-        }
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'הייבוא נכשל');
       }
 
-      // Correctly count total updated items
-      const finalUpdatedCount = updatedCount + newItems.length;
+      // Display logs from backend
+      const backendLogs = response.data.logs || [];
+      backendLogs.forEach(log => {
+        addLog(log.message, log.type);
+      });
 
-      // Final summary
+      setProgress(100);
+
+      const stats = response.data.stats;
       addLog(`=== סיכום ייבוא ===`, "success");
-      addLog(`פריטים חדשים שנוצרו: ${createdCount}`, "success");
-      addLog(`פריטים שעודכנו בנתונים מלאים: ${finalUpdatedCount}`, "success");
-      addLog(`שגיאות: ${errorCount}`, errorCount > 0 ? "error" : "success");
+      addLog(`פריטים חדשים: ${stats.created}`, "success");
+      addLog(`פריטים שעודכנו: ${stats.updated}`, "success");
+      addLog(`שגיאות: ${stats.errors}`, stats.errors > 0 ? "error" : "success");
       
-      if (errorCount === 0) {
+      if (stats.errors === 0) {
         addLog(`הייבוא הושלם בהצלחה! 🎉`, "success");
-
+        alert(`הייבוא הושלם בהצלחה! ${stats.created} פריטים נוצרו, ${stats.updated} עודכנו.`);
       } else {
-        addLog(`הייבוא הושלם עם ${errorCount} שגיאות.`, "warn");
-
+        addLog(`הייבוא הושלם עם ${stats.errors} שגיאות.`, "warn");
+        alert(`הייבוא הושלם עם ${stats.errors} שגיאות. בדוק את היומן למידע נוסף.`);
       }
 
     } catch (error) {
-      console.error("Import failed critically:", error);
+      console.error("Import failed:", error);
       addLog(`הייבוא נכשל: ${error.message}`, "error");
-
+      alert(`הייבוא נכשל: ${error.message}`);
     } finally {
       setIsImporting(false);
       setProgress(100);
@@ -1118,26 +774,22 @@ export default function Import() {
               <div className="flex justify-end gap-3">
                 <Button
                   onClick={analyzeChanges}
-                  disabled={isAnalyzing || isImporting}
-                  variant="outline"
-                >
-                  {isAnalyzing ? (
-                    <Loader2 className="h-5 w-5 ml-2 animate-spin" />
-                  ) : (
-                    <Info className="h-5 w-5 ml-2" />
-                  )}
-                  {isAnalyzing ? "מנתח שינויים..." : "בדוק שינויים"}
-                </Button>
-                <Button
-                  onClick={handleImport} // This now triggers analyzeChanges too, but the disabled state in JSX prevents direct use.
-                  disabled={true}
+                  disabled={isImporting}
                   size="lg"
-                  className="cursor-not-allowed"
                 >
-                    <CheckCircle className="h-5 w-5 ml-2" />
-                  התחל ייבוא (זמין לאחר בדיקת שינויים)
+                  <Zap className="h-5 w-5 ml-2" />
+                  התחל ייבוא מהיר
                 </Button>
               </div>
+
+              <Alert className="mt-4">
+                <Zap className="h-4 w-4" />
+                <AlertTitle>ייבוא מהיר ומיטבי</AlertTitle>
+                <AlertDescription>
+                  הקובץ יועלה לשרת והעיבוד יתבצע בצד השרת לביצועים מקסימליים. 
+                  מהירות האינטרנט שלך לא משפיעה על זמן העיבוד.
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         )}
@@ -1170,12 +822,12 @@ export default function Import() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex justify-between mb-2">
-                <span className="font-medium">מתבצע ייבוא...</span>
+                <span className="font-medium">מתבצע ייבוא בשרת...</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} />
               <div className="mt-2 text-sm text-gray-600">
-                עיבוד בקבוצות של {UPDATE_BATCH_SIZE} פריטים עם השהיה של {DELAY_BETWEEN_BATCHES/1000} שניות בין קבוצות
+                הקובץ מעובד בשרת לביצועים מקסימליים
               </div>
             </CardContent>
           </Card>
