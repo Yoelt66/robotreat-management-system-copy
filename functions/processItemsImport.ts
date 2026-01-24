@@ -157,28 +157,25 @@ Deno.serve(async (req) => {
     });
 
     // Merge all part data
-    const allParts = partCoreData.map(core => {
-      const pricing = pricingMap.get(core.sku) || {};
-      const supplier = supplierMap.get(core.sku) || {};
-      const stocks = stockByPart.get(core.sku) || {};
+    let allParts = [];
+    let partMap = new Map();
 
-      return {
-        ...core,
-        ...pricing,
-        ...supplier,
-        ...stocks
-      };
-    });
+    if (partCoreData.length > 0) {
+      allParts = partCoreData.map(core => {
+        const pricing = pricingMap.get(core.sku) || {};
+        const supplier = supplierMap.get(core.sku) || {};
+        const stocks = stockByPart.get(core.sku) || {};
 
-    addLog(`טוען ${allParts.length} פריטים קיימים`, 'info');
-    
-    addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
-    const partMap = new Map(allParts.map(p => [p.sku, p]));
-    
-    // Debug: log a sample of SKUs to verify loading
-    if (allParts.length > 0) {
-      const sampleSkus = allParts.slice(0, 5).map(p => p.sku).join(', ');
-      addLog(`דוגמאות למק״טים קיימים: ${sampleSkus}`, 'info');
+        return {
+          ...core,
+          ...pricing,
+          ...supplier,
+          ...stocks
+        };
+      });
+
+      addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
+      partMap = new Map(allParts.map(p => [p.sku, p]));
     }
     const categoryMap = new Map(allCategories.map(c => [c.code, c]));
     const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
