@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
     // Limit analysis if no specific changes selected (prevent timeout)
     const dataToAnalyze = selectedChanges && selectedChanges.length > 0 
       ? parsedData 
-      : parsedData.slice(0, 100); // Analyze only first 100 rows if no selection
+      : parsedData.slice(0, 50); // Analyze only first 50 rows if no selection for speed
 
     if (!selectedChanges || selectedChanges.length === 0) {
       addLog(`מגביל ניתוח ל-${dataToAnalyze.length} שורות ראשונות למניעת timeout`, 'info');
