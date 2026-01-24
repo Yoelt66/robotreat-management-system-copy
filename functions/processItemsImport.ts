@@ -218,15 +218,13 @@ Deno.serve(async (req) => {
 
       if (!formattedRow.sku) continue;
 
-      // Skip detailed change analysis in preview mode - just track what would be created/updated
+      // Skip detailed change analysis in preview mode
       if (!selectedChanges || selectedChanges.length === 0) {
-        const existingPart = partMap.get(formattedRow.sku);
         changes.push({
           sku: formattedRow.sku,
-          name: formattedRow.name || (existingPart?.name) || 'לא מוגדר',
-          type: existingPart ? 'update' : 'new',
-          shouldUpdate: true,
-          changes: existingPart ? ['עדכון'] : ['יצירה חדשה']
+          name: formattedRow.name || 'לא מוגדר',
+          type: 'preview',
+          shouldUpdate: false
         });
         continue;
       }
