@@ -125,11 +125,20 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    const skusInPreview = [...new Set(dataToAnalyze.map(row => {
-      const skuField = sortedFieldMapping.find(f => f.key === 'sku');
-      const skuIndex = sortedFieldMapping.indexOf(skuField);
-      return skuIndex !== -1 && row[skuIndex] ? String(row[skuIndex]).trim() : null;
-    }).filter(Boolean))];
+    const skuField = sortedFieldMapping.find(f => f.key === 'sku');
+    const skuIndex = skuField ? sortedFieldMapping.indexOf(skuField) : -1;
+    
+    const skusInPreview = [];
+    if (skuIndex !== -1) {
+      const skuSet = new Set();
+      for (const row of dataToAnalyze) {
+        const skuValue = row[skuIndex];
+        if (skuValue) {
+          skuSet.add(String(skuValue).trim());
+        }
+      }
+      skusInPreview.push(...Array.from(skuSet));
+    }
 
     let partCoreData = [];
     let partPricingData = [];
@@ -146,14 +155,6 @@ Deno.serve(async (req) => {
       ]);
     } else {
       addLog(`טוען נתוני פריטים עבור ${skusInPreview.length} מק"טים לתצוגה מקדימה בלבד...`, 'info');
-      if (skusInPreview.length > 0) {
-        [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.filter({ sku: { $in: skusInPreview } }), MAX_RETRIES, `PartCore.filter`).catch(() => []),
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartPricing.filter`).catch(() => []),
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartSupplier.filter`).catch(() => []),
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartStock.filter`).catch(() => [])
-        ]);
-      }
     }
 
     // Build parts map
