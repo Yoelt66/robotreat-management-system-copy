@@ -116,18 +116,32 @@ Deno.serve(async (req) => {
       throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
     }
 
-    // Load existing data directly from entities (faster and more reliable than getParts)
+    // Load reference data (categories, warehouses, units) - always needed
     addLog('טוען נתוני מערכת קיימים...', 'info');
 
-    const [partCoreData, partPricingData, partSupplierData, partStockData, allCategories, allWarehouses, allUnits] = await Promise.all([
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => []),
+    const [allCategories, allWarehouses, allUnits] = await Promise.all([
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list(), MAX_RETRIES, "Category.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list(), MAX_RETRIES, "Warehouse.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
+
+    // Only load parts if we have selected changes to process
+    let partCoreData = [];
+    let partPricingData = [];
+    let partSupplierData = [];
+    let partStockData = [];
+
+    if (selectedChanges && selectedChanges.length > 0) {
+      addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים נבחרים...`, 'info');
+      [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
+        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
+      ]);
+    } else {
+      addLog('לא נבחרו שינויים לעיבוד - מדלג על טעינת נתוני פריטים', 'info');
+    }
 
     // Build parts map
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
