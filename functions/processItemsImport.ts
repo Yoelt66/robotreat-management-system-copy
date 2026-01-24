@@ -351,6 +351,9 @@ Deno.serve(async (req) => {
             supplier_part_number: formattedRow.supplier_part_number || ''
           };
           
+          // Log the payload for debugging
+          addLog(`יוצר פריט ${formattedRow.sku} עם הנתונים: ${JSON.stringify(partPayload, null, 2)}`, 'info');
+          
           const response = await apiCallWithRetry(
             () => base44.asServiceRole.functions.invoke('createPart', partPayload),
             MAX_RETRIES,
@@ -364,6 +367,7 @@ Deno.serve(async (req) => {
         } catch (e) {
           const errorDetails = e.response?.data || e.message;
           addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
+          addLog(`נתוני שורה מקוריים: ${JSON.stringify(change.newData)}`, 'error');
           errorCount++;
         }
       }
