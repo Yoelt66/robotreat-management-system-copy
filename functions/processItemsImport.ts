@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     // Detect delimiter
     const isTabDelimited = text.includes('\t');
     const delimiter = isTabDelimited ? '\t' : ',';
-    
+
     if (isTabDelimited) {
       addLog('מזהה קובץ עם הפרדת טאב...', 'info');
     }
@@ -129,18 +129,6 @@ Deno.serve(async (req) => {
     let partPricingData = [];
     let partSupplierData = [];
     let partStockData = [];
-
-    if (selectedChanges && selectedChanges.length > 0) {
-      addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים נבחרים...`, 'info');
-      [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
-      ]);
-    } else {
-      addLog(`מצב תצוגה מקדימה - טוען רק 50 שורות ללא פרטים מלאים`, 'info');
-    }
 
     // Build parts map
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
