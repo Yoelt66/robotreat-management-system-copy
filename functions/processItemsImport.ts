@@ -208,6 +208,11 @@ Deno.serve(async (req) => {
 
       const existingPart = partMap.get(formattedRow.sku);
       
+      // Debug specific SKUs that are causing issues
+      if (formattedRow.sku === '9' || formattedRow.sku === '1294') {
+        addLog(`בודק מק״ט ${formattedRow.sku}: נמצא במפה? ${existingPart ? 'כן' : 'לא'}`, 'info');
+      }
+      
       if (!existingPart) {
         changes.push({
           sku: formattedRow.sku,
