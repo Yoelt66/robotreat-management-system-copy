@@ -119,15 +119,19 @@ Deno.serve(async (req) => {
     // Load existing data
     addLog('טוען נתוני מערכת קיימים...', 'info');
     
-    const [partsResponse, allCategories, allWarehouses] = await Promise.all([
+    const [partsResponse, allCategories, allWarehouses, allUnits] = await Promise.all([
       apiCallWithRetry(() => base44.asServiceRole.functions.invoke('getParts', {}), MAX_RETRIES, "getParts"),
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list(), MAX_RETRIES, "Category.list").catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list(), MAX_RETRIES, "Warehouse.list").catch(() => [])
+      apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list(), MAX_RETRIES, "Warehouse.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
     const allParts = partsResponse?.data?.data || [];
     const partMap = new Map(allParts.map(p => [p.sku, p]));
     const categoryMap = new Map(allCategories.map(c => [c.code, c]));
+    const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
+    const unitMap = new Map(allUnits.map(u => [u.code, u]));
+    const unitNameMap = new Map(allUnits.map(u => [u.name, u]));
 
     // Sort field mapping to match data columns
     const sortedFieldMapping = fieldMapping
@@ -286,11 +290,47 @@ Deno.serve(async (req) => {
             throw new Error(`חסרים שדות חובה: sku=${formattedRow.sku}, name=${formattedRow.name}`);
           }
           
+          // Validate and normalize category
+          let categoryCode = formattedRow.category || null;
+          if (categoryCode) {
+            // Try to find by code first
+            if (!categoryMap.has(categoryCode)) {
+              // Try by name
+              const categoryByName = categoryNameMap.get(categoryCode);
+              if (categoryByName) {
+                categoryCode = categoryByName.code;
+              } else {
+                addLog(`אזהרה: קטגוריה "${categoryCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
+                categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+              }
+            }
+          } else {
+            categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+          }
+          
+          // Validate and normalize unit
+          let unitCode = formattedRow.unit || null;
+          if (unitCode) {
+            // Try to find by code first
+            if (!unitMap.has(unitCode)) {
+              // Try by name
+              const unitByName = unitNameMap.get(unitCode);
+              if (unitByName) {
+                unitCode = unitByName.code;
+              } else {
+                addLog(`אזהרה: יחידת מידה "${unitCode}" לא נמצאה עבור פריט ${formattedRow.sku}, משתמש בברירת מחדל`, 'warn');
+                unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+              }
+            }
+          } else {
+            unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+          }
+          
           const partPayload = {
             sku: String(formattedRow.sku).trim(),
             name: String(formattedRow.name).trim(),
-            category: formattedRow.category || 'other',
-            unit: formattedRow.unit || 'pieces',
+            category: categoryCode,
+            unit: unitCode,
             minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
             notes: formattedRow.notes || '',
             current_location: formattedRow.current_location || '',
