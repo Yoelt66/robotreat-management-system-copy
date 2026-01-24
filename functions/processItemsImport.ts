@@ -583,7 +583,11 @@ Deno.serve(async (req) => {
             errorCount++;
             const failedSku = change.sku || 'לא ידוע';
             const errorMessage = e.message || 'שגיאה לא ידועה';
-            addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${errorMessage}`, 'error');
+            const errorDetails = e.response?.data?.error || errorMessage;
+            addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${errorDetails}`, 'error');
+            if (e.response?.data) {
+              addLog(`פרטי שגיאה: ${JSON.stringify(e.response.data)}`, 'error');
+            }
           }
         }
 
