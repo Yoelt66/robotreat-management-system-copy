@@ -126,11 +126,19 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // Debug the response structure
-    addLog(`getParts full response: ${JSON.stringify(partsResponse).substring(0, 500)}`, 'info');
-
     // getParts returns {success: true, data: [...]} format through axios response wrapper
     let allParts = [];
+
+    // Debug response structure safely
+    addLog(`getParts status: ${partsResponse?.status}`, 'info');
+    addLog(`Has data field: ${!!partsResponse?.data}`, 'info');
+    if (partsResponse?.data) {
+      addLog(`data.success: ${partsResponse.data.success}`, 'info');
+      addLog(`data.data is array: ${Array.isArray(partsResponse.data.data)}`, 'info');
+      if (Array.isArray(partsResponse.data.data)) {
+        addLog(`data.data length: ${partsResponse.data.data.length}`, 'info');
+      }
+    }
 
     // The response from functions.invoke is an axios response: {data: {...}, status: 200, ...}
     // getParts itself returns: {success: true, data: [...]}
