@@ -125,7 +125,12 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // Only load parts if we have selected changes to process
+    const skusInPreview = [...new Set(dataToAnalyze.map(row => {
+      const skuField = sortedFieldMapping.find(f => f.key === 'sku');
+      const skuIndex = sortedFieldMapping.indexOf(skuField);
+      return skuIndex !== -1 && row[skuIndex] ? String(row[skuIndex]).trim() : null;
+    }).filter(Boolean))];
+
     let partCoreData = [];
     let partPricingData = [];
     let partSupplierData = [];
@@ -140,7 +145,15 @@ Deno.serve(async (req) => {
         apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
       ]);
     } else {
-      addLog('לא נבחרו שינויים לעיבוד - מדלג על טעינת נתוני פריטים', 'info');
+      addLog(`טוען נתוני פריטים עבור ${skusInPreview.length} מק"טים לתצוגה מקדימה בלבד...`, 'info');
+      if (skusInPreview.length > 0) {
+        [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
+          apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.filter({ sku: { $in: skusInPreview } }), MAX_RETRIES, `PartCore.filter`).catch(() => []),
+          apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartPricing.filter`).catch(() => []),
+          apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartSupplier.filter`).catch(() => []),
+          apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.filter({ part_sku: { $in: skusInPreview } }), MAX_RETRIES, `PartStock.filter`).catch(() => [])
+        ]);
+      }
     }
 
     // Build parts map
