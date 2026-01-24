@@ -53,11 +53,11 @@ Deno.serve(async (req) => {
             // Step 2: Create PartPricing
             const pricingData = {
                 part_sku: sku,
-                cost_price: partData.cost_price || 0,
+                cost_price: partData.cost_price !== undefined ? partData.cost_price : 0,
                 cost_currency: partData.cost_currency || 'ILS',
                 sale_currency: partData.sale_currency || 'ILS',
-                import_percentage: partData.import_percentage || 15,
-                markup_percentage: partData.markup_percentage || 30,
+                import_percentage: partData.import_percentage !== undefined ? partData.import_percentage : 0,
+                markup_percentage: partData.markup_percentage !== undefined ? partData.markup_percentage : 0,
                 manual_sale_price: partData.manual_sale_price || 0,
                 is_manual: partData.is_manual || false
             };
