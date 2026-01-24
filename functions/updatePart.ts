@@ -84,7 +84,10 @@ Deno.serve(async (req) => {
                 } else if (field === 'is_manual') {
                     pricingUpdate[field] = Boolean(partData[field]);
                 } else {
-                    pricingUpdate[field] = partData[field] ?? '';
+                    // For currency fields, only update if value is valid (not empty string)
+                    if (partData[field] && partData[field] !== '') {
+                        pricingUpdate[field] = partData[field];
+                    }
                 }
                 updatedFields.push(field);
             }
@@ -108,7 +111,7 @@ Deno.serve(async (req) => {
         
         for (const field of supplierFields) {
             if (partData[field] !== undefined && hasChanged(existingSupplier[field], partData[field])) {
-                supplierUpdate[field] = partData[field] ?? '';
+                supplierUpdate[field] = partData[field] || '';
                 updatedFields.push(field);
             }
         }
