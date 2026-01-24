@@ -125,21 +125,6 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    const skuField = sortedFieldMapping.find(f => f.key === 'sku');
-    const skuIndex = skuField ? sortedFieldMapping.indexOf(skuField) : -1;
-    
-    const skusInPreview = [];
-    if (skuIndex !== -1) {
-      const skuSet = new Set();
-      for (const row of dataToAnalyze) {
-        const skuValue = row[skuIndex];
-        if (skuValue) {
-          skuSet.add(String(skuValue).trim());
-        }
-      }
-      skusInPreview.push(...Array.from(skuSet));
-    }
-
     let partCoreData = [];
     let partPricingData = [];
     let partSupplierData = [];
@@ -154,7 +139,7 @@ Deno.serve(async (req) => {
         apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
       ]);
     } else {
-      addLog(`טוען נתוני פריטים עבור ${skusInPreview.length} מק"טים לתצוגה מקדימה בלבד...`, 'info');
+      addLog(`מצב תצוגה מקדימה - טוען רק 50 שורות ללא פרטים מלאים`, 'info');
     }
 
     // Build parts map
