@@ -633,7 +633,23 @@ export default function Import() {
 
   const handleMappingSelection = (mapping) => {
     setSelectedMapping(mapping);
-    setFieldMapping(Array.isArray(mapping.mapping) ? mapping.mapping : []);
+    
+    // Merge saved mapping with latest field definitions to include new fields
+    const latestFields = getInitialFieldMapping(referenceData.warehouses);
+    const savedMapping = Array.isArray(mapping.mapping) ? mapping.mapping : [];
+    
+    // Create a map of existing fields from saved mapping
+    const savedFieldsMap = new Map(savedMapping.map(f => [f.key, f]));
+    
+    // Merge: keep saved fields and add new fields that don't exist in saved mapping
+    const mergedMapping = latestFields.map(latestField => {
+      if (savedFieldsMap.has(latestField.key)) {
+        return savedFieldsMap.get(latestField.key);
+      }
+      return latestField;
+    });
+    
+    setFieldMapping(mergedMapping);
   };
 
   const handleToggleUpdate = (index, shouldUpdate) => {
