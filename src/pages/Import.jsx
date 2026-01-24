@@ -223,7 +223,20 @@ export default function Import() {
         
         if (defaultMapping) {
           setSelectedMapping(defaultMapping);
-          setFieldMapping(Array.isArray(defaultMapping.mapping) ? defaultMapping.mapping : []);
+          
+          // Merge saved mapping with latest field definitions
+          const latestFields = getInitialFieldMapping(safeWarehouses);
+          const savedMapping = Array.isArray(defaultMapping.mapping) ? defaultMapping.mapping : [];
+          const savedFieldsMap = new Map(savedMapping.map(f => [f.key, f]));
+          
+          const mergedMapping = latestFields.map(latestField => {
+            if (savedFieldsMap.has(latestField.key)) {
+              return savedFieldsMap.get(latestField.key);
+            }
+            return latestField;
+          });
+          
+          setFieldMapping(mergedMapping);
         } else {
           const initialMapping = getInitialFieldMapping(safeWarehouses);
           setFieldMapping(initialMapping);
