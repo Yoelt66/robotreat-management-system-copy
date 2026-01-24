@@ -126,9 +126,11 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // Handle both response formats: {data: {data: [...]}} or {data: [...]}
+    // getParts returns {success: true, data: [...]} format
     let allParts = [];
-    if (Array.isArray(partsResponse?.data?.data)) {
+    if (partsResponse?.data?.success && Array.isArray(partsResponse.data.data)) {
+      allParts = partsResponse.data.data;
+    } else if (Array.isArray(partsResponse?.data?.data)) {
       allParts = partsResponse.data.data;
     } else if (Array.isArray(partsResponse?.data)) {
       allParts = partsResponse.data;
