@@ -72,8 +72,8 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
         cost_price: part.cost_price || 0,
         cost_currency: part.cost_currency && part.cost_currency !== '' ? part.cost_currency : 'ILS',
         sale_currency: part.sale_currency && part.sale_currency !== '' ? part.sale_currency : 'ILS',
-        import_percentage: part.import_percentage !== undefined && part.import_percentage !== null ? part.import_percentage : 15,
-        markup_percentage: part.markup_percentage !== undefined && part.markup_percentage !== null ? part.markup_percentage : 30,
+        import_percentage: part.import_percentage !== undefined && part.import_percentage !== null ? part.import_percentage : 0,
+        markup_percentage: part.markup_percentage !== undefined && part.markup_percentage !== null ? part.markup_percentage : 0,
         manual_sale_price: part.manual_sale_price || 0,
         is_manual: part.is_manual || false
       });
