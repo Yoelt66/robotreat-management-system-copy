@@ -329,6 +329,23 @@ Deno.serve(async (req) => {
 
     addLog(`נמצאו ${changesToProcess.length} שינויים לעיבוד`, 'success');
 
+    // If no changes selected, return analysis only (preview mode)
+    if (!selectedChanges || selectedChanges.length === 0) {
+      addLog('מצב תצוגה מקדימה - לא מבצע שינויים בפועל', 'info');
+      return Response.json({
+        success: true,
+        preview: true,
+        changes: changes,
+        stats: {
+          created: 0,
+          updated: 0,
+          errors: 0,
+          total: changes.length
+        },
+        logs
+      });
+    }
+
     // Process changes
     const newItems = changesToProcess.filter(c => c.type === 'new');
     const allItemsToProcess = changesToProcess.filter(c => c.type !== 'no_change');
