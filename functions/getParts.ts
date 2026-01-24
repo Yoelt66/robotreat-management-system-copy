@@ -57,11 +57,11 @@ Deno.serve(async (req) => {
                 created_date: core.created_date,
                 updated_date: core.updated_date,
                 // Pricing fields
-                cost_price: pricing.cost_price || 0,
+                cost_price: pricing.cost_price !== undefined ? pricing.cost_price : 0,
                 cost_currency: pricing.cost_currency || 'ILS',
                 sale_currency: pricing.sale_currency || 'ILS',
-                import_percentage: pricing.import_percentage || 15,
-                markup_percentage: pricing.markup_percentage || 30,
+                import_percentage: pricing.import_percentage !== undefined ? pricing.import_percentage : 0,
+                markup_percentage: pricing.markup_percentage !== undefined ? pricing.markup_percentage : 0,
                 manual_sale_price: pricing.manual_sale_price || 0,
                 is_manual: pricing.is_manual || false,
                 // Supplier fields
