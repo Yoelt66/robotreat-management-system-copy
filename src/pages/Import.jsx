@@ -530,10 +530,15 @@ export default function Import() {
             // Existing item - check for changes
             const itemChanges = [];
             
-            // Check field changes
-            const fieldsToCheck = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'cost_price', 'current_location', 'supplier_part_number', 'replaced_sku', 'supplier_number', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'exchange_rate'];
+            // Check field changes - all fields from all entities
+            const allFields = [
+              'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 
+              'replaced_sku', 'requires_serial_number', 'cost_price', 'cost_currency', 
+              'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 
+              'is_manual', 'supplier_number', 'supplier_part_number'
+            ];
             
-            fieldsToCheck.forEach(field => {
+            allFields.forEach(field => {
               if (formattedRow[field] !== undefined && formattedRow[field] !== null) {
                 const oldValue = existingPart[field];
                 const newValue = formattedRow[field];
@@ -671,16 +676,42 @@ export default function Import() {
           try {
             maxPartBusinessId++;
             const formattedRow = change.newData;
+            
+            // בניית payload מלא לפונקציית createPart
             const partPayload = {
-              part_id: String(maxPartBusinessId),
+              // PartCore fields
               sku: formattedRow.sku,
               name: formattedRow.name,
               category: formattedRow.category || 'other',
               unit: formattedRow.unit || 'pieces',
+              minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
+              notes: formattedRow.notes || '',
+              current_location: formattedRow.current_location || '',
+              replaced_sku: formattedRow.replaced_sku || '',
+              requires_serial_number: formattedRow.requires_serial_number || false,
+              
+              // Warehouses for PartStock
               warehouses: allWarehouses.map(wh => ({
                 warehouse_id: wh.warehouse_id,
-                quantity: parseInt(formattedRow[wh.warehouse_id]) || 0
-              }))
+                quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
+              })),
+              
+              // PartPricing fields
+              pricing: {
+                cost_price: parseFloat(formattedRow.cost_price) || 0,
+                cost_currency: formattedRow.cost_currency || 'ILS',
+                sale_currency: formattedRow.sale_currency || 'ILS',
+                import_percentage: parseFloat(formattedRow.import_percentage) || 15,
+                markup_percentage: parseFloat(formattedRow.markup_percentage) || 30,
+                manual_sale_price: formattedRow.manual_sale_price ? parseFloat(formattedRow.manual_sale_price) : null,
+                is_manual: formattedRow.is_manual || false
+              },
+              
+              // PartSupplier fields
+              supplier: {
+                supplier_number: formattedRow.supplier_number || '',
+                supplier_part_number: formattedRow.supplier_part_number || ''
+              }
             };
             
             const response = await apiCallWithRetry(() => createPart(partPayload), MAX_RETRIES, `Create ${formattedRow.sku}`);
@@ -719,12 +750,21 @@ export default function Import() {
                 throw new Error('פריט לא נמצא לעדכון לאחר שלב היצירה.');
               }
 
-              const updateData = {};
-              const fieldsToUpdate = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'cost_price', 'current_location', 'supplier_part_number', 'replaced_sku', 'supplier_number', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'exchange_rate'];
+              // הפרדת נתונים לפי אנטיטיז
+              const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
+              const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
+              const supplierFields = ['supplier_number', 'supplier_part_number'];
               
-              fieldsToUpdate.forEach(field => {
+              const updateData = {
+                sku: existingPart.sku
+              };
+              
+              let hasChanges = false;
+              
+              // בדיקת שדות PartCore
+              coreFields.forEach(field => {
                 if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                  const numericFields = ['minimum_stock', 'cost_price', 'import_percentage', 'markup_percentage', 'exchange_rate'];
+                  const numericFields = ['minimum_stock'];
                   const newValue = numericFields.includes(field)
                     ? parseFloat(formattedRow[field]) || 0
                     : formattedRow[field];
@@ -733,29 +773,73 @@ export default function Import() {
                     ? parseFloat(existingPart[field]) || 0
                     : existingPart[field] || '';
                   
-                  // Only add to update if value actually changed
                   if (change.type === 'new' || String(existingValue) !== String(newValue)) {
-                     updateData[field] = newValue;
+                    updateData[field] = newValue;
+                    hasChanges = true;
                   }
                 }
               });
 
+              // בדיקת שדות PartPricing
+              const pricingUpdate = {};
+              pricingFields.forEach(field => {
+                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+                  const numericFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
+                  const newValue = numericFields.includes(field)
+                    ? parseFloat(formattedRow[field]) || 0
+                    : formattedRow[field];
+                  
+                  const existingValue = numericFields.includes(field)
+                    ? parseFloat(existingPart[field]) || 0
+                    : existingPart[field] || '';
+                  
+                  if (change.type === 'new' || String(existingValue) !== String(newValue)) {
+                    pricingUpdate[field] = newValue;
+                    hasChanges = true;
+                  }
+                }
+              });
+              
+              if (Object.keys(pricingUpdate).length > 0) {
+                updateData.pricing = pricingUpdate;
+              }
+
+              // בדיקת שדות PartSupplier
+              const supplierUpdate = {};
+              supplierFields.forEach(field => {
+                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+                  const existingValue = existingPart[field] || '';
+                  if (change.type === 'new' || String(existingValue) !== String(formattedRow[field])) {
+                    supplierUpdate[field] = formattedRow[field];
+                    hasChanges = true;
+                  }
+                }
+              });
+              
+              if (Object.keys(supplierUpdate).length > 0) {
+                updateData.supplier = supplierUpdate;
+              }
+
+              // בדיקת שדות PartStock (מחסנים)
+              const stockUpdate = {};
               allWarehouses.forEach(wh => {
                 const stockVal = formattedRow[String(wh.warehouse_id)];
                 if (stockVal !== undefined && stockVal !== null && stockVal !== '') {
-                  const newQuantity = parseInt(stockVal) || 0;
+                  const newQuantity = parseFloat(stockVal) || 0;
                   const currentQuantity = existingPart[wh.warehouse_id] || 0;
                   if (change.type === 'new' || currentQuantity !== newQuantity) {
-                    updateData[wh.warehouse_id] = newQuantity;
+                    stockUpdate[wh.warehouse_id] = newQuantity;
+                    hasChanges = true;
                   }
                 }
               });
+              
+              if (Object.keys(stockUpdate).length > 0) {
+                updateData.stock = stockUpdate;
+              }
 
-              // Only update if there are actual changes
-              if (Object.keys(updateData).length > 0) {
-                updateData.last_updated = new Date().toISOString().split('T')[0];
-                updateData.sku = existingPart.sku; // Include SKU for backend function
-
+              // ביצוע עדכון רק אם יש שינויים
+              if (hasChanges) {
                 const response = await apiCallWithRetry(() => updatePart(updateData), MAX_RETRIES, `Part Update ${existingPart.sku}`);
                 if (response?.data?.error) {
                   throw new Error(response.data.error);
@@ -765,7 +849,6 @@ export default function Import() {
                   updatedCount++;
                 }
               } else if (change.type !== 'new') {
-                // No changes detected for existing part, skip silently
                 addLog(`פריט ${existingPart.sku} ללא שינויים - מדלג`, 'info');
               }
             } catch (e) {
