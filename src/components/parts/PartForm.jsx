@@ -123,9 +123,17 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    
+    let finalValue = type === 'checkbox' ? checked : value;
+    
+    // Convert empty strings to 0 for percentage fields
+    if ((name === 'import_percentage' || name === 'markup_percentage') && value === '') {
+      finalValue = 0;
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: finalValue
     }));
     
     if (errors[name]) {
