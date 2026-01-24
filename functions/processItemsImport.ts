@@ -324,9 +324,11 @@ Deno.serve(async (req) => {
       addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
     }
 
-    // Phase 2: Update all items
-    if (allItemsToProcess.length > 0) {
-      addLog('מתחיל שלב עדכון נתונים מלא...', 'info');
+    // Phase 2: Update existing items only (skip newly created ones)
+    const itemsToUpdate = allItemsToProcess.filter(c => c.type !== 'new');
+    
+    if (itemsToUpdate.length > 0) {
+      addLog('מתחיל שלב עדכון נתונים עבור פריטים קיימים...', 'info');
       
       const allPartsForUpdateResponse = await apiCallWithRetry(
         () => base44.asServiceRole.functions.invoke('getParts', {}),
@@ -336,11 +338,11 @@ Deno.serve(async (req) => {
       const allPartsForUpdate = allPartsForUpdateResponse?.data?.data || [];
       const partMapUpdated = new Map(allPartsForUpdate.map(p => [p.sku, p]));
 
-      addLog(`מעדכן נתונים מלאים עבור ${allItemsToProcess.length} פריטים...`, 'info');
+      addLog(`מעדכן נתונים מלאים עבור ${itemsToUpdate.length} פריטים קיימים...`, 'info');
       
-      for (let i = 0; i < allItemsToProcess.length; i += UPDATE_BATCH_SIZE) {
-        const batch = allItemsToProcess.slice(i, i + UPDATE_BATCH_SIZE);
-        addLog(`מעבד קבוצת עדכונים ${Math.floor(i / UPDATE_BATCH_SIZE) + 1}/${Math.ceil(allItemsToProcess.length / UPDATE_BATCH_SIZE)}`, 'info');
+      for (let i = 0; i < itemsToUpdate.length; i += UPDATE_BATCH_SIZE) {
+        const batch = itemsToUpdate.slice(i, i + UPDATE_BATCH_SIZE);
+        addLog(`מעבד קבוצת עדכונים ${Math.floor(i / UPDATE_BATCH_SIZE) + 1}/${Math.ceil(itemsToUpdate.length / UPDATE_BATCH_SIZE)}`, 'info');
 
         for (const change of batch) {
           try {
@@ -348,7 +350,8 @@ Deno.serve(async (req) => {
             const existingPart = partMapUpdated.get(formattedRow.sku);
             
             if (!existingPart) {
-              throw new Error('פריט לא נמצא לעדכון לאחר שלב היצירה.');
+              addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג על עדכון`, 'warn');
+              continue;
             }
 
             const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
@@ -369,7 +372,7 @@ Deno.serve(async (req) => {
                   ? parseFloat(existingPart[field]) || 0
                   : existingPart[field] || '';
                 
-                if (change.type === 'new' || String(existingValue) !== String(newValue)) {
+                if (String(existingValue) !== String(newValue)) {
                   updateData[field] = newValue;
                   hasChanges = true;
                 }
@@ -387,7 +390,7 @@ Deno.serve(async (req) => {
                   ? parseFloat(existingPart[field]) || 0
                   : existingPart[field] || '';
                 
-                if (change.type === 'new' || String(existingValue) !== String(newValue)) {
+                if (String(existingValue) !== String(newValue)) {
                   updateData[field] = newValue;
                   hasChanges = true;
                 }
@@ -402,7 +405,7 @@ Deno.serve(async (req) => {
             supplierFields.forEach(field => {
               if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
                 const existingValue = existingPart[field] || '';
-                if (change.type === 'new' || String(existingValue) !== String(formattedRow[field])) {
+                if (String(existingValue) !== String(formattedRow[field])) {
                   updateData[field] = formattedRow[field];
                   hasChanges = true;
                 }
@@ -420,9 +423,7 @@ Deno.serve(async (req) => {
                 throw new Error(response.data.error);
               }
 
-              if (change.type !== 'new') {
-                updatedCount++;
-              }
+              updatedCount++;
             }
           } catch (e) {
             errorCount++;
@@ -432,17 +433,15 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (i + UPDATE_BATCH_SIZE < allItemsToProcess.length) {
+        if (i + UPDATE_BATCH_SIZE < itemsToUpdate.length) {
           await delay(DELAY_BETWEEN_BATCHES);
         }
       }
     }
 
-    const finalUpdatedCount = updatedCount + newItems.length;
-
     addLog('=== סיכום ייבוא ===', 'success');
     addLog(`פריטים חדשים שנוצרו: ${createdCount}`, 'success');
-    addLog(`פריטים שעודכנו: ${finalUpdatedCount}`, 'success');
+    addLog(`פריטים קיימים שעודכנו: ${updatedCount}`, 'success');
     addLog(`שגיאות: ${errorCount}`, errorCount > 0 ? 'error' : 'success');
     
     if (errorCount === 0) {
@@ -455,7 +454,7 @@ Deno.serve(async (req) => {
       success: true,
       stats: {
         created: createdCount,
-        updated: finalUpdatedCount,
+        updated: updatedCount,
         errors: errorCount,
         total: changesToProcess.length
       },
