@@ -179,6 +179,7 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
                 name="sku"
                 value={formData.sku}
                 onChange={handleChange}
+                disabled={!!part}
                 className={errors.sku ? 'border-red-500' : ''}
               />
               {errors.sku && <p className="text-red-500 text-sm">{errors.sku}</p>}
