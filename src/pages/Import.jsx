@@ -706,8 +706,8 @@ export default function Import() {
               sale_currency: formattedRow.sale_currency || 'ILS',
               import_percentage: formattedRow.import_percentage !== undefined && formattedRow.import_percentage !== null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
               markup_percentage: formattedRow.markup_percentage !== undefined && formattedRow.markup_percentage !== null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
-              manual_sale_price: formattedRow.manual_sale_price ? parseFloat(formattedRow.manual_sale_price) : 0,
-              is_manual: formattedRow.is_manual || false,
+              manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
+              is_manual: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? true : false,
               
               // PartSupplier fields - flatten to root level
               supplier_number: formattedRow.supplier_number || '',
