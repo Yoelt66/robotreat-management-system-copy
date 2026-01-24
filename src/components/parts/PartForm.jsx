@@ -35,8 +35,8 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
     cost_price: 0,
     cost_currency: 'ILS',
     sale_currency: 'ILS',
-    import_percentage: 15,
-    markup_percentage: 30,
+    import_percentage: 0,
+    markup_percentage: 0,
     manual_sale_price: 0,
     is_manual: false
   });
