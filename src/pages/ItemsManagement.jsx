@@ -53,7 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "@/components/ui/use-toast";
+
 
 import PartForm from "../components/parts/PartForm";
 
@@ -116,11 +116,7 @@ export default function ItemsManagement() {
       setCurrentUser(userData);
     } catch (error) {
       console.error("Error loading data:", error);
-      toast({
-        variant: "destructive",
-        title: "שגיאה בטעינת נתונים",
-        description: "אנא נסה שנית"
-      });
+
     } finally {
       setLoading(false);
     }
@@ -273,13 +269,13 @@ export default function ItemsManagement() {
         if (response?.data?.error) {
           throw new Error(response.data.error);
         }
-        toast({ title: "פריט עודכן בהצלחה" });
+
       } else {
         const response = await createPart(dataWithWarehouses);
         if (response?.data?.error) {
           throw new Error(response.data.error);
         }
-        toast({ title: "פריט נוצר בהצלחה" });
+
       }
       
       setShowForm(false);
@@ -287,11 +283,7 @@ export default function ItemsManagement() {
       loadData();
     } catch (error) {
       console.error("Error saving part:", error);
-      toast({
-        variant: "destructive",
-        title: "שגיאה בשמירת הפריט",
-        description: error.message
-      });
+
     }
   };
 
@@ -303,16 +295,12 @@ export default function ItemsManagement() {
       if (response?.data?.error) {
         throw new Error(response.data.error);
       }
-      toast({ title: "פריט נמחק בהצלחה" });
+
       setPartToDelete(null);
       loadData();
     } catch (error) {
       console.error("Error deleting part:", error);
-      toast({
-        variant: "destructive",
-        title: "שגיאה במחיקת הפריט",
-        description: error.message
-      });
+
     }
   };
 

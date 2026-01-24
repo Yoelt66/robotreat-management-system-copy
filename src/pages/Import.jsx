@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { toast } from "@/components/ui/use-toast";
+
 import { Upload, Settings, CheckCircle, Loader2, Info, ChevronDown, AlertCircle, File, Terminal } from "lucide-react";
 import ImportFieldMapping from "../components/import/ImportFieldMapping";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -228,11 +228,7 @@ export default function Import() {
 
       } catch (error) {
         console.error("Error loading initial data for import page:", error);
-        toast({
-          variant: "destructive",
-          title: "שגיאה בטעינת נתונים",
-          description: "לא ניתן היה לטעון הגדרות ייבוא שמורות.",
-        });
+
       } finally {
         setLoading(false);
       }
@@ -356,11 +352,7 @@ export default function Import() {
 
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast({
-        variant: "destructive",
-        title: "קובץ גדול מדי",
-        description: "גודל הקובץ חייב להיות קטן מ-50MB."
-      });
+
       event.target.value = ''; // Clear the file input
       return;
     }
@@ -417,17 +409,14 @@ export default function Import() {
       
       processParsedData(parsedData);
       
-      toast({
-        title: "הקובץ עובד בהצלחה",
-        description: `זוהו ${parsedData.length} שורות.`
-      });
+
       addLog(`עיבוד הקובץ הושלם.`, 'success');
 
     } catch (error) {
       console.error("שגיאה בניתוח הקובץ:", error);
       let errorMessage = error.message || "אירעה שגיאה לא ידועה.";
       addLog(`שגיאה בניתוח הקובץ: ${errorMessage}`, "error");
-      toast({ variant: "destructive", title: "שגיאה בניתוח הקובץ", description: errorMessage });
+
     } finally {
       setIsFileUploading(false);
       event.target.value = '';
@@ -436,19 +425,11 @@ export default function Import() {
   
   const analyzeChanges = async () => {
     if (data.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "אין נתונים לניתוח",
-        description: "יש לעבד נתונים תחילה.",
-      });
+
       return;
     }
     if (!selectedMapping) {
-      toast({
-        variant: "destructive",
-        title: "אין מיפוי עמודות",
-        description: "יש לבחור תבנית מיפוי לפני ניתוח הנתונים.",
-      });
+
       return;
     }
 
@@ -629,20 +610,13 @@ export default function Import() {
       addLog(`ניתוח הושלם. נמצאו ${significantChanges.length} פריטים עם שינויים מתוך ${changes.length} פריטים`, 'success');
       
       if (significantChanges.length === 0) {
-        toast({
-          title: "לא נמצאו שינויים",
-          description: "כל הנתונים בקובץ זהים לנתונים הקיימים במערכת."
-        });
+
       }
 
     } catch (error) {
       console.error("Error analyzing changes:", error);
       addLog(`שגיאה בניתוח שינויים: ${error.message}`, "error");
-      toast({
-        variant: "destructive",
-        title: "שגיאה בניתוח שינויים",
-        description: error.message
-      });
+
     } finally {
       setIsAnalyzing(false);
     }
@@ -822,27 +796,16 @@ export default function Import() {
       
       if (errorCount === 0) {
         addLog(`הייבוא הושלם בהצלחה! 🎉`, "success");
-        toast({ 
-          title: "הייבוא הושלם בהצלחה!",
-          description: `נוצרו ${createdCount} פריטים, עודכנו ${finalUpdatedCount} פריטים.`
-        });
+
       } else {
         addLog(`הייבוא הושלם עם ${errorCount} שגיאות.`, "warn");
-        toast({ 
-          variant: "destructive", 
-          title: `הייבוא הושלם עם ${errorCount} שגיאות`,
-          description: "יש לבדוק את רשימת השגיאות ביומן"
-        });
+
       }
 
     } catch (error) {
       console.error("Import failed critically:", error);
       addLog(`הייבוא נכשל: ${error.message}`, "error");
-      toast({
-        variant: "destructive",
-        title: "הייבוא נכשל",
-        description: error.message
-      });
+
     } finally {
       setIsImporting(false);
       setProgress(100);

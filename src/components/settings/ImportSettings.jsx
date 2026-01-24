@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Edit, Trash2, Users, HardDrive, Wrench, ClipboardPlus } from "lucide-react";
 import ImportMappingForm from "./ImportMappingForm";
-import { toast } from "sonner";
+
 import DataImporter from "./import/DataImporter";
 
 // Client import configuration
@@ -326,7 +326,7 @@ const updateServiceCallsWithParts = async (batch) => {
         }
     }
     
-    toast.success(`ייבוא חלפים הושלם - ${updatedCallsCount} קריאות עודכנו. ${skippedCount > 0 ? `${skippedCount} חלפים כפולים דולגו.` : 'לא נמצאו כפילויות.'}`);
+
 };
 
 
@@ -347,7 +347,7 @@ export default function ImportSettings() {
       setMappings(data);
     } catch (error) {
       console.error("Error loading import mappings:", error);
-      toast.error("שגיאה בטעינת הגדרות ייבוא");
+
     } finally {
       setLoading(false);
     }
@@ -367,11 +367,11 @@ export default function ImportSettings() {
     if (confirm("האם אתה בטוח שברצונך למחוק הגדרת מיפוי זו?")) {
       try {
         await ImportMapping.delete(mappingId);
-        toast.success("הגדרת המיפוי נמחקה בהצלחה");
+  
         loadMappings();
       } catch (error) {
         console.error("Error deleting mapping:", error);
-        toast.error("שגיאה במחיקת הגדרת המיפוי");
+  
       }
     }
   };
@@ -388,10 +388,10 @@ export default function ImportSettings() {
 
       if (editingMapping) {
         await ImportMapping.update(editingMapping.id, data);
-        toast.success("הגדרת המיפוי עודכנה בהצלחה");
+  
       } else {
         await ImportMapping.create(data);
-        toast.success("הגדרת מיפוי חדשה נוצרה");
+  
       }
       
       setShowForm(false);
@@ -399,7 +399,7 @@ export default function ImportSettings() {
       await loadMappings();
     } catch (error) {
       console.error("Error saving mapping:", error);
-      toast.error("שגיאה בשמירת הגדרת המיפוי");
+
     }
   };
 
