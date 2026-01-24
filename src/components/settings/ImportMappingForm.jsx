@@ -27,6 +27,13 @@ const generateDefaultMapping = async () => {
     { key: 'current_location', label: 'מיקום נוכחי', checked: false, is_required: false },
     { key: 'supplier_part_number', label: 'מקט אצל ספק', checked: false, is_required: false },
     { key: 'replaced_sku', label: 'מקט חלופי', checked: false, is_required: false },
+    { key: 'supplier_number', label: 'מספר ספק', checked: false, is_required: false },
+    { key: 'cost_currency', label: 'מטבע עלות', checked: false, is_required: false },
+    { key: 'sale_currency', label: 'מטבע מכירה', checked: false, is_required: false },
+    { key: 'import_percentage', label: 'אחוז ייבוא', checked: false, is_required: false },
+    { key: 'markup_percentage', label: 'אחוז רווח', checked: false, is_required: false },
+    { key: 'manual_sale_price', label: 'מחיר מכירה ידני', checked: false, is_required: false },
+    { key: 'exchange_rate', label: 'שער חליפין', checked: false, is_required: false },
   ];
 
   const warehouseFields = warehouses.map(w => ({
