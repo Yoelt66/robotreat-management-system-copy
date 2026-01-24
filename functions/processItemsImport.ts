@@ -178,9 +178,18 @@ Deno.serve(async (req) => {
 
     // Process data and analyze changes
     addLog(`מנתח ${parsedData.length} שורות...`, 'info');
-    
+
+    // Limit analysis if no specific changes selected (prevent timeout)
+    const dataToAnalyze = selectedChanges && selectedChanges.length > 0 
+      ? parsedData 
+      : parsedData.slice(0, 100); // Analyze only first 100 rows if no selection
+
+    if (!selectedChanges || selectedChanges.length === 0) {
+      addLog(`מגביל ניתוח ל-${dataToAnalyze.length} שורות ראשונות למניעת timeout`, 'info');
+    }
+
     const changes = [];
-    for (const rowValues of parsedData) {
+    for (const rowValues of dataToAnalyze) {
       const formattedRow = {};
       
       sortedFieldMapping.forEach((field, index) => {
