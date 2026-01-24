@@ -116,47 +116,47 @@ Deno.serve(async (req) => {
       throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
     }
 
-    // Load existing data
+    // Load existing data directly from entities (faster and more reliable than getParts)
     addLog('טוען נתוני מערכת קיימים...', 'info');
-    
-    const [partsResponse, allCategories, allWarehouses, allUnits] = await Promise.all([
-      apiCallWithRetry(() => base44.asServiceRole.functions.invoke('getParts', {}), MAX_RETRIES, "getParts"),
+
+    const [partCoreData, partPricingData, partSupplierData, partStockData, allCategories, allWarehouses, allUnits] = await Promise.all([
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list(), MAX_RETRIES, "Category.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list(), MAX_RETRIES, "Warehouse.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    // Parse response from getParts
-    let allParts = [];
+    // Build parts map
+    const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
+    const supplierMap = new Map(partSupplierData.map(p => [p.part_sku, p]));
 
-    try {
-      // If the response data is a string, parse it
-      let responseData = partsResponse?.data;
-      if (typeof responseData === 'string') {
-        addLog(`התשובה היא string, מנסה לפרסר...`, 'info');
-        responseData = JSON.parse(responseData);
+    // Build stock by warehouse map
+    const stockByPart = new Map();
+    partStockData.forEach(stock => {
+      if (!stockByPart.has(stock.part_sku)) {
+        stockByPart.set(stock.part_sku, {});
       }
+      stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
+    });
 
-      // Now extract the parts array
-      if (Array.isArray(responseData)) {
-        allParts = responseData;
-        addLog(`טוען ${allParts.length} פריטים ישירות מהתשובה`, 'info');
-      } else if (responseData?.success && Array.isArray(responseData.data)) {
-        allParts = responseData.data;
-        addLog(`טוען ${allParts.length} פריטים מ-data.data`, 'info');
-      } else if (Array.isArray(responseData?.data)) {
-        allParts = responseData.data;
-        addLog(`טוען ${allParts.length} פריטים מ-data`, 'info');
-      } else {
-        addLog(`מבנה תשובה לא מוכר`, 'error');
-      }
-    } catch (parseError) {
-      addLog(`שגיאה בפירוש תשובת getParts: ${parseError.message}`, 'error');
-    }
+    // Merge all part data
+    const allParts = partCoreData.map(core => {
+      const pricing = pricingMap.get(core.sku) || {};
+      const supplier = supplierMap.get(core.sku) || {};
+      const stocks = stockByPart.get(core.sku) || {};
 
-    if (allParts.length === 0) {
-      addLog(`לא הצלחנו לטעון פריטים קיימים`, 'error');
-    }
+      return {
+        ...core,
+        ...pricing,
+        ...supplier,
+        ...stocks
+      };
+    });
+
+    addLog(`טוען ${allParts.length} פריטים קיימים`, 'info');
     
     addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
     const partMap = new Map(allParts.map(p => [p.sku, p]));
