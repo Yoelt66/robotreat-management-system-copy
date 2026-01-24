@@ -126,7 +126,17 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
     ]);
 
-    const allParts = partsResponse?.data?.data || [];
+    // Handle both response formats: {data: {data: [...]}} or {data: [...]}
+    let allParts = [];
+    if (Array.isArray(partsResponse?.data?.data)) {
+      allParts = partsResponse.data.data;
+    } else if (Array.isArray(partsResponse?.data)) {
+      allParts = partsResponse.data;
+    } else {
+      allParts = [];
+    }
+    
+    addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
     const partMap = new Map(allParts.map(p => [p.sku, p]));
     const categoryMap = new Map(allCategories.map(c => [c.code, c]));
     const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
