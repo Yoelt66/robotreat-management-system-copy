@@ -22,13 +22,6 @@ export default function SupplierForm({ supplier, onSubmit, onCancel }) {
   useEffect(() => {
     if (supplier) {
       setFormData(supplier);
-    } else {
-      // Generate supplier number for new supplier
-      const timestamp = Date.now().toString().slice(-6);
-      setFormData(prev => ({
-        ...prev,
-        supplier_number: `SUP-${timestamp}`
-      }));
     }
   }, [supplier]);
 
@@ -53,9 +46,9 @@ export default function SupplierForm({ supplier, onSubmit, onCancel }) {
               <Label htmlFor="supplier_number">מספר ספק</Label>
               <Input
                 id="supplier_number"
-                value={formData.supplier_number}
-                onChange={(e) => handleChange('supplier_number', e.target.value)}
-                required
+                value={formData.supplier_number || 'יוצר אוטומטית...'}
+                disabled
+                className="bg-gray-50"
               />
             </div>
             <div className="space-y-2">

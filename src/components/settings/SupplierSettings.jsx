@@ -27,12 +27,25 @@ export default function SupplierSettings() {
     }
   };
 
+  const generateSupplierNumber = async () => {
+    const allSuppliers = await Supplier.list();
+    const existingNumbers = allSuppliers
+      .map(s => s.supplier_number)
+      .filter(num => num && num.startsWith('SUP-'))
+      .map(num => parseInt(num.replace('SUP-', '')) || 0);
+    
+    const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+    const nextNumber = maxNumber + 1;
+    return `SUP-${String(nextNumber).padStart(4, '0')}`;
+  };
+
   const handleSubmit = async (supplierData) => {
     try {
       if (editingSupplier) {
         await Supplier.update(editingSupplier.id, supplierData);
       } else {
-        await Supplier.create(supplierData);
+        const supplierNumber = await generateSupplierNumber();
+        await Supplier.create({ ...supplierData, supplier_number: supplierNumber });
       }
       setShowForm(false);
       setEditingSupplier(null);
