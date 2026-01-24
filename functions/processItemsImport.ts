@@ -567,28 +567,34 @@ Deno.serve(async (req) => {
             });
 
             if (hasChanges) {
-              const response = await apiCallWithRetry(
-                () => base44.asServiceRole.functions.invoke('updatePart', updateData),
-                MAX_RETRIES,
-                `Part Update ${existingPart.sku}`
-              );
-              
-              if (response?.data?.error) {
-                throw new Error(response.data.error);
-              }
+              try {
+                const response = await apiCallWithRetry(
+                  () => base44.asServiceRole.functions.invoke('updatePart', updateData),
+                  MAX_RETRIES,
+                  `Part Update ${existingPart.sku}`
+                );
 
-              updatedCount++;
+                if (response?.data?.error) {
+                  throw new Error(response.data.error);
+                }
+
+                updatedCount++;
+              } catch (updateError) {
+                errorCount++;
+                const failedSku = change.sku || 'לא ידוע';
+                addLog(`שגיאה בעדכון מק"ט ${failedSku}`, 'error');
+                addLog(`נתונים שנשלחו: ${JSON.stringify(updateData)}`, 'error');
+                addLog(`פרטי שגיאה: ${updateError.message}`, 'error');
+                if (updateError.response?.data) {
+                  addLog(`תשובת שרת: ${JSON.stringify(updateError.response.data)}`, 'error');
+                }
+              }
             }
-          } catch (e) {
+            } catch (e) {
             errorCount++;
             const failedSku = change.sku || 'לא ידוע';
-            const errorMessage = e.message || 'שגיאה לא ידועה';
-            const errorDetails = e.response?.data?.error || errorMessage;
-            addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${errorDetails}`, 'error');
-            if (e.response?.data) {
-              addLog(`פרטי שגיאה: ${JSON.stringify(e.response.data)}`, 'error');
+            addLog(`שגיאה כללית בעדכון מק"ט ${failedSku}: ${e.message}`, 'error');
             }
-          }
         }
 
         if (i + UPDATE_BATCH_SIZE < itemsToUpdate.length) {

@@ -134,6 +134,11 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Update part error:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error('Error stack:', error.stack);
+        return Response.json({ 
+            error: error.message,
+            details: error.stack,
+            sku: partData?.sku 
+        }, { status: 500 });
     }
 });
