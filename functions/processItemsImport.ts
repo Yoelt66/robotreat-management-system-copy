@@ -370,13 +370,10 @@ Deno.serve(async (req) => {
           });
         }
       }
-    }
+      }
 
-    // Filter changes based on selectedChanges
-    const selectedSkus = new Set(selectedChanges);
-    const changesToProcess = changes.filter(c => selectedSkus.has(c.sku));
-
-    addLog(`נמצאו ${changesToProcess.length} שינויים לעיבוד מתוך ${selectedChanges.length} נבחרו`, 'success');
+      addLog(`נמצאו ${changes.length} שינויים לעיבוד`, 'success');
+      const changesToProcess = changes;
 
     // Process changes
     const newItems = changesToProcess.filter(c => c.type === 'new');
