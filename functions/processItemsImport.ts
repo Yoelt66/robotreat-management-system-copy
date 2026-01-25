@@ -346,31 +346,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Filter changes based on selectedChanges (if provided)
-    let changesToProcess = changes;
-    if (selectedChanges && Array.isArray(selectedChanges)) {
-      const selectedSkus = new Set(selectedChanges);
-      changesToProcess = changes.filter(c => selectedSkus.has(c.sku));
-    }
+    // Filter changes based on selectedChanges
+    const selectedSkus = new Set(selectedChanges);
+    const changesToProcess = changes.filter(c => selectedSkus.has(c.sku));
 
-    addLog(`נמצאו ${changesToProcess.length} שינויים לעיבוד`, 'success');
-
-    // If no changes selected, return analysis only (preview mode)
-    if (!selectedChanges || selectedChanges.length === 0) {
-      addLog('מצב תצוגה מקדימה - לא מבצע שינויים בפועל', 'info');
-      return Response.json({
-        success: true,
-        preview: true,
-        changes: changes,
-        stats: {
-          created: 0,
-          updated: 0,
-          errors: 0,
-          total: changes.length
-        },
-        logs
-      });
-    }
+    addLog(`נמצאו ${changesToProcess.length} שינויים לעיבוד מתוך ${selectedChanges.length} נבחרו`, 'success');
 
     // Process changes
     const newItems = changesToProcess.filter(c => c.type === 'new');
