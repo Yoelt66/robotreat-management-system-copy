@@ -624,12 +624,12 @@ export default function Import() {
       // Upload file to server
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
       const fileUrl = uploadResponse.file_url;
-      
+
       addLog(`קובץ הועלה בהצלחה, מתחיל עיבוד בקבוצות...`, 'success');
       setProgress(5);
 
       // Process in batches to avoid timeout
-      const CHUNK_SIZE = 100;
+      const CHUNK_SIZE = 50;
       const chunks = [];
       for (let i = 0; i < selectedSkus.length; i += CHUNK_SIZE) {
         chunks.push(selectedSkus.slice(i, i + CHUNK_SIZE));
