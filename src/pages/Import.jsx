@@ -675,8 +675,9 @@ export default function Import() {
       // Process updates in batches with delays
       if (updateItems.length > 0) {
         addLog(`מעדכן ${updateItems.length} פריטים קיימים בקבוצות...`, 'info');
-        const BATCH_SIZE = 50; // Process 50 items at a time
-        const DELAY_MS = 2000; // 2 second delay between batches
+        const BATCH_SIZE = 10; // Process 10 items at a time to avoid rate limits
+        const DELAY_MS = 3000; // 3 second delay between batches
+        const MAX_RETRIES = 3; // Retry failed items
 
         for (let batchStart = 0; batchStart < updateItems.length; batchStart += BATCH_SIZE) {
           const batchEnd = Math.min(batchStart + BATCH_SIZE, updateItems.length);
