@@ -522,15 +522,21 @@ Deno.serve(async (req) => {
           }
           
           createdCount++;
-        } catch (e) {
+          } catch (e) {
           const errorDetails = e.response?.data || e.message;
           addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
           addLog(`נתוני שורה מקוריים: ${JSON.stringify(change.newData)}`, 'error');
           errorCount++;
-        }
-      }
-      addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
-    }
+          }
+          }
+
+          // Delay between batches to prevent timeout
+          if (i + CREATE_BATCH_SIZE < newItems.length) {
+          await delay(DELAY_BETWEEN_BATCHES);
+          }
+          }
+          addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
+          }
 
     // Phase 2: Update existing items only (skip newly created ones)
     const itemsToUpdate = allItemsToProcess.filter(c => c.type !== 'new');
