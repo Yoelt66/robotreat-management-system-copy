@@ -228,7 +228,8 @@ Deno.serve(async (req) => {
     parsedData.forEach((row, index) => {
       const sku = row[skuColumnIndex];
       if (sku) {
-        skuToRowIndex.set(String(sku).trim(), index);
+        const normalizedSku = String(sku).trim();
+        skuToRowIndex.set(normalizedSku, index);
       }
     });
 
