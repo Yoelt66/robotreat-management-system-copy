@@ -1,8 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const MAX_RETRIES = 3;
-const UPDATE_BATCH_SIZE = 20;
-const DELAY_BETWEEN_BATCHES = 2000;
+const CREATE_BATCH_SIZE = 30;
+const UPDATE_BATCH_SIZE = 30;
+const DELAY_BETWEEN_BATCHES = 3000;
 
 async function apiCallWithRetry(apiCall, retries, callName) {
   for (let i = 0; i < retries; i++) {
