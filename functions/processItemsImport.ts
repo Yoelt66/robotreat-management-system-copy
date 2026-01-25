@@ -8,18 +8,22 @@ async function apiCallWithRetry(apiCall, retries, callName) {
   for (let i = 0; i < retries; i++) {
     try {
       const result = await apiCall();
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
       return result;
     } catch (error) {
       console.error(`API call failed attempt ${i + 1}/${retries} for ${callName}:`, error);
       
-      if (error.message && error.message.includes('429')) {
-        const waitTime = Math.min(2000 * Math.pow(2, i), 15000);
-        console.log(`Rate limit hit, waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
+      const isRateLimit = error.message?.includes('429') || 
+                         error.message?.includes('Rate limit') ||
+                         error.response?.status === 429;
       
-      if (i === retries - 1) throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
+      if (isRateLimit || i < retries - 1) {
+        const waitTime = Math.min(3000 * Math.pow(2, i), 30000);
+        console.log(`${isRateLimit ? 'Rate limit hit' : 'Error occurred'}, waiting ${waitTime}ms before retry ${i + 1}/${retries}...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
+      }
     }
   }
 }
