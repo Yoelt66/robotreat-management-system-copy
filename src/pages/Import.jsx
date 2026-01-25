@@ -740,9 +740,13 @@ export default function Import() {
             }
           } catch (e) {
             errorCount++;
-            const errorDetails = e.response?.data || e.message;
-            const errorMsg = typeof errorDetails === 'object' ? JSON.stringify(errorDetails) : errorDetails;
-            addLog(`שגיאה בעדכון מק"ט ${change.sku}: ${errorMsg}`, 'error');
+            const failedSku = change.sku || 'לא ידוע';
+            addLog(`שגיאה בעדכון מק"ט ${failedSku}`, 'error');
+            addLog(`נתונים שנשלחו: ${JSON.stringify(change.newData)}`, 'error');
+            addLog(`פרטי שגיאה: ${e.message}`, 'error');
+            if (e.response?.data) {
+              addLog(`תשובת שרת: ${JSON.stringify(e.response.data)}`, 'error');
+            }
           }
         }
       }
