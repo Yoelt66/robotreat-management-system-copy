@@ -676,7 +676,9 @@ export default function Import() {
       if (updateItems.length > 0) {
         addLog(`מעדכן ${updateItems.length} פריטים קיימים...`, 'info');
 
-        for (const change of updateItems) {
+        for (let i = 0; i < updateItems.length; i++) {
+          const change = updateItems[i];
+          
           try {
             const formattedRow = change.newData;
             
@@ -730,9 +732,17 @@ export default function Import() {
             }
             
             updatedCount++;
+            
+            // Update progress
+            if (i % 10 === 0) {
+              const progress = 60 + (i / updateItems.length) * 40;
+              setProgress(progress);
+            }
           } catch (e) {
             errorCount++;
-            addLog(`שגיאה בעדכון מק"ט ${change.sku}: ${e.message}`, 'error');
+            const errorDetails = e.response?.data || e.message;
+            const errorMsg = typeof errorDetails === 'object' ? JSON.stringify(errorDetails) : errorDetails;
+            addLog(`שגיאה בעדכון מק"ט ${change.sku}: ${errorMsg}`, 'error');
           }
         }
       }
