@@ -424,39 +424,145 @@ export default function Import() {
       return;
     }
 
-    // Simply show the change detection modal with all rows marked for update
-    const changes = data.map(row => {
-      const formattedRow = {};
+    setIsAnalyzing(true);
+    addLog('מתחיל ניתוח שינויים בצד הלקוח...', 'info');
+
+    try {
+      // Load all existing parts data from entities
+      addLog('טוען נתוני מערכת קיימים...', 'info');
+      const [partCoreData, partPricingData, partSupplierData, partStockData, allCategories, allWarehouses] = await Promise.all([
+        base44.entities.PartCore.list(),
+        base44.entities.PartPricing.list(),
+        base44.entities.PartSupplier.list(),
+        base44.entities.PartStock.list(),
+        base44.entities.Category.list(),
+        base44.entities.Warehouse.list()
+      ]);
+
+      // Build parts lookup maps
+      const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
+      const supplierMap = new Map(partSupplierData.map(p => [p.part_sku, p]));
+      const stockByPart = new Map();
+      
+      partStockData.forEach(stock => {
+        if (!stockByPart.has(stock.part_sku)) {
+          stockByPart.set(stock.part_sku, {});
+        }
+        stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
+      });
+
+      const allParts = partCoreData.map(core => {
+        const pricing = pricingMap.get(core.sku) || {};
+        const supplier = supplierMap.get(core.sku) || {};
+        const stocks = stockByPart.get(core.sku) || {};
+        return { ...core, ...pricing, ...supplier, ...stocks };
+      });
+
+      const partMap = new Map(allParts.map(p => [p.sku, p]));
+      addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
+
+      // Analyze each row
       const sortedActiveFields = fieldMapping
         .filter(field => field.checked)
         .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
+
+      const changes = [];
       
-      sortedActiveFields.forEach((field, index) => {
-        let value = row[index];
-        if (value === null || value === undefined || value === '') {
-          value = null;
-        } else if (typeof value === 'string') {
-          value = value.trim();
-          if (value === '') {
+      for (const row of data) {
+        const formattedRow = {};
+        
+        sortedActiveFields.forEach((field, index) => {
+          let value = row[index];
+          if (value === null || value === undefined || value === '') {
             value = null;
+          } else if (typeof value === 'string') {
+            value = value.trim();
+            if (value === '') value = null;
+          }
+          formattedRow[field.key] = value;
+        });
+
+        if (!formattedRow.sku) continue;
+
+        const existingPart = partMap.get(formattedRow.sku);
+
+        if (!existingPart) {
+          // New item
+          changes.push({
+            sku: formattedRow.sku,
+            name: formattedRow.name || 'לא מוגדר',
+            type: 'new',
+            shouldUpdate: true,
+            changes: ['יצירה חדשה'],
+            newData: formattedRow
+          });
+        } else {
+          // Existing item - detect changes
+          const itemChanges = [];
+          const allFields = [
+            'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
+            'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
+            'import_percentage', 'markup_percentage', 'manual_sale_price',
+            'supplier_number', 'supplier_part_number'
+          ];
+
+          allFields.forEach(field => {
+            if (formattedRow[field] !== undefined && formattedRow[field] !== null) {
+              const oldValue = existingPart[field];
+              const newValue = formattedRow[field];
+              
+              if (String(oldValue || '') !== String(newValue || '')) {
+                itemChanges.push({
+                  field: field,
+                  old: oldValue || 'ריק',
+                  new: newValue || 'ריק'
+                });
+              }
+            }
+          });
+
+          // Check stock changes
+          allWarehouses.forEach(warehouse => {
+            const stockValue = formattedRow[String(warehouse.warehouse_id)];
+            
+            if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
+              const newQuantity = parseInt(stockValue) || 0;
+              const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
+              
+              if (newQuantity !== currentQuantity) {
+                itemChanges.push({
+                  field: `מלאי ${warehouse.name}`,
+                  old: currentQuantity,
+                  new: newQuantity
+                });
+              }
+            }
+          });
+
+          if (itemChanges.length > 0) {
+            changes.push({
+              sku: formattedRow.sku,
+              name: formattedRow.name || existingPart.name,
+              type: 'update',
+              shouldUpdate: true,
+              changes: itemChanges,
+              newData: formattedRow
+            });
           }
         }
-        formattedRow[field.key] = value;
-      });
+      }
 
-      return {
-        sku: formattedRow.sku || 'לא מוגדר',
-        name: formattedRow.name || 'לא מוגדר',
-        type: 'new',
-        shouldUpdate: true,
-        changes: [{ field: 'סטטוס', old: 'יובא', new: 'יעובד על השרת' }],
-        newData: formattedRow
-      };
-    });
+      addLog(`ניתוח הושלם: ${changes.length} שינויים זוהו`, 'success');
+      setDetectedChanges(changes);
+      setShowChangeDetection(true);
 
-    setDetectedChanges(changes);
-    setShowChangeDetection(true);
-    addLog(`מוכן לייבא ${changes.length} פריטים. ניתוח השינויים יתבצע בשרת.`, 'info');
+    } catch (error) {
+      console.error('Error analyzing changes:', error);
+      addLog(`שגיאה בניתוח: ${error.message}`, 'error');
+      alert(`שגיאה בניתוח השינויים: ${error.message}`);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleMappingSelection = (mapping) => {
