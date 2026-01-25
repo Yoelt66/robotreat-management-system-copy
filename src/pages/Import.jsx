@@ -721,7 +721,7 @@ export default function Import() {
             if (hasStockChanges) {
               for (const [warehouseId, quantity] of Object.entries(stockUpdates)) {
                 const stockResponse = await base44.functions.invoke('updatePartStock', {
-                  part_sku: formattedRow.sku,
+                  sku: formattedRow.sku,
                   warehouse_id: warehouseId,
                   quantity: quantity
                 });
