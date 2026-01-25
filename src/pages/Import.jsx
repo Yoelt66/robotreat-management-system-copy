@@ -881,11 +881,20 @@ export default function Import() {
               <div className="flex justify-end gap-3">
                 <Button
                   onClick={analyzeChanges}
-                  disabled={isImporting}
+                  disabled={isImporting || isAnalyzing}
                   size="lg"
                 >
-                  <Zap className="h-5 w-5 ml-2" />
-                  התחל ייבוא מהיר
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 ml-2 animate-spin" />
+                      מנתח שינויים...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-5 w-5 ml-2" />
+                      התחל ייבוא מהיר
+                    </>
+                  )}
                 </Button>
               </div>
 
