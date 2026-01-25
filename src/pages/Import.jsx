@@ -680,6 +680,18 @@ export default function Import() {
           try {
             const formattedRow = change.newData;
             
+            // Separate stock updates from regular field updates
+            const stockUpdates = {};
+            const hasStockChanges = referenceData.warehouses.some(wh => {
+              const stockValue = formattedRow[wh.warehouse_id];
+              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
+                stockUpdates[wh.warehouse_id] = parseFloat(stockValue) || 0;
+                return true;
+              }
+              return false;
+            });
+
+            // Update regular fields
             const updateData = { sku: formattedRow.sku };
             const fieldsToUpdate = [
               'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
@@ -688,24 +700,33 @@ export default function Import() {
               'supplier_number', 'supplier_part_number'
             ];
 
+            let hasFieldUpdates = false;
             fieldsToUpdate.forEach(field => {
               if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
                 updateData[field] = formattedRow[field];
+                hasFieldUpdates = true;
               }
             });
 
-            // Add warehouse stock updates
-            referenceData.warehouses.forEach(wh => {
-              const stockValue = formattedRow[wh.warehouse_id];
-              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-                updateData[wh.warehouse_id] = parseFloat(stockValue) || 0;
+            if (hasFieldUpdates) {
+              const response = await base44.functions.invoke('updatePart', updateData);
+              if (response?.data?.error) {
+                throw new Error(response.data.error);
               }
-            });
+            }
 
-            const response = await base44.functions.invoke('updatePart', updateData);
-            
-            if (response?.data?.error) {
-              throw new Error(response.data.error);
+            // Update stock separately if needed
+            if (hasStockChanges) {
+              for (const [warehouseId, quantity] of Object.entries(stockUpdates)) {
+                const stockResponse = await base44.functions.invoke('updatePartStock', {
+                  part_sku: formattedRow.sku,
+                  warehouse_id: warehouseId,
+                  quantity: quantity
+                });
+                if (stockResponse?.data?.error) {
+                  throw new Error(stockResponse.data.error);
+                }
+              }
             }
             
             updatedCount++;
