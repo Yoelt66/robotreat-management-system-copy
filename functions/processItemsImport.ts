@@ -210,10 +210,36 @@ Deno.serve(async (req) => {
     const unitMap = new Map(allUnits.map(u => [u.code, u]));
     const unitNameMap = new Map(allUnits.map(u => [u.name, u]));
 
-    addLog(`מנתח ${parsedData.length} שורות לעיבוד...`, 'info');
+    addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
+
+    // Build a map of SKU -> row index for fast lookup
+    const skuToRowIndex = new Map();
+    const skuField = sortedFieldMapping.find(f => f.key === 'sku');
+    const skuColumnIndex = skuField ? sortedFieldMapping.indexOf(skuField) : -1;
+
+    if (skuColumnIndex === -1) {
+      throw new Error('לא נמצאה עמודת SKU במיפוי');
+    }
+
+    parsedData.forEach((row, index) => {
+      const sku = row[skuColumnIndex];
+      if (sku) {
+        skuToRowIndex.set(String(sku).trim(), index);
+      }
+    });
 
     const changes = [];
-    for (const rowValues of parsedData) {
+    const selectedSkuSet = new Set(selectedChanges);
+
+    // Process ONLY the selected rows
+    for (const selectedSku of selectedChanges) {
+      const rowIndex = skuToRowIndex.get(selectedSku);
+      if (rowIndex === undefined) {
+        addLog(`לא נמצאה שורה עבור מק"ט ${selectedSku}`, 'warn');
+        continue;
+      }
+
+      const rowValues = parsedData[rowIndex];
       const formattedRow = {};
 
       sortedFieldMapping.forEach((field, index) => {
