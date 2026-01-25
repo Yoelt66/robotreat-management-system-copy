@@ -609,189 +609,54 @@ export default function Import() {
     await handleImportWithBackend(selectedSkus);
   };
 
-  const handleImportWithBackend = async (changes) => {
+  const handleImportWithBackend = async (selectedSkus) => {
+    if (!uploadedFile) {
+      alert('לא נמצא קובץ להעלאה');
+      return;
+    }
+
     setIsImporting(true);
     setProgress(0);
     setLogs([]);
-    addLog(`מתחיל עיבוד ${changes.length} שינויים...`, 'info');
+    addLog(`מעלה קובץ לשרת...`, 'info');
 
     try {
-      const newItems = changes.filter(c => c.type === 'new');
-      const updateItems = changes.filter(c => c.type === 'update');
+      // Upload file to server
+      const formData = new FormData();
+      formData.append('file', uploadedFile);
+
+      const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
+      const fileUrl = uploadResponse.file_url;
       
-      let createdCount = 0;
-      let updatedCount = 0;
-      let errorCount = 0;
+      addLog(`קובץ הועלה בהצלחה, מתחיל עיבוד בשרת...`, 'success');
+      setProgress(10);
 
-      // Process new items
-      if (newItems.length > 0) {
-        addLog(`יוצר ${newItems.length} פריטים חדשים...`, 'info');
-        setProgress(20);
+      // Call backend function to process the import
+      const response = await base44.functions.invoke('processItemsImport', {
+        file_url: fileUrl,
+        fieldMapping: fieldMapping,
+        hasHeaders: hasHeaders,
+        selectedChanges: selectedSkus
+      });
 
-        for (const change of newItems) {
-          try {
-            const formattedRow = change.newData;
-            
-            const partPayload = {
-              sku: String(formattedRow.sku).trim(),
-              name: String(formattedRow.name || '').trim(),
-              category: formattedRow.category || '',
-              unit: formattedRow.unit || '',
-              minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
-              notes: formattedRow.notes || '',
-              current_location: formattedRow.current_location || '',
-              replaced_sku: formattedRow.replaced_sku || '',
-              warehouses: referenceData.warehouses.map(wh => ({
-                warehouse_id: wh.warehouse_id,
-                quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
-              })),
-              cost_price: parseFloat(formattedRow.cost_price) || 0,
-              cost_currency: formattedRow.cost_currency || 'ILS',
-              sale_currency: formattedRow.sale_currency || 'ILS',
-              import_percentage: formattedRow.import_percentage !== undefined && formattedRow.import_percentage !== null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
-              markup_percentage: formattedRow.markup_percentage !== undefined && formattedRow.markup_percentage !== null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
-              manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
-              is_manual: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? true : false,
-              supplier_number: formattedRow.supplier_number || '',
-              supplier_part_number: formattedRow.supplier_part_number || ''
-            };
-
-            const response = await base44.functions.invoke('createPart', partPayload);
-            
-            if (response?.data?.error) {
-              throw new Error(response.data.error);
-            }
-            
-            createdCount++;
-          } catch (e) {
-            errorCount++;
-            addLog(`שגיאה ביצירת מק"ט ${change.sku}: ${e.message}`, 'error');
-          }
-        }
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'העיבוד נכשל');
       }
 
-      setProgress(60);
-
-      // Process updates in batches with delays
-      if (updateItems.length > 0) {
-        addLog(`מעדכן ${updateItems.length} פריטים קיימים בקבוצות...`, 'info');
-        const BATCH_SIZE = 10; // Process 10 items at a time to avoid rate limits
-        const DELAY_MS = 3000; // 3 second delay between batches
-        const MAX_RETRIES = 3; // Retry failed items
-
-        for (let batchStart = 0; batchStart < updateItems.length; batchStart += BATCH_SIZE) {
-          const batchEnd = Math.min(batchStart + BATCH_SIZE, updateItems.length);
-          const batch = updateItems.slice(batchStart, batchEnd);
-          
-          addLog(`מעבד קבוצה ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(updateItems.length / BATCH_SIZE)} (${batch.length} פריטים)`, 'info');
-
-          for (let i = 0; i < batch.length; i++) {
-            const change = batch[i];
-            const globalIndex = batchStart + i;
-            
-            let retryCount = 0;
-            let success = false;
-            
-            while (!success && retryCount < MAX_RETRIES) {
-              try {
-                const formattedRow = change.newData;
-                
-                // Separate stock updates from regular field updates
-                const stockUpdates = {};
-                const hasStockChanges = referenceData.warehouses.some(wh => {
-                  const stockValue = formattedRow[wh.warehouse_id];
-                  if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-                    stockUpdates[wh.warehouse_id] = parseFloat(stockValue) || 0;
-                    return true;
-                  }
-                  return false;
-                });
-
-                // Update regular fields
-                const updateData = { sku: formattedRow.sku };
-                const fieldsToUpdate = [
-                  'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
-                  'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
-                  'import_percentage', 'markup_percentage', 'manual_sale_price',
-                  'supplier_number', 'supplier_part_number'
-                ];
-
-                let hasFieldUpdates = false;
-                fieldsToUpdate.forEach(field => {
-                  if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                    updateData[field] = formattedRow[field];
-                    hasFieldUpdates = true;
-                  }
-                });
-
-                if (hasFieldUpdates) {
-                  const response = await base44.functions.invoke('updatePart', updateData);
-                  if (response?.data?.error) {
-                    throw new Error(response.data.error);
-                  }
-                }
-
-                // Update stock separately if needed
-                if (hasStockChanges) {
-                  for (const [warehouseId, quantity] of Object.entries(stockUpdates)) {
-                    const stockResponse = await base44.functions.invoke('updatePartStock', {
-                      sku: formattedRow.sku,
-                      warehouse_id: warehouseId,
-                      quantity: quantity
-                    });
-                    if (stockResponse?.data?.error) {
-                      throw new Error(stockResponse.data.error);
-                    }
-                  }
-                }
-                
-                updatedCount++;
-                success = true;
-                
-                // Update progress
-                if (globalIndex % 10 === 0) {
-                  const progress = 60 + (globalIndex / updateItems.length) * 40;
-                  setProgress(progress);
-                }
-              } catch (e) {
-                const isRateLimit = e.message?.includes('Rate limit') || e.response?.data?.message?.includes('Rate limit');
-                
-                if (isRateLimit && retryCount < MAX_RETRIES - 1) {
-                  retryCount++;
-                  const waitTime = 2000 * retryCount; // Exponential backoff: 2s, 4s, 6s
-                  addLog(`Rate limit - מנסה שוב (${retryCount}/${MAX_RETRIES}) עבור ${change.sku} תוך ${waitTime/1000}s`, 'warn');
-                  await new Promise(resolve => setTimeout(resolve, waitTime));
-                } else {
-                  errorCount++;
-                  const failedSku = change.sku || 'לא ידוע';
-                  addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${e.message}`, 'error');
-                  break;
-                }
-              }
-            }
-          }
-
-          // Delay between batches (except for the last batch)
-          if (batchEnd < updateItems.length) {
-            addLog(`ממתין ${DELAY_MS / 1000} שניות לפני הקבוצה הבאה...`, 'info');
-            await new Promise(resolve => setTimeout(resolve, DELAY_MS));
-          }
-        }
+      // Display logs from server
+      if (response.data.logs && response.data.logs.length > 0) {
+        response.data.logs.forEach(log => {
+          addLog(log.message, log.type);
+        });
       }
 
       setProgress(100);
 
-      addLog(`=== סיכום ייבוא ===`, "success");
-      addLog(`פריטים חדשים: ${createdCount}`, "success");
-      addLog(`פריטים שעודכנו: ${updatedCount}`, "success");
-      addLog(`שגיאות: ${errorCount}`, errorCount > 0 ? "error" : "success");
-      
-      if (errorCount === 0) {
-        addLog(`הייבוא הושלם בהצלחה! 🎉`, "success");
-        alert(`הייבוא הושלם בהצלחה! ${createdCount} פריטים נוצרו, ${updatedCount} עודכנו.`);
+      const stats = response.data.stats;
+      if (stats.errors === 0) {
+        alert(`הייבוא הושלם בהצלחה! ${stats.created} פריטים נוצרו, ${stats.updated} עודכנו.`);
       } else {
-        addLog(`הייבוא הושלם עם ${errorCount} שגיאות.`, "warn");
-        alert(`הייבוא הושלם עם ${errorCount} שגיאות. בדוק את היומן למידע נוסף.`);
+        alert(`הייבוא הושלם עם ${stats.errors} שגיאות. ${stats.created} נוצרו, ${stats.updated} עודכנו.`);
       }
 
     } catch (error) {
