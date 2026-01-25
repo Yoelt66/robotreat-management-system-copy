@@ -689,69 +689,85 @@ export default function Import() {
             const change = batch[i];
             const globalIndex = batchStart + i;
             
-            try {
-              const formattedRow = change.newData;
-              
-              // Separate stock updates from regular field updates
-              const stockUpdates = {};
-              const hasStockChanges = referenceData.warehouses.some(wh => {
-                const stockValue = formattedRow[wh.warehouse_id];
-                if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-                  stockUpdates[wh.warehouse_id] = parseFloat(stockValue) || 0;
-                  return true;
-                }
-                return false;
-              });
+            let retryCount = 0;
+            let success = false;
+            
+            while (!success && retryCount < MAX_RETRIES) {
+              try {
+                const formattedRow = change.newData;
+                
+                // Separate stock updates from regular field updates
+                const stockUpdates = {};
+                const hasStockChanges = referenceData.warehouses.some(wh => {
+                  const stockValue = formattedRow[wh.warehouse_id];
+                  if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
+                    stockUpdates[wh.warehouse_id] = parseFloat(stockValue) || 0;
+                    return true;
+                  }
+                  return false;
+                });
 
-              // Update regular fields
-              const updateData = { sku: formattedRow.sku };
-              const fieldsToUpdate = [
-                'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
-                'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
-                'import_percentage', 'markup_percentage', 'manual_sale_price',
-                'supplier_number', 'supplier_part_number'
-              ];
+                // Update regular fields
+                const updateData = { sku: formattedRow.sku };
+                const fieldsToUpdate = [
+                  'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
+                  'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
+                  'import_percentage', 'markup_percentage', 'manual_sale_price',
+                  'supplier_number', 'supplier_part_number'
+                ];
 
-              let hasFieldUpdates = false;
-              fieldsToUpdate.forEach(field => {
-                if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                  updateData[field] = formattedRow[field];
-                  hasFieldUpdates = true;
-                }
-              });
+                let hasFieldUpdates = false;
+                fieldsToUpdate.forEach(field => {
+                  if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+                    updateData[field] = formattedRow[field];
+                    hasFieldUpdates = true;
+                  }
+                });
 
-              if (hasFieldUpdates) {
-                const response = await base44.functions.invoke('updatePart', updateData);
-                if (response?.data?.error) {
-                  throw new Error(response.data.error);
-                }
-              }
-
-              // Update stock separately if needed
-              if (hasStockChanges) {
-                for (const [warehouseId, quantity] of Object.entries(stockUpdates)) {
-                  const stockResponse = await base44.functions.invoke('updatePartStock', {
-                    sku: formattedRow.sku,
-                    warehouse_id: warehouseId,
-                    quantity: quantity
-                  });
-                  if (stockResponse?.data?.error) {
-                    throw new Error(stockResponse.data.error);
+                if (hasFieldUpdates) {
+                  const response = await base44.functions.invoke('updatePart', updateData);
+                  if (response?.data?.error) {
+                    throw new Error(response.data.error);
                   }
                 }
+
+                // Update stock separately if needed
+                if (hasStockChanges) {
+                  for (const [warehouseId, quantity] of Object.entries(stockUpdates)) {
+                    const stockResponse = await base44.functions.invoke('updatePartStock', {
+                      sku: formattedRow.sku,
+                      warehouse_id: warehouseId,
+                      quantity: quantity
+                    });
+                    if (stockResponse?.data?.error) {
+                      throw new Error(stockResponse.data.error);
+                    }
+                  }
+                }
+                
+                updatedCount++;
+                success = true;
+                
+                // Update progress
+                if (globalIndex % 10 === 0) {
+                  const progress = 60 + (globalIndex / updateItems.length) * 40;
+                  setProgress(progress);
+                }
+              } catch (e) {
+                const isRateLimit = e.message?.includes('Rate limit') || e.response?.data?.message?.includes('Rate limit');
+                
+                if (isRateLimit && retryCount < MAX_RETRIES - 1) {
+                  retryCount++;
+                  const waitTime = 2000 * retryCount; // Exponential backoff: 2s, 4s, 6s
+                  addLog(`Rate limit - מנסה שוב (${retryCount}/${MAX_RETRIES}) עבור ${change.sku} תוך ${waitTime/1000}s`, 'warn');
+                  await new Promise(resolve => setTimeout(resolve, waitTime));
+                } else {
+                  errorCount++;
+                  const failedSku = change.sku || 'לא ידוע';
+                  addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${e.message}`, 'error');
+                  break;
+                }
               }
-              
-              updatedCount++;
-              
-              // Update progress
-              if (globalIndex % 10 === 0) {
-                const progress = 60 + (globalIndex / updateItems.length) * 40;
-                setProgress(progress);
-              }
-            } catch (e) {
-              errorCount++;
-              const failedSku = change.sku || 'לא ידוע';
-              addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${e.message}`, 'error');
             }
           }
 
