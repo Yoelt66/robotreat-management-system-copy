@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
     });
 
     addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
-    const partMap = new Map(allParts.map(p => [p.sku, p]));
+    const partMap = new Map(allParts.map(p => [String(p.sku).trim(), p]));
 
     const categoryMap = new Map(allCategories.map(c => [c.code, c]));
     const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
