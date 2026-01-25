@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      const existingPart = partMap.get(formattedRow.sku);
+      const existingPart = partMap.get(String(formattedRow.sku).trim());
       
 
       
