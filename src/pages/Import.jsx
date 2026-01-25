@@ -602,57 +602,122 @@ export default function Import() {
     setIsImporting(true);
     setProgress(0);
     setLogs([]);
-    addLog(`מעלה קובץ לשרת...`, 'info');
+    addLog(`מתחיל עיבוד ${changes.length} שינויים...`, 'info');
 
     try {
-      // Step 1: Upload the file
-      if (!uploadedFile) {
-        throw new Error('לא נמצא קובץ להעלאה');
+      const newItems = changes.filter(c => c.type === 'new');
+      const updateItems = changes.filter(c => c.type === 'update');
+      
+      let createdCount = 0;
+      let updatedCount = 0;
+      let errorCount = 0;
+
+      // Process new items
+      if (newItems.length > 0) {
+        addLog(`יוצר ${newItems.length} פריטים חדשים...`, 'info');
+        setProgress(20);
+
+        for (const change of newItems) {
+          try {
+            const formattedRow = change.newData;
+            
+            const partPayload = {
+              sku: String(formattedRow.sku).trim(),
+              name: String(formattedRow.name || '').trim(),
+              category: formattedRow.category || '',
+              unit: formattedRow.unit || '',
+              minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
+              notes: formattedRow.notes || '',
+              current_location: formattedRow.current_location || '',
+              replaced_sku: formattedRow.replaced_sku || '',
+              warehouses: referenceData.warehouses.map(wh => ({
+                warehouse_id: wh.warehouse_id,
+                quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
+              })),
+              cost_price: parseFloat(formattedRow.cost_price) || 0,
+              cost_currency: formattedRow.cost_currency || 'ILS',
+              sale_currency: formattedRow.sale_currency || 'ILS',
+              import_percentage: formattedRow.import_percentage !== undefined && formattedRow.import_percentage !== null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
+              markup_percentage: formattedRow.markup_percentage !== undefined && formattedRow.markup_percentage !== null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
+              manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
+              is_manual: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? true : false,
+              supplier_number: formattedRow.supplier_number || '',
+              supplier_part_number: formattedRow.supplier_part_number || ''
+            };
+
+            const response = await base44.functions.invoke('createPart', partPayload);
+            
+            if (response?.data?.error) {
+              throw new Error(response.data.error);
+            }
+            
+            createdCount++;
+          } catch (e) {
+            errorCount++;
+            addLog(`שגיאה ביצירת מק"ט ${change.sku}: ${e.message}`, 'error');
+          }
+        }
       }
 
-      addLog('מעלה קובץ...', 'info');
-      const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
-      const fileUrl = uploadResponse.file_url;
-      addLog('הקובץ הועלה בהצלחה, מתחיל עיבוד...', 'success');
-      
-      // Step 2: Get selected SKUs
-      const selectedSkus = changes.map(c => c.sku);
+      setProgress(60);
 
-      // Step 3: Call backend function to process import
-      setProgress(10);
-      addLog('מעבד ייבוא בשרת...', 'info');
-      
-      const response = await base44.functions.invoke('processItemsImport', {
-        file_url: fileUrl,
-        fieldMapping: fieldMapping,
-        hasHeaders: hasHeaders,
-        selectedChanges: selectedSkus
-      });
+      // Process updates
+      if (updateItems.length > 0) {
+        addLog(`מעדכן ${updateItems.length} פריטים קיימים...`, 'info');
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'הייבוא נכשל');
+        for (const change of updateItems) {
+          try {
+            const formattedRow = change.newData;
+            
+            const updateData = { sku: formattedRow.sku };
+            const fieldsToUpdate = [
+              'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
+              'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
+              'import_percentage', 'markup_percentage', 'manual_sale_price',
+              'supplier_number', 'supplier_part_number'
+            ];
+
+            fieldsToUpdate.forEach(field => {
+              if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+                updateData[field] = formattedRow[field];
+              }
+            });
+
+            // Add warehouse stock updates
+            referenceData.warehouses.forEach(wh => {
+              const stockValue = formattedRow[wh.warehouse_id];
+              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
+                updateData[wh.warehouse_id] = parseFloat(stockValue) || 0;
+              }
+            });
+
+            const response = await base44.functions.invoke('updatePart', updateData);
+            
+            if (response?.data?.error) {
+              throw new Error(response.data.error);
+            }
+            
+            updatedCount++;
+          } catch (e) {
+            errorCount++;
+            addLog(`שגיאה בעדכון מק"ט ${change.sku}: ${e.message}`, 'error');
+          }
+        }
       }
-
-      // Display logs from backend
-      const backendLogs = response.data.logs || [];
-      backendLogs.forEach(log => {
-        addLog(log.message, log.type);
-      });
 
       setProgress(100);
 
-      const stats = response.data.stats;
       addLog(`=== סיכום ייבוא ===`, "success");
-      addLog(`פריטים חדשים: ${stats.created}`, "success");
-      addLog(`פריטים שעודכנו: ${stats.updated}`, "success");
-      addLog(`שגיאות: ${stats.errors}`, stats.errors > 0 ? "error" : "success");
+      addLog(`פריטים חדשים: ${createdCount}`, "success");
+      addLog(`פריטים שעודכנו: ${updatedCount}`, "success");
+      addLog(`שגיאות: ${errorCount}`, errorCount > 0 ? "error" : "success");
       
-      if (stats.errors === 0) {
+      if (errorCount === 0) {
         addLog(`הייבוא הושלם בהצלחה! 🎉`, "success");
-        alert(`הייבוא הושלם בהצלחה! ${stats.created} פריטים נוצרו, ${stats.updated} עודכנו.`);
+        alert(`הייבוא הושלם בהצלחה! ${createdCount} פריטים נוצרו, ${updatedCount} עודכנו.`);
       } else {
-        addLog(`הייבוא הושלם עם ${stats.errors} שגיאות.`, "warn");
-        alert(`הייבוא הושלם עם ${stats.errors} שגיאות. בדוק את היומן למידע נוסף.`);
+        addLog(`הייבוא הושלם עם ${errorCount} שגיאות.`, "warn");
+        alert(`הייבוא הושלם עם ${errorCount} שגיאות. בדוק את היומן למידע נוסף.`);
       }
 
     } catch (error) {
