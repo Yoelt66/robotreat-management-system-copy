@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
     addLog(`מנתח ${parsedData.length} שורות לעיבוד...`, 'info');
 
     const changes = [];
-    for (const rowValues of dataToAnalyze) {
+    for (const rowValues of parsedData) {
       const formattedRow = {};
 
       sortedFieldMapping.forEach((field, index) => {
