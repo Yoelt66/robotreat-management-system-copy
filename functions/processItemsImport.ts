@@ -389,11 +389,15 @@ Deno.serve(async (req) => {
     let updatedCount = 0;
     let errorCount = 0;
 
-    // Phase 1: Create new items
+    // Phase 1: Create new items in batches
     if (newItems.length > 0) {
-      addLog(`יוצר רשומות בסיסיות עבור ${newItems.length} פריטים חדשים...`, 'info');
-      
-      for (const change of newItems) {
+      addLog(`יוצר רשומות בסיסיות עבור ${newItems.length} פריטים חדשים בקבוצות של ${CREATE_BATCH_SIZE}...`, 'info');
+
+      for (let i = 0; i < newItems.length; i += CREATE_BATCH_SIZE) {
+        const batch = newItems.slice(i, i + CREATE_BATCH_SIZE);
+        addLog(`יוצר קבוצה ${Math.floor(i / CREATE_BATCH_SIZE) + 1}/${Math.ceil(newItems.length / CREATE_BATCH_SIZE)} (${batch.length} פריטים)...`, 'info');
+
+      for (const change of batch) {
         try {
           const formattedRow = change.newData;
           
