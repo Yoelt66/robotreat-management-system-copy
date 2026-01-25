@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
 
       // Skip detailed change analysis in preview mode - just track what would be created/updated
       if (!selectedChanges || selectedChanges.length === 0) {
-        const existingPart = partMap.get(formattedRow.sku);
+        const existingPart = partMap.get(String(formattedRow.sku).trim());
         changes.push({
           sku: formattedRow.sku,
           name: formattedRow.name || (existingPart?.name) || 'לא מוגדר',
