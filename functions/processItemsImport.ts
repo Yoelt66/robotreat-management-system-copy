@@ -116,19 +116,70 @@ Deno.serve(async (req) => {
       throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
     }
 
-    // Load reference data (categories, warehouses, units) - always needed
-    addLog('טוען נתוני מערכת קיימים...', 'info');
+    // Sort field mapping to match data columns
+    const sortedFieldMapping = fieldMapping
+      .filter(field => field.checked)
+      .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
 
-    const [allCategories, allWarehouses, allUnits] = await Promise.all([
+    // PREVIEW MODE - super fast, no data loading
+    if (!selectedChanges || selectedChanges.length === 0) {
+      addLog('מצב תצוגה מקדימה - ניתוח מהיר ללא טעינת נתונים', 'info');
+
+      const dataToAnalyze = parsedData.slice(0, 50);
+      const changes = [];
+
+      for (const rowValues of dataToAnalyze) {
+        const formattedRow = {};
+        sortedFieldMapping.forEach((field, index) => {
+          let value = rowValues[index];
+          if (value === null || value === undefined || value === '') {
+            value = null;
+          } else if (typeof value === 'string') {
+            value = value.trim();
+            if (value === '') value = null;
+          }
+          formattedRow[field.key] = value;
+        });
+
+        if (formattedRow.sku) {
+          changes.push({
+            sku: formattedRow.sku,
+            name: formattedRow.name || 'לא מוגדר',
+            type: 'update', // Default to update in preview
+            shouldUpdate: true,
+            changes: ['תצוגה מקדימה']
+          });
+        }
+      }
+
+      addLog(`תצוגה מקדימה: ${changes.length} שורות נותחו`, 'success');
+
+      return Response.json({
+        success: true,
+        preview: true,
+        changes: changes,
+        stats: {
+          created: 0,
+          updated: 0,
+          errors: 0,
+          total: changes.length
+        },
+        logs
+      });
+    }
+
+    // ACTUAL IMPORT MODE - load all required data
+    addLog('מצב ייבוא מלא - טוען נתוני מערכת...', 'info');
+
+    const [allCategories, allWarehouses, allUnits, partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list(), MAX_RETRIES, "Category.list").catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list(), MAX_RETRIES, "Warehouse.list").catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => [])
+      apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list(), MAX_RETRIES, "Unit.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
     ]);
-
-    let partCoreData = [];
-    let partPricingData = [];
-    let partSupplierData = [];
-    let partStockData = [];
 
     // Build parts map
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
@@ -144,60 +195,22 @@ Deno.serve(async (req) => {
     });
 
     // Merge all part data
-    let allParts = [];
-    let partMap = new Map();
+    const allParts = partCoreData.map(core => {
+      const pricing = pricingMap.get(core.sku) || {};
+      const supplier = supplierMap.get(core.sku) || {};
+      const stocks = stockByPart.get(core.sku) || {};
+      return { ...core, ...pricing, ...supplier, ...stocks };
+    });
 
-    if (partCoreData.length > 0) {
-      allParts = partCoreData.map(core => {
-        const pricing = pricingMap.get(core.sku) || {};
-        const supplier = supplierMap.get(core.sku) || {};
-        const stocks = stockByPart.get(core.sku) || {};
+    addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
+    const partMap = new Map(allParts.map(p => [p.sku, p]));
 
-        return {
-          ...core,
-          ...pricing,
-          ...supplier,
-          ...stocks
-        };
-      });
-
-      addLog(`נטענו ${allParts.length} פריטים קיימים מהמערכת`, 'info');
-      partMap = new Map(allParts.map(p => [p.sku, p]));
-    }
     const categoryMap = new Map(allCategories.map(c => [c.code, c]));
     const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
     const unitMap = new Map(allUnits.map(u => [u.code, u]));
     const unitNameMap = new Map(allUnits.map(u => [u.name, u]));
 
-    // Sort field mapping to match data columns
-    const sortedFieldMapping = fieldMapping
-      .filter(field => field.checked)
-      .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
-
-    // Process data and analyze changes
-    addLog(`מנתח ${parsedData.length} שורות...`, 'info');
-
-    // Limit analysis if no specific changes selected (prevent timeout)
-    const dataToAnalyze = selectedChanges && selectedChanges.length > 0 
-      ? parsedData 
-      : parsedData.slice(0, 50); // Analyze only first 50 rows if no selection for speed
-
-    if (!selectedChanges || selectedChanges.length === 0) {
-      addLog(`מגביל ניתוח ל-${dataToAnalyze.length} שורות ראשונות למניעת timeout`, 'info');
-    }
-
-    // Load parts data ONLY if we're processing changes (not in preview mode)
-    if (selectedChanges && selectedChanges.length > 0) {
-      addLog(`טוען נתוני פריטים עבור ${selectedChanges.length} שינויים...`, 'info');
-      [partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(), MAX_RETRIES, "PartCore.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(), MAX_RETRIES, "PartPricing.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(), MAX_RETRIES, "PartSupplier.list").catch(() => []),
-        apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(), MAX_RETRIES, "PartStock.list").catch(() => [])
-      ]);
-    } else {
-      addLog('מצב תצוגה מקדימה - לא טוענים נתוני פריטים קיימים', 'info');
-    }
+    addLog(`מנתח ${parsedData.length} שורות לעיבוד...`, 'info');
 
     const changes = [];
     for (const rowValues of dataToAnalyze) {
