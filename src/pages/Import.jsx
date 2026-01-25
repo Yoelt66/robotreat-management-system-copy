@@ -605,8 +605,8 @@ export default function Import() {
 
   const handleConfirmImport = async () => {
     setShowChangeDetection(false);
-    const changesToImport = detectedChanges.filter(c => c.shouldUpdate);
-    await handleImportWithBackend(changesToImport);
+    const selectedSkus = detectedChanges.filter(c => c.shouldUpdate).map(c => c.sku);
+    await handleImportWithBackend(selectedSkus);
   };
 
   const handleImportWithBackend = async (changes) => {
