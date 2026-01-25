@@ -511,7 +511,18 @@ export default function Import() {
               const oldValue = existingPart[field];
               const newValue = formattedRow[field];
               
-              if (String(oldValue || '') !== String(newValue || '')) {
+              // Special handling for cost_price: treat 0 and empty as the same
+              if (field === 'cost_price') {
+                const oldPrice = parseFloat(oldValue) || 0;
+                const newPrice = parseFloat(newValue) || 0;
+                if (oldPrice !== newPrice) {
+                  itemChanges.push({
+                    field: field,
+                    old: oldPrice || 'ריק',
+                    new: newPrice || 'ריק'
+                  });
+                }
+              } else if (String(oldValue || '') !== String(newValue || '')) {
                 itemChanges.push({
                   field: field,
                   old: oldValue || 'ריק',
