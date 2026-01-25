@@ -622,41 +622,67 @@ export default function Import() {
 
     try {
       // Upload file to server
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
-
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
       const fileUrl = uploadResponse.file_url;
       
-      addLog(`קובץ הועלה בהצלחה, מתחיל עיבוד בשרת...`, 'success');
-      setProgress(10);
+      addLog(`קובץ הועלה בהצלחה, מתחיל עיבוד בקבוצות...`, 'success');
+      setProgress(5);
 
-      // Call backend function to process the import
-      const response = await base44.functions.invoke('processItemsImport', {
-        file_url: fileUrl,
-        fieldMapping: fieldMapping,
-        hasHeaders: hasHeaders,
-        selectedChanges: selectedSkus
-      });
-
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'העיבוד נכשל');
+      // Process in batches to avoid timeout
+      const CHUNK_SIZE = 100;
+      const chunks = [];
+      for (let i = 0; i < selectedSkus.length; i += CHUNK_SIZE) {
+        chunks.push(selectedSkus.slice(i, i + CHUNK_SIZE));
       }
 
-      // Display logs from server
-      if (response.data.logs && response.data.logs.length > 0) {
-        response.data.logs.forEach(log => {
-          addLog(log.message, log.type);
+      addLog(`מעבד ${selectedSkus.length} פריטים ב-${chunks.length} קבוצות...`, 'info');
+
+      let totalCreated = 0;
+      let totalUpdated = 0;
+      let totalErrors = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        addLog(`מעבד קבוצה ${i + 1}/${chunks.length} (${chunk.length} פריטים)...`, 'info');
+
+        const response = await base44.functions.invoke('processItemsImport', {
+          file_url: fileUrl,
+          fieldMapping: fieldMapping,
+          hasHeaders: hasHeaders,
+          selectedChanges: chunk
         });
+
+        if (!response.data.success) {
+          addLog(`שגיאה בקבוצה ${i + 1}: ${response.data.error}`, 'error');
+          totalErrors += chunk.length;
+        } else {
+          // Display logs from server
+          if (response.data.logs && response.data.logs.length > 0) {
+            response.data.logs.forEach(log => {
+              addLog(log.message, log.type);
+            });
+          }
+
+          totalCreated += response.data.stats.created || 0;
+          totalUpdated += response.data.stats.updated || 0;
+          totalErrors += response.data.stats.errors || 0;
+        }
+
+        const progress = 5 + ((i + 1) / chunks.length) * 95;
+        setProgress(progress);
       }
 
       setProgress(100);
 
-      const stats = response.data.stats;
-      if (stats.errors === 0) {
-        alert(`הייבוא הושלם בהצלחה! ${stats.created} פריטים נוצרו, ${stats.updated} עודכנו.`);
+      addLog('=== סיכום ייבוא ===', 'success');
+      addLog(`פריטים חדשים: ${totalCreated}`, 'success');
+      addLog(`פריטים שעודכנו: ${totalUpdated}`, 'success');
+      addLog(`שגיאות: ${totalErrors}`, totalErrors > 0 ? 'error' : 'success');
+
+      if (totalErrors === 0) {
+        alert(`הייבוא הושלם בהצלחה! ${totalCreated} פריטים נוצרו, ${totalUpdated} עודכנו.`);
       } else {
-        alert(`הייבוא הושלם עם ${stats.errors} שגיאות. ${stats.created} נוצרו, ${stats.updated} עודכנו.`);
+        alert(`הייבוא הושלם עם ${totalErrors} שגיאות. ${totalCreated} נוצרו, ${totalUpdated} עודכנו.`);
       }
 
     } catch (error) {
