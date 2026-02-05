@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Invoice } from "@/entities/Invoice";
 import { Supplier } from "@/entities/Supplier";
-import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +19,6 @@ import { toast } from "sonner";
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
-  const [currencies, setCurrencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -37,14 +35,12 @@ export default function InvoicesPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invoicesData, suppliersData, currenciesData] = await Promise.all([
+      const [invoicesData, suppliersData] = await Promise.all([
         Invoice.list("-created_date"),
         Supplier.list(),
-        Currency.list(),
       ]);
       setInvoices(invoicesData);
       setSuppliers(suppliersData);
-      setCurrencies(currenciesData);
     } catch (error) {
       console.error("Failed to load data:", error);
       toast.error("שגיאה בטעינת הנתונים");
@@ -214,30 +210,8 @@ export default function InvoicesPage() {
     selectedInvoices.includes(inv.id)
   );
 
-  const getCurrencyRate = (currencyCode) => {
-    if (currencyCode === "ILS") return 1;
-    const currency = currencies.find((c) => c.code === currencyCode);
-    return currency?.rate_to_ils || 1;
-  };
-
-  const getCurrencySymbol = (currencyCode) => {
-    if (currencyCode === "ILS") return "₪";
-    if (currencyCode === "USD") return "$";
-    if (currencyCode === "EUR") return "€";
-    if (currencyCode === "GBP") return "£";
-    return currencyCode;
-  };
-
   const totalSelectedAmount = selectedInvoicesData.reduce(
     (sum, inv) => sum + (inv.amount || 0),
-    0
-  );
-
-  const totalSelectedAmountILS = selectedInvoicesData.reduce(
-    (sum, inv) => {
-      const rate = getCurrencyRate(inv.currency);
-      return sum + (inv.amount || 0) * rate;
-    },
     0
   );
 
@@ -314,15 +288,13 @@ export default function InvoicesPage() {
         <Card className="bg-emerald-50 border-emerald-200">
           <CardContent className="py-4">
             <div className="flex justify-between items-center">
-              <div className="flex flex-col gap-1">
+              <div>
                 <span className="text-lg font-semibold">
                   {selectedInvoices.length} חשבוניות נבחרו
                 </span>
-                <div className="flex gap-4">
-                  <span className="text-xl font-bold">
-                    סכום כולל בשקלים: ₪{totalSelectedAmountILS.toFixed(2)}
-                  </span>
-                </div>
+                <span className="text-xl font-bold mr-4">
+                  סכום כולל: ₪{totalSelectedAmount.toFixed(2)}
+                </span>
               </div>
               <div className="flex gap-2">
                 <Button onClick={handleMarkAsPaid} variant="default">
@@ -425,17 +397,8 @@ export default function InvoicesPage() {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium">
-                            {getCurrencySymbol(invoice.currency)}
-                            {invoice.amount?.toFixed(2)}
-                          </span>
-                          {invoice.currency !== "ILS" && (
-                            <span className="text-xs text-slate-500">
-                              ₪{(invoice.amount * getCurrencyRate(invoice.currency)).toFixed(2)}
-                            </span>
-                          )}
-                        </div>
+                        {invoice.currency === "ILS" ? "₪" : invoice.currency}
+                        {invoice.amount?.toFixed(2)}
                       </TableCell>
                       <TableCell>
                         <Badge
