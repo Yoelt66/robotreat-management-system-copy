@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, Printer } from "lucide-react";
-import { User } from "@/entities/all";
+import { User, ExpenseReturn } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
 import { format } from 'date-fns';
@@ -53,6 +53,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     const [uploading, setUploading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
     const [dateErrors, setDateErrors] = useState({}); // Add date errors state
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -102,6 +103,41 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         const total = formData.expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
         setFormData(prev => ({ ...prev, total_amount: total }));
     }, [formData.expenses]);
+
+    // Auto-save whenever formData changes
+    useEffect(() => {
+        if (!initialReturn?.id) return; // Only auto-save if we have an existing return
+        
+        const timeoutId = setTimeout(() => {
+            autoSave();
+        }, 1000); // Debounce for 1 second
+
+        return () => clearTimeout(timeoutId);
+    }, [formData]);
+
+    const autoSave = async () => {
+        if (!initialReturn?.id || isSaving) return;
+        
+        setIsSaving(true);
+        try {
+            const submissionData = {
+                ...formData,
+                submission_date: convertDateForSubmission(formData.submission_date),
+                return_date: convertDateForSubmission(formData.return_date),
+                approval_date: convertDateForSubmission(formData.approval_date),
+                expenses: formData.expenses.map(exp => ({
+                    ...exp,
+                    invoice_date: convertDateForSubmission(exp.invoice_date)
+                }))
+            };
+            
+            await ExpenseReturn.update(initialReturn.id, submissionData);
+        } catch (error) {
+            console.error("Auto-save failed:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleAddExpense = () => {
         const newExpense = {
@@ -1069,8 +1105,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             </div>
             
             <div className="flex justify-start gap-2 pt-4">
-                <Button type="submit" disabled={formData.expenses.length === 0}>
-                    שמור החזרת הוצאות
+                <Button type="submit" disabled={formData.expenses.length === 0 || isSaving}>
+                    {isSaving ? 'שומר...' : 'שמור החזרת הוצאות'}
                 </Button>
                 <Button 
                     type="button" 
