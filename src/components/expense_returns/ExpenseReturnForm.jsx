@@ -989,10 +989,11 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                 >
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="pending">ממתין לאישור</SelectItem>
-                                        <SelectItem value="approved">מאושר</SelectItem>
-                                        <SelectItem value="rejected">נדחה</SelectItem>
-                                        <SelectItem value="paid">שולם</SelectItem>
+                                       <SelectItem value="temporary">טיוטה זמנית</SelectItem>
+                                       <SelectItem value="pending">ממתין לאישור</SelectItem>
+                                       <SelectItem value="approved">מאושר</SelectItem>
+                                       <SelectItem value="rejected">נדחה</SelectItem>
+                                       <SelectItem value="paid">שולם</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

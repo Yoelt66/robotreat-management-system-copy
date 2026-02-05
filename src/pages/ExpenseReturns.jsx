@@ -66,7 +66,12 @@ export default function ExpenseReturnsPage() {
     const handleFormSubmit = async (formData) => {
         try {
             if (editingReturn) {
-                await ExpenseReturn.update(editingReturn.id, formData);
+                // Update status from temporary to pending when saving
+                const updateData = {
+                    ...formData,
+                    status: formData.status === 'temporary' ? 'pending' : formData.status
+                };
+                await ExpenseReturn.update(editingReturn.id, updateData);
                 toast.success("החזרת הוצאות עודכנה בהצלחה");
             } else {
                 const returnNumber = await generateReturnNumber();
@@ -91,9 +96,32 @@ export default function ExpenseReturnsPage() {
         setViewingReturn(ret);
     };
     
-    const handleAddNew = () => {
+    const handleAddNew = async () => {
         setEditingReturn(null);
         setShowForm(true);
+        
+        // Create a temporary expense return
+        try {
+            const returnNumber = await generateReturnNumber();
+            const tempReturn = {
+                return_number: returnNumber,
+                employee_name: currentUser?.nickname || currentUser?.full_name || '',
+                employee_email: currentUser?.email || '',
+                status: 'temporary',
+                expenses: [],
+                total_amount: 0,
+                currency: 'ILS',
+                submission_date: new Date().toISOString().split('T')[0],
+                notes: 'טיוטה - החזר הוצאות זמני'
+            };
+            
+            const created = await ExpenseReturn.create(tempReturn);
+            setEditingReturn(created);
+            await loadData();
+        } catch (error) {
+            console.error("Failed to create temporary return:", error);
+            toast.error("שגיאה ביצירת החזר הוצאות זמני");
+        }
     };
 
     const handleDelete = async () => {
