@@ -505,7 +505,7 @@ Deno.serve(async (req) => {
           
           let response;
           try {
-            response = await base44.asServiceRole.functions.invoke('createPart', partPayload);
+            response = await base44.functions.invoke('createPart', partPayload);
           } catch (invokeError) {
             // Get detailed error from the backend function
             const errorDetails = invokeError.response?.data || invokeError.message;
@@ -648,7 +648,7 @@ Deno.serve(async (req) => {
             if (hasChanges) {
               try {
                 const response = await apiCallWithRetry(
-                  () => base44.asServiceRole.functions.invoke('updatePart', updateData),
+                  () => base44.functions.invoke('updatePart', updateData),
                   MAX_RETRIES,
                   `Part Update ${existingPart.sku}`
                 );
