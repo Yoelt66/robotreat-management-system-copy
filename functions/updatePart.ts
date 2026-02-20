@@ -19,6 +19,7 @@ const hasChanged = (oldVal, newVal) => {
 };
 
 Deno.serve(async (req) => {
+    let partData = null;
     try {
         const base44 = createClientFromRequest(req);
         const user = await base44.auth.me();
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Admin access required' }, { status: 403 });
         }
 
-        const partData = await req.json();
+        partData = await req.json();
         const { sku } = partData;
 
         if (!sku) {
