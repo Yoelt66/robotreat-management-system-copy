@@ -397,11 +397,13 @@ Deno.serve(async (req) => {
 
         // Update PartStock
         await Promise.all(
-          allWarehouses
-            .filter(wh => formattedRow[wh.warehouse_id] != null && formattedRow[wh.warehouse_id] !== '')
-            .map(async wh => {
-              const newQty = parseFloat(formattedRow[wh.warehouse_id]) || 0;
-              const existingStock = partStockData.find(s => s.part_sku === sku && s.warehouse_id === wh.warehouse_id);
+          allWarehouses.map(async wh => {
+            const rawValue = formattedRow[wh.warehouse_id];
+            const hasValue = rawValue != null && rawValue !== '';
+            const existingStock = partStockData.find(s => s.part_sku === sku && s.warehouse_id === wh.warehouse_id);
+            // Update if value provided, OR if existing stock is negative (fix it to 0)
+            if (hasValue) {
+              const newQty = parseFloat(rawValue) || 0;
               if (existingStock) {
                 if (existingStock.quantity !== newQty) {
                   await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty }), MAX_RETRIES, `PartStock.update ${sku}/${wh.warehouse_id}`);
@@ -409,7 +411,10 @@ Deno.serve(async (req) => {
               } else {
                 await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }), MAX_RETRIES, `PartStock.create ${sku}/${wh.warehouse_id}`);
               }
-            })
+            } else if (existingStock && existingStock.quantity < 0) {
+              await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: 0 }), MAX_RETRIES, `PartStock.fix-negative ${sku}/${wh.warehouse_id}`);
+            }
+          })
         );
       }, (done, total, result) => {
         if (!result.success) {
