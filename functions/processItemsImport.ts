@@ -1,8 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const MAX_RETRIES = 3;
-const CREATE_BATCH_SIZE = 30;
-const UPDATE_BATCH_SIZE = 30;
+const CREATE_BATCH_SIZE = 10;
+const UPDATE_BATCH_SIZE = 10;
+const CONCURRENCY_LIMIT = 3; // max parallel API calls
+const DELAY_BETWEEN_ITEMS = 200; // ms between items in same batch
 
 async function apiCallWithRetry(apiCall, retries, callName) {
   for (let i = 0; i < retries; i++) {
