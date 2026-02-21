@@ -261,12 +261,12 @@ Deno.serve(async (req) => {
       stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
     });
 
-    // Merge all part data
+    // Merge all part data - core.id must NOT be overwritten by pricing/supplier ids
     const allParts = partCoreData.map(core => {
-      const pricing = pricingMap.get(core.sku) || {};
-      const supplier = supplierMap.get(core.sku) || {};
+      const { id: _pid, ...pricing } = pricingMap.get(core.sku) || {};
+      const { id: _sid, ...supplier } = supplierMap.get(core.sku) || {};
       const stocks = stockByPart.get(core.sku) || {};
-      return { ...core, ...pricing, ...supplier, ...stocks };
+      return { ...pricing, ...supplier, ...stocks, ...core }; // core last to preserve core.id
     });
 
     addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
