@@ -14,11 +14,11 @@ async function apiCallWithRetry(apiCall, retries, callName) {
         (error.message?.includes('503') ? 503 : null);
 
       if (i < retries - 1) {
-        const isRateLimit = status === 429;
+        const isRateLimit = status === 429 || error.message?.includes('Rate limit');
         const isServerError = status === 500 || status === 503;
-        let waitTime = 1000;
-        if (isRateLimit) waitTime = Math.min(3000 * Math.pow(2, i), 30000);
-        else if (isServerError) waitTime = Math.min(2000 * Math.pow(2, i), 16000);
+        let waitTime = 1500;
+        if (isRateLimit) waitTime = Math.min(5000 * Math.pow(2, i), 30000);
+        else if (isServerError) waitTime = Math.min(3000 * Math.pow(2, i), 16000);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       } else {
         throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
