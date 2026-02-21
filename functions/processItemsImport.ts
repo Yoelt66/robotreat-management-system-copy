@@ -714,7 +714,7 @@ Deno.serve(async (req) => {
     // Phase 2: Update existing items, with retry rounds for failures
     const itemsToUpdate = changesToProcess.filter(c => c.type !== 'new');
     if (itemsToUpdate.length > 0) {
-      addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים...`, 'info');
+      addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים (מקביליות התחלתית: 1)...`, 'info');
       let remaining = itemsToUpdate;
       for (let round = 0; round < MAX_RETRY_ROUNDS && remaining.length > 0; round++) {
         if (round > 0) {
