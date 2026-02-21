@@ -551,15 +551,15 @@ Deno.serve(async (req) => {
           errorCount++;
           }
 
-          // Small delay between items to avoid rate limiting
-          if (bi % 5 === 4) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+          // Short delay every 3 items to avoid rate limiting
+          if (bi % 3 === 2) {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
           }
 
-          // Delay between batches
+          // Short delay between batches
           if (i + CREATE_BATCH_SIZE < newItems.length) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
           }
           addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
