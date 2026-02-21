@@ -525,22 +525,21 @@ export default function Import() {
           });
 
           // Check stock changes
-          allWarehouses.forEach(warehouse => {
-            const stockValue = formattedRow[String(warehouse.warehouse_id)];
-            
-            if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-              const newQuantity = parseFloat(stockValue) || 0;
+            allWarehouses.forEach(warehouse => {
+              const stockValue = formattedRow[String(warehouse.warehouse_id)];
               const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
-              
-              if (newQuantity !== currentQuantity) {
-                itemChanges.push({
-                  field: `מלאי ${warehouse.name}`,
-                  old: currentQuantity,
-                  new: newQuantity
-                });
+
+              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
+                // Explicit value in file
+                const newQuantity = parseFloat(stockValue) || 0;
+                if (newQuantity !== currentQuantity) {
+                  itemChanges.push({ field: `מלאי ${warehouse.name}`, old: currentQuantity, new: newQuantity });
+                }
+              } else if (currentQuantity !== 0) {
+                // Empty cell but existing stock is not 0 - will be zeroed
+                itemChanges.push({ field: `מלאי ${warehouse.name}`, old: currentQuantity, new: 0 });
               }
-            }
-          });
+            });
 
           if (itemChanges.length > 0) {
             changes.push({
