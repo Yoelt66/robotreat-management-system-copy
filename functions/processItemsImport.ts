@@ -431,8 +431,15 @@ Deno.serve(async (req) => {
                   categoryMap.set(categoryCode, newCategory);
                   allCategories.push(newCategory);
                 } catch (catError) {
-                  addLog(`שגיאה ביצירת קטגוריה ${categoryCode}: ${catError.message}. משתמש בברירת מחדל.`, 'warn');
-                  categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                  // Unique constraint: category may have been created by a concurrent process - re-fetch
+                  const existing = await base44.asServiceRole.entities.Category.filter({ code: categoryCode }).catch(() => []);
+                  if (existing && existing.length > 0) {
+                    categoryMap.set(categoryCode, existing[0]);
+                    addLog(`קטגוריה ${categoryCode} כבר קיימת, נמצאה בהצלחה.`, 'info');
+                  } else {
+                    addLog(`שגיאה ביצירת קטגוריה ${categoryCode}: ${catError.message}. משתמש בברירת מחדל.`, 'warn');
+                    categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                  }
                 }
               }
             }
