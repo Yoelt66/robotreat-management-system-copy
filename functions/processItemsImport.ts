@@ -590,83 +590,73 @@ Deno.serve(async (req) => {
       const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
       const supplierFields = ['supplier_number', 'supplier_part_number'];
 
-      for (let i = 0; i < itemsToUpdate.length; i++) {
-        const change = itemsToUpdate[i];
-        try {
-          const formattedRow = change.newData;
-          const existingPart = partMapUpdated.get(formattedRow.sku);
-          
-          if (!existingPart) {
-            addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג`, 'warn');
-            continue;
+      const updateTasks = itemsToUpdate.map((change) => async () => {
+        const formattedRow = change.newData;
+        const existingPart = partMapUpdated.get(formattedRow.sku);
+
+        if (!existingPart) {
+          addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג`, 'warn');
+          return;
+        }
+
+        const updateData = { sku: existingPart.sku };
+        let hasChanges = false;
+
+        coreFields.forEach(field => {
+          if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+            const newValue = numericCoreFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+            const existingValue = numericCoreFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+            if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
           }
+        });
 
-          const updateData = { sku: existingPart.sku };
-          let hasChanges = false;
-
-          coreFields.forEach(field => {
-            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-              const newValue = numericCoreFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
-              const existingValue = numericCoreFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
-              if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
-            }
-          });
-
-          pricingFields.forEach(field => {
-            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-              const newValue = numericPricingFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
-              const existingValue = numericPricingFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
-              if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
-            }
-          });
-
-          if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
-            updateData.is_manual = true; hasChanges = true;
+        pricingFields.forEach(field => {
+          if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+            const newValue = numericPricingFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+            const existingValue = numericPricingFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+            if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
           }
+        });
 
-          supplierFields.forEach(field => {
-            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-              if (String(existingPart[field] || '') !== String(formattedRow[field])) { updateData[field] = formattedRow[field]; hasChanges = true; }
-            }
-          });
+        if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
+          updateData.is_manual = true; hasChanges = true;
+        }
 
-          // Add warehouse stock updates
-          const warehousesToUpdate = allWarehouses
-            .map(wh => ({ warehouse_id: wh.warehouse_id, quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0 }))
-            .filter(wh => formattedRow[wh.warehouse_id] !== null && formattedRow[wh.warehouse_id] !== undefined && formattedRow[wh.warehouse_id] !== '');
-          
-          if (warehousesToUpdate.length > 0) {
-            updateData.warehouses = warehousesToUpdate;
-            hasChanges = true;
+        supplierFields.forEach(field => {
+          if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+            if (String(existingPart[field] || '') !== String(formattedRow[field])) { updateData[field] = formattedRow[field]; hasChanges = true; }
           }
+        });
 
-          if (hasChanges) {
-                const response = await apiCallWithRetry(
-                  () => base44.functions.invoke('updatePart', updateData),
-                  MAX_RETRIES,
-                  `Part Update ${existingPart.sku}`
-                );
-                if (response?.data?.error) throw new Error(response.data.error);
-                updatedCount++;
-                consecutiveUpdateErrors = 0;
-              }
+        const warehousesToUpdate = allWarehouses
+          .map(wh => ({ warehouse_id: wh.warehouse_id, quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0 }))
+          .filter(wh => formattedRow[wh.warehouse_id] !== null && formattedRow[wh.warehouse_id] !== undefined && formattedRow[wh.warehouse_id] !== '');
 
-            } catch (e) {
-              errorCount++;
-              consecutiveUpdateErrors++;
-              addLog(`שגיאה בעדכון מק"ט ${change.sku || 'לא ידוע'}: ${e.message}`, 'error');
-              if (consecutiveUpdateErrors >= 3) {
-                addLog(`${consecutiveUpdateErrors} שגיאות ברצף, ממתין 3 שניות...`, 'warn');
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                consecutiveUpdateErrors = 0;
-              }
-            }
+        if (warehousesToUpdate.length > 0) {
+          updateData.warehouses = warehousesToUpdate;
+          hasChanges = true;
+        }
 
-            if (i % UPDATE_BATCH_SIZE === UPDATE_BATCH_SIZE - 1) {
-              addLog(`עודכנו ${Math.min(i + 1, itemsToUpdate.length)}/${itemsToUpdate.length} פריטים...`, 'info');
-            }
-          }
-          }
+        if (hasChanges) {
+          const response = await apiCallWithRetry(
+            () => base44.functions.invoke('updatePart', updateData),
+            MAX_RETRIES,
+            `Part Update ${existingPart.sku}`
+          );
+          if (response?.data?.error) throw new Error(response.data.error);
+          updatedCount++;
+        }
+      });
+
+      await runWithConcurrency(updateTasks, updateController, (i, err) => {
+        if (err) {
+          errorCount++;
+          addLog(`שגיאה בעדכון מק"ט ${itemsToUpdate[i]?.sku || 'לא ידוע'}: ${err.message}`, 'error');
+        } else if ((i + 1) % UPDATE_BATCH_SIZE === 0) {
+          addLog(`עודכנו ${i + 1}/${itemsToUpdate.length} פריטים... (מקביליות: ${updateController.concurrency})`, 'info');
+        }
+      });
+      }
 
     addLog('=== סיכום ייבוא ===', 'success');
     addLog(`פריטים חדשים שנוצרו: ${createdCount}`, 'success');
