@@ -564,17 +564,15 @@ Deno.serve(async (req) => {
       const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
       const supplierFields = ['supplier_number', 'supplier_part_number'];
 
-      for (let i = 0; i < itemsToUpdate.length; i += UPDATE_BATCH_SIZE) {
-        const batch = itemsToUpdate.slice(i, i + UPDATE_BATCH_SIZE);
-        addLog(`מעבד קבוצת עדכונים ${Math.floor(i / UPDATE_BATCH_SIZE) + 1}/${Math.ceil(itemsToUpdate.length / UPDATE_BATCH_SIZE)}`, 'info');
-
-        const batchResults = await Promise.allSettled(batch.map(async (change) => {
+      for (let i = 0; i < itemsToUpdate.length; i++) {
+        const change = itemsToUpdate[i];
+        try {
           const formattedRow = change.newData;
           const existingPart = partMapUpdated.get(formattedRow.sku);
           
           if (!existingPart) {
-            addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג על עדכון`, 'warn');
-            return;
+            addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג`, 'warn');
+            continue;
           }
 
           const updateData = { sku: existingPart.sku };
@@ -613,19 +611,22 @@ Deno.serve(async (req) => {
               `Part Update ${existingPart.sku}`
             );
             if (response?.data?.error) throw new Error(response.data.error);
-            return 'updated';
-          }
-        }));
-
-        batchResults.forEach((result, idx) => {
-          if (result.status === 'fulfilled' && result.value === 'updated') {
             updatedCount++;
-          } else if (result.status === 'rejected') {
-            errorCount++;
-            const failedSku = batch[idx]?.sku || 'לא ידוע';
-            addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${result.reason?.message}`, 'error');
           }
-        });
+
+          // Small delay between items to avoid rate limiting
+          if (i % 5 === 4) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+
+        } catch (e) {
+          errorCount++;
+          addLog(`שגיאה בעדכון מק"ט ${change.sku || 'לא ידוע'}: ${e.message}`, 'error');
+        }
+
+        if (i % UPDATE_BATCH_SIZE === UPDATE_BATCH_SIZE - 1) {
+          addLog(`עודכנו ${Math.min(i + 1, itemsToUpdate.length)}/${itemsToUpdate.length} פריטים...`, 'info');
+        }
       }
     }
 
