@@ -668,7 +668,7 @@ Deno.serve(async (req) => {
 
     // Generic function to run a pass of changes and collect failures
     async function runPass(items, buildTask, isCreate, passLabel) {
-      const controller = createConcurrencyController(3, 1, isCreate ? 6 : 8);
+      const controller = createConcurrencyController(1, 1, isCreate ? 3 : 4);
       const failed = [];
 
       const tasks = items.map((change) => async () => {
