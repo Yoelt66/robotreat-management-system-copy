@@ -341,7 +341,7 @@ Deno.serve(async (req) => {
     const itemsToUpdate = changesToProcess.filter(c => c.type === 'update');
     if (itemsToUpdate.length > 0) {
       addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים...`, 'info');
-      await processWithConcurrency(itemsToUpdate, 3, async (change) => {
+      await processWithConcurrency(itemsToUpdate, 2, async (change) => {
         const formattedRow = change.newData;
         const existingPart = change.existingPart;
         const sku = existingPart.sku;
