@@ -537,7 +537,7 @@ export default function Import() {
             const stockValue = formattedRow[String(warehouse.warehouse_id)];
             
             if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-              const newQuantity = parseInt(stockValue) || 0;
+              const newQuantity = parseFloat(stockValue) || 0;
               const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
               
               if (newQuantity !== currentQuantity) {

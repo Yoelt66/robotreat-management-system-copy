@@ -56,6 +56,7 @@ import FieldDashboard from './pages/FieldDashboard';
 import History from './pages/History';
 import Home from './pages/Home';
 import Import from './pages/Import';
+import Invoices from './pages/Invoices';
 import ItemsManagement from './pages/ItemsManagement';
 import MaintenanceProcedures from './pages/MaintenanceProcedures';
 import MaintenanceTypes from './pages/MaintenanceTypes';
@@ -69,7 +70,6 @@ import Settings from './pages/Settings';
 import StockDashboard from './pages/StockDashboard';
 import Transfers from './pages/Transfers';
 import Welcome from './pages/Welcome';
-import Invoices from './pages/Invoices';
 import __Layout from './Layout.jsx';
 
 
@@ -83,6 +83,7 @@ export const PAGES = {
     "History": History,
     "Home": Home,
     "Import": Import,
+    "Invoices": Invoices,
     "ItemsManagement": ItemsManagement,
     "MaintenanceProcedures": MaintenanceProcedures,
     "MaintenanceTypes": MaintenanceTypes,
@@ -96,7 +97,6 @@ export const PAGES = {
     "StockDashboard": StockDashboard,
     "Transfers": Transfers,
     "Welcome": Welcome,
-    "Invoices": Invoices,
 }
 
 export const pagesConfig = {
