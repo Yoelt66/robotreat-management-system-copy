@@ -590,30 +590,32 @@ Deno.serve(async (req) => {
           }
 
           if (hasChanges) {
-            const response = await apiCallWithRetry(
-              () => base44.functions.invoke('updatePart', updateData),
-              MAX_RETRIES,
-              `Part Update ${existingPart.sku}`
-            );
-            if (response?.data?.error) throw new Error(response.data.error);
-            updatedCount++;
+                const response = await apiCallWithRetry(
+                  () => base44.functions.invoke('updatePart', updateData),
+                  MAX_RETRIES,
+                  `Part Update ${existingPart.sku}`
+                );
+                if (response?.data?.error) throw new Error(response.data.error);
+                updatedCount++;
+                consecutiveUpdateErrors = 0;
+              }
+
+            } catch (e) {
+              errorCount++;
+              consecutiveUpdateErrors++;
+              addLog(`שגיאה בעדכון מק"ט ${change.sku || 'לא ידוע'}: ${e.message}`, 'error');
+              if (consecutiveUpdateErrors >= 3) {
+                addLog(`${consecutiveUpdateErrors} שגיאות ברצף, ממתין 3 שניות...`, 'warn');
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                consecutiveUpdateErrors = 0;
+              }
+            }
+
+            if (i % UPDATE_BATCH_SIZE === UPDATE_BATCH_SIZE - 1) {
+              addLog(`עודכנו ${Math.min(i + 1, itemsToUpdate.length)}/${itemsToUpdate.length} פריטים...`, 'info');
+            }
           }
-
-          // Short delay every 3 items to avoid rate limiting
-          if (i % 3 === 2) {
-            await new Promise(resolve => setTimeout(resolve, 200));
           }
-
-        } catch (e) {
-          errorCount++;
-          addLog(`שגיאה בעדכון מק"ט ${change.sku || 'לא ידוע'}: ${e.message}`, 'error');
-        }
-
-        if (i % UPDATE_BATCH_SIZE === UPDATE_BATCH_SIZE - 1) {
-          addLog(`עודכנו ${Math.min(i + 1, itemsToUpdate.length)}/${itemsToUpdate.length} פריטים...`, 'info');
-        }
-      }
-    }
 
     addLog('=== סיכום ייבוא ===', 'success');
     addLog(`פריטים חדשים שנוצרו: ${createdCount}`, 'success');
