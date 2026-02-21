@@ -473,8 +473,15 @@ Deno.serve(async (req) => {
                   unitMap.set(unitCode, newUnit);
                   allUnits.push(newUnit);
                 } catch (unitError) {
-                  addLog(`שגיאה ביצירת יחידת מידה ${unitCode}: ${unitError.message}. משתמש בברירת מחדל.`, 'warn');
-                  unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                  // Unique constraint: unit may have been created by a concurrent process - re-fetch
+                  const existing = await base44.asServiceRole.entities.Unit.filter({ code: unitCode }).catch(() => []);
+                  if (existing && existing.length > 0) {
+                    unitMap.set(unitCode, existing[0]);
+                    addLog(`יחידת מידה ${unitCode} כבר קיימת, נמצאה בהצלחה.`, 'info');
+                  } else {
+                    addLog(`שגיאה ביצירת יחידת מידה ${unitCode}: ${unitError.message}. משתמש בברירת מחדל.`, 'warn');
+                    unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                  }
                 }
               }
             }
