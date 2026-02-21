@@ -3,14 +3,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 const MAX_RETRIES = 3;
 const CREATE_BATCH_SIZE = 30;
 const UPDATE_BATCH_SIZE = 30;
-const DELAY_BETWEEN_BATCHES = 3000;
 
 async function apiCallWithRetry(apiCall, retries, callName) {
   for (let i = 0; i < retries; i++) {
     try {
-      const result = await apiCall();
-      await new Promise(resolve => setTimeout(resolve, 300));
-      return result;
+      return await apiCall();
     } catch (error) {
       console.error(`API call failed attempt ${i + 1}/${retries} for ${callName}:`, error);
       
@@ -18,9 +15,9 @@ async function apiCallWithRetry(apiCall, retries, callName) {
                          error.message?.includes('Rate limit') ||
                          error.response?.status === 429;
       
-      if (isRateLimit || i < retries - 1) {
-        const waitTime = Math.min(3000 * Math.pow(2, i), 30000);
-        console.log(`${isRateLimit ? 'Rate limit hit' : 'Error occurred'}, waiting ${waitTime}ms before retry ${i + 1}/${retries}...`);
+      if (i < retries - 1) {
+        const waitTime = isRateLimit ? Math.min(3000 * Math.pow(2, i), 30000) : 1000;
+        console.log(`${isRateLimit ? 'Rate limit hit' : 'Error occurred'}, waiting ${waitTime}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       } else {
         throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
@@ -28,8 +25,6 @@ async function apiCallWithRetry(apiCall, retries, callName) {
     }
   }
 }
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function parseCSV(text, hasHeaders, delimiter = ',') {
   const lines = text.trim().split(/\r\n|\n/);
