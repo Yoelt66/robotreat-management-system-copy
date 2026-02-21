@@ -523,16 +523,16 @@ Deno.serve(async (req) => {
             supplier_part_number: formattedRow.supplier_part_number || ''
           };
           
-          // Log the payload for debugging
-          addLog(`יוצר פריט ${formattedRow.sku} עם הנתונים: ${JSON.stringify(partPayload, null, 2)}`, 'info');
-          
           let response;
           try {
-            response = await base44.functions.invoke('createPart', partPayload);
+            response = await apiCallWithRetry(
+              () => base44.functions.invoke('createPart', partPayload),
+              MAX_RETRIES,
+              `createPart ${formattedRow.sku}`
+            );
           } catch (invokeError) {
-            // Get detailed error from the backend function
             const errorDetails = invokeError.response?.data || invokeError.message;
-            addLog(`שגיאת קריאה ל-createPart: ${JSON.stringify(errorDetails)}`, 'error');
+            addLog(`שגיאת קריאה ל-createPart (${formattedRow.sku}): ${JSON.stringify(errorDetails)}`, 'error');
             throw invokeError;
           }
           
