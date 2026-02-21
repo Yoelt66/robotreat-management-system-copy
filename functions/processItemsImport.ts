@@ -329,6 +329,7 @@ Deno.serve(async (req) => {
       }, (done, total, result) => {
         if (!result.success) {
           errorCount++;
+          if (result.item) result.item._failed = true;
           addLog(`שגיאה ביצירת מק"ט ${result.item?.newData?.sku}: ${result.error}`, 'error');
         } else {
           createdCount++;
