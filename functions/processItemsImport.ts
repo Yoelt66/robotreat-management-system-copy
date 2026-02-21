@@ -537,14 +537,18 @@ Deno.serve(async (req) => {
           } catch (e) {
           const errorDetails = e.response?.data || e.message;
           addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
-          addLog(`נתוני שורה מקוריים: ${JSON.stringify(change.newData)}`, 'error');
           errorCount++;
+          }
+
+          // Small delay between items to avoid rate limiting
+          if (bi % 5 === 4) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
           }
 
-          // Delay between batches to prevent timeout
+          // Delay between batches
           if (i + CREATE_BATCH_SIZE < newItems.length) {
-          await delay(DELAY_BETWEEN_BATCHES);
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
           }
           addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
