@@ -142,6 +142,7 @@ export default function ServiceUnitsPage() {
   };
 
   const openEditForm = (unit) => {
+    loadPartsIfNeeded();
     setEditingUnit(unit);
     setFormData({
       active: unit.active !== false,
