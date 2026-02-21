@@ -81,22 +81,30 @@ export default function ServiceUnitsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [unitsData, customersData, typesData, brandsData, partsResponse] = await Promise.all([
+      const [unitsData, customersData, typesData, brandsData] = await Promise.all([
         ServiceUnit.list(),
         Customer.list(),
         MaintenanceType.list(),
         UnitBrand.list(),
-        getParts(),
       ]);
       setUnits(unitsData);
       setCustomers(customersData);
       setMaintenanceTypes(typesData);
       setUnitBrands(brandsData);
-      setParts(partsResponse?.data?.data || []);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPartsIfNeeded = async () => {
+    if (parts.length > 0) return;
+    try {
+      const partsResponse = await getParts();
+      setParts(partsResponse?.data?.data || []);
+    } catch (error) {
+      console.error("Error loading parts:", error);
     }
   };
 
