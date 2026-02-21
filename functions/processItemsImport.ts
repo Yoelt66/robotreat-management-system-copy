@@ -411,7 +411,7 @@ Deno.serve(async (req) => {
               } else {
                 await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }), MAX_RETRIES, `PartStock.create ${sku}/${wh.warehouse_id}`);
               }
-            } else if (existingStock && existingStock.quantity < 0) {
+            } else if (existingStock && existingStock.quantity !== 0) {
               await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: 0 }), MAX_RETRIES, `PartStock.fix-negative ${sku}/${wh.warehouse_id}`);
             }
           })
