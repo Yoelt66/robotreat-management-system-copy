@@ -524,8 +524,14 @@ export default function Import() {
             }
           });
 
-          // Check stock changes
+          // Check stock changes - only for warehouses enabled in field mapping
+            const enabledWarehouseKeys = new Set(
+              sortedActiveFields.filter(f => f.checked).map(f => f.key)
+            );
+
             allWarehouses.forEach(warehouse => {
+              if (!enabledWarehouseKeys.has(String(warehouse.warehouse_id))) return;
+
               const stockValue = formattedRow[String(warehouse.warehouse_id)];
               const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
 
