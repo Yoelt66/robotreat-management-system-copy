@@ -533,6 +533,7 @@ Deno.serve(async (req) => {
       // Use already-loaded partMap (no need to reload from DB)
       const partMapUpdated = partMap;
       
+      let consecutiveUpdateErrors = 0;
       const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
       const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
       const numericCoreFields = ['minimum_stock'];
