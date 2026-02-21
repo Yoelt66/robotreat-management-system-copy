@@ -394,7 +394,8 @@ Deno.serve(async (req) => {
         const batch = newItems.slice(i, i + CREATE_BATCH_SIZE);
         addLog(`יוצר קבוצה ${Math.floor(i / CREATE_BATCH_SIZE) + 1}/${Math.ceil(newItems.length / CREATE_BATCH_SIZE)} (${batch.length} פריטים)...`, 'info');
 
-      for (const change of batch) {
+      for (let bi = 0; bi < batch.length; bi++) {
+        const change = batch[bi];
         try {
           const formattedRow = change.newData;
           
