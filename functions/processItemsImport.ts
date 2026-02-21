@@ -557,26 +557,24 @@ Deno.serve(async (req) => {
 
               if (response?.data?.error) throw new Error(response.data.error);
               if (!response?.data?.success) throw new Error('התשובה מהשרת לא מצביעה על הצלחה');
-
               createdCount++;
-              consecutiveErrors = 0; // reset on success
               } catch (e) {
               const errorDetails = e.response?.data || e.message;
-              addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
+              addLog(`שגיאה ביצירת פריט ${formattedRow.sku}: ${JSON.stringify(errorDetails)}`, 'error');
               errorCount++;
-              consecutiveErrors++;
-              // If errors pile up, pause to let server recover
-              if (consecutiveErrors >= 3) {
-                addLog(`${consecutiveErrors} שגיאות ברצף, ממתין 3 שניות...`, 'warn');
-                await new Promise(resolve => setTimeout(resolve, 3000));
-                consecutiveErrors = 0;
+              throw e; // re-throw so concurrency controller sees the error
               }
               }
+              });
+
+              await runWithConcurrency(createTasks, createController, (i, err) => {
+              if (!err && (i + 1) % 10 === 0) {
+              addLog(`נוצרו ${i + 1}/${newItems.length} פריטים... (מקביליות: ${createController.concurrency})`, 'info');
               }
+              });
+
               addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
               }
-          addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
-          }
 
     // Phase 2: Update existing items only (skip newly created ones)
     const itemsToUpdate = allItemsToProcess.filter(c => c.type !== 'new');
