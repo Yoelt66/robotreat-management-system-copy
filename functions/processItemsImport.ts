@@ -556,112 +556,74 @@ Deno.serve(async (req) => {
       // Use already-loaded partMap (no need to reload from DB)
       const partMapUpdated = partMap;
       
+      const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
+      const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
+      const numericCoreFields = ['minimum_stock'];
+      const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
+      const supplierFields = ['supplier_number', 'supplier_part_number'];
+
       for (let i = 0; i < itemsToUpdate.length; i += UPDATE_BATCH_SIZE) {
         const batch = itemsToUpdate.slice(i, i + UPDATE_BATCH_SIZE);
         addLog(`מעבד קבוצת עדכונים ${Math.floor(i / UPDATE_BATCH_SIZE) + 1}/${Math.ceil(itemsToUpdate.length / UPDATE_BATCH_SIZE)}`, 'info');
 
-        for (const change of batch) {
-          try {
-            const formattedRow = change.newData;
-            const existingPart = partMapUpdated.get(formattedRow.sku);
-            
-            if (!existingPart) {
-              addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג על עדכון`, 'warn');
-              continue;
+        const batchResults = await Promise.allSettled(batch.map(async (change) => {
+          const formattedRow = change.newData;
+          const existingPart = partMapUpdated.get(formattedRow.sku);
+          
+          if (!existingPart) {
+            addLog(`פריט ${formattedRow.sku} לא נמצא במערכת, מדלג על עדכון`, 'warn');
+            return;
+          }
+
+          const updateData = { sku: existingPart.sku };
+          let hasChanges = false;
+
+          coreFields.forEach(field => {
+            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+              const newValue = numericCoreFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+              const existingValue = numericCoreFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+              if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
             }
+          });
 
-            const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
-            const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
-            const supplierFields = ['supplier_number', 'supplier_part_number'];
-            
-            const updateData = { sku: existingPart.sku };
-            let hasChanges = false;
-            
-            coreFields.forEach(field => {
-              if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                const numericFields = ['minimum_stock'];
-                const newValue = numericFields.includes(field)
-                  ? parseFloat(formattedRow[field]) || 0
-                  : formattedRow[field];
-                
-                const existingValue = numericFields.includes(field)
-                  ? parseFloat(existingPart[field]) || 0
-                  : existingPart[field] || '';
-                
-                if (String(existingValue) !== String(newValue)) {
-                  updateData[field] = newValue;
-                  hasChanges = true;
-                }
-              }
-            });
-
-            pricingFields.forEach(field => {
-              if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                const numericFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
-                const newValue = numericFields.includes(field)
-                  ? parseFloat(formattedRow[field]) || 0
-                  : formattedRow[field];
-                
-                const existingValue = numericFields.includes(field)
-                  ? parseFloat(existingPart[field]) || 0
-                  : existingPart[field] || '';
-                
-                if (String(existingValue) !== String(newValue)) {
-                  updateData[field] = newValue;
-                  hasChanges = true;
-                }
-              }
-            });
-            
-            if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
-              updateData.is_manual = true;
-              hasChanges = true;
+          pricingFields.forEach(field => {
+            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+              const newValue = numericPricingFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+              const existingValue = numericPricingFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+              if (String(existingValue) !== String(newValue)) { updateData[field] = newValue; hasChanges = true; }
             }
+          });
 
-            supplierFields.forEach(field => {
-              if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
-                const existingValue = existingPart[field] || '';
-                if (String(existingValue) !== String(formattedRow[field])) {
-                  updateData[field] = formattedRow[field];
-                  hasChanges = true;
-                }
-              }
-            });
+          if (formattedRow.manual_sale_price !== undefined && formattedRow.manual_sale_price !== null && formattedRow.manual_sale_price !== '') {
+            updateData.is_manual = true; hasChanges = true;
+          }
 
-            if (hasChanges) {
-              try {
-                const response = await apiCallWithRetry(
-                  () => base44.functions.invoke('updatePart', updateData),
-                  MAX_RETRIES,
-                  `Part Update ${existingPart.sku}`
-                );
-
-                if (response?.data?.error) {
-                  throw new Error(response.data.error);
-                }
-
-                updatedCount++;
-              } catch (updateError) {
-                errorCount++;
-                const failedSku = change.sku || 'לא ידוע';
-                addLog(`שגיאה בעדכון מק"ט ${failedSku}`, 'error');
-                addLog(`נתונים שנשלחו: ${JSON.stringify(updateData)}`, 'error');
-                addLog(`פרטי שגיאה: ${updateError.message}`, 'error');
-                if (updateError.response?.data) {
-                  addLog(`תשובת שרת: ${JSON.stringify(updateError.response.data)}`, 'error');
-                }
-              }
+          supplierFields.forEach(field => {
+            if (formattedRow[field] !== undefined && formattedRow[field] !== null && formattedRow[field] !== '') {
+              if (String(existingPart[field] || '') !== String(formattedRow[field])) { updateData[field] = formattedRow[field]; hasChanges = true; }
             }
-            } catch (e) {
+          });
+
+          if (hasChanges) {
+            const response = await apiCallWithRetry(
+              () => base44.functions.invoke('updatePart', updateData),
+              MAX_RETRIES,
+              `Part Update ${existingPart.sku}`
+            );
+            if (response?.data?.error) throw new Error(response.data.error);
+            return 'updated';
+          }
+        }));
+
+        batchResults.forEach((result, idx) => {
+          if (result.status === 'fulfilled' && result.value === 'updated') {
+            updatedCount++;
+          } else if (result.status === 'rejected') {
             errorCount++;
-            const failedSku = change.sku || 'לא ידוע';
-            addLog(`שגיאה כללית בעדכון מק"ט ${failedSku}: ${e.message}`, 'error');
-            }
-        }
-
-        if (i + UPDATE_BATCH_SIZE < itemsToUpdate.length) {
-          await delay(DELAY_BETWEEN_BATCHES);
-        }
+            const failedSku = batch[idx]?.sku || 'לא ידוע';
+            addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${result.reason?.message}`, 'error');
+          }
+        });
       }
     }
 
