@@ -405,161 +405,122 @@ Deno.serve(async (req) => {
 
       for (let bi = 0; bi < batch.length; bi++) {
         const change = batch[bi];
+        let consecutiveErrors = 0;
         try {
-          const formattedRow = change.newData;
-          
-          // Validate required fields
-          if (!formattedRow.sku || !formattedRow.name) {
-            throw new Error(`חסרים שדות חובה: sku=${formattedRow.sku}, name=${formattedRow.name}`);
-          }
-          
-          // Validate and normalize category - auto-create if needed
-          let categoryCode = formattedRow.category || null;
-          if (categoryCode) {
-            // Try to find by code first
-            if (!categoryMap.has(categoryCode)) {
-              // Try by name
-              const categoryByName = categoryNameMap.get(categoryCode);
-              if (categoryByName) {
-                categoryCode = categoryByName.code;
-              } else {
-                // Create new category automatically
-                addLog(`יוצר קטגוריה חדשה: ${categoryCode}`, 'info');
-                try {
-                  const newCategory = await apiCallWithRetry(
-                    () => base44.asServiceRole.entities.Category.create({
-                      code: categoryCode,
-                      name: categoryCode,
-                      color: 'bg-gray-100 text-gray-800'
-                    }),
-                    MAX_RETRIES,
-                    `Create category ${categoryCode}`
-                  );
-                  categoryMap.set(categoryCode, newCategory);
-                  allCategories.push(newCategory);
-                } catch (catError) {
-                  // Unique constraint: category may have been created by a concurrent process - re-fetch
-                  const existing = await base44.asServiceRole.entities.Category.filter({ code: categoryCode }).catch(() => []);
-                  if (existing && existing.length > 0) {
-                    categoryMap.set(categoryCode, existing[0]);
-                    addLog(`קטגוריה ${categoryCode} כבר קיימת, נמצאה בהצלחה.`, 'info');
+              const formattedRow = change.newData;
+
+              // Validate required fields
+              if (!formattedRow.sku || !formattedRow.name) {
+                throw new Error(`חסרים שדות חובה: sku=${formattedRow.sku}, name=${formattedRow.name}`);
+              }
+
+              // Validate and normalize category - auto-create if needed
+              let categoryCode = formattedRow.category || null;
+              if (categoryCode) {
+                if (!categoryMap.has(categoryCode)) {
+                  const categoryByName = categoryNameMap.get(categoryCode);
+                  if (categoryByName) {
+                    categoryCode = categoryByName.code;
                   } else {
-                    addLog(`שגיאה ביצירת קטגוריה ${categoryCode}: ${catError.message}. משתמש בברירת מחדל.`, 'warn');
-                    categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                    addLog(`יוצר קטגוריה חדשה: ${categoryCode}`, 'info');
+                    try {
+                      const newCategory = await apiCallWithRetry(
+                        () => base44.asServiceRole.entities.Category.create({ code: categoryCode, name: categoryCode, color: 'bg-gray-100 text-gray-800' }),
+                        MAX_RETRIES, `Create category ${categoryCode}`
+                      );
+                      categoryMap.set(categoryCode, newCategory);
+                      allCategories.push(newCategory);
+                    } catch (catError) {
+                      const existing = await base44.asServiceRole.entities.Category.filter({ code: categoryCode }).catch(() => []);
+                      if (existing && existing.length > 0) {
+                        categoryMap.set(categoryCode, existing[0]);
+                      } else {
+                        categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+                      }
+                    }
                   }
                 }
-              }
-            }
-          } else {
-            categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
-          }
-          
-          // Validate and normalize unit - auto-create if needed
-          let unitCode = formattedRow.unit || null;
-          if (unitCode) {
-            // Try to find by code first
-            if (!unitMap.has(unitCode)) {
-              // Try by name
-              const unitByName = unitNameMap.get(unitCode);
-              if (unitByName) {
-                unitCode = unitByName.code;
               } else {
-                // Create new unit automatically
-                addLog(`יוצר יחידת מידה חדשה: ${unitCode}`, 'info');
-                try {
-                  const newUnit = await apiCallWithRetry(
-                    () => base44.asServiceRole.entities.Unit.create({
-                      code: unitCode,
-                      name: unitCode,
-                      type: 'quantity',
-                      is_active: true
-                    }),
-                    MAX_RETRIES,
-                    `Create unit ${unitCode}`
-                  );
-                  unitMap.set(unitCode, newUnit);
-                  allUnits.push(newUnit);
-                } catch (unitError) {
-                  // Unique constraint: unit may have been created by a concurrent process - re-fetch
-                  const existing = await base44.asServiceRole.entities.Unit.filter({ code: unitCode }).catch(() => []);
-                  if (existing && existing.length > 0) {
-                    unitMap.set(unitCode, existing[0]);
-                    addLog(`יחידת מידה ${unitCode} כבר קיימת, נמצאה בהצלחה.`, 'info');
+                categoryCode = allCategories.length > 0 ? allCategories[0].code : 'other';
+              }
+
+              // Validate and normalize unit - auto-create if needed
+              let unitCode = formattedRow.unit || null;
+              if (unitCode) {
+                if (!unitMap.has(unitCode)) {
+                  const unitByName = unitNameMap.get(unitCode);
+                  if (unitByName) {
+                    unitCode = unitByName.code;
                   } else {
-                    addLog(`שגיאה ביצירת יחידת מידה ${unitCode}: ${unitError.message}. משתמש בברירת מחדל.`, 'warn');
-                    unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                    addLog(`יוצר יחידת מידה חדשה: ${unitCode}`, 'info');
+                    try {
+                      const newUnit = await apiCallWithRetry(
+                        () => base44.asServiceRole.entities.Unit.create({ code: unitCode, name: unitCode, type: 'quantity', is_active: true }),
+                        MAX_RETRIES, `Create unit ${unitCode}`
+                      );
+                      unitMap.set(unitCode, newUnit);
+                      allUnits.push(newUnit);
+                    } catch (unitError) {
+                      const existing = await base44.asServiceRole.entities.Unit.filter({ code: unitCode }).catch(() => []);
+                      if (existing && existing.length > 0) {
+                        unitMap.set(unitCode, existing[0]);
+                      } else {
+                        unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
+                      }
+                    }
                   }
                 }
+              } else {
+                unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
               }
-            }
-          } else {
-            unitCode = allUnits.length > 0 ? allUnits[0].code : 'pieces';
-          }
-          
-          const partPayload = {
-            sku: String(formattedRow.sku).trim(),
-            name: String(formattedRow.name).trim(),
-            category: categoryCode,
-            unit: unitCode,
-            minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
-            notes: formattedRow.notes || '',
-            current_location: formattedRow.current_location || '',
-            replaced_sku: formattedRow.replaced_sku || '',
-            requires_serial_number: formattedRow.requires_serial_number || false,
-            warehouses: allWarehouses.map(wh => ({
-              warehouse_id: wh.warehouse_id,
-              quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0
-            })),
-            cost_price: parseFloat(formattedRow.cost_price) || 0,
-            cost_currency: formattedRow.cost_currency || 'ILS',
-            sale_currency: formattedRow.sale_currency || 'ILS',
-            import_percentage: formattedRow.import_percentage !== undefined && formattedRow.import_percentage !== null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
-            markup_percentage: formattedRow.markup_percentage !== undefined && formattedRow.markup_percentage !== null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
-            manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
-            is_manual: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? true : false,
-            supplier_number: formattedRow.supplier_number || '',
-            supplier_part_number: formattedRow.supplier_part_number || ''
-          };
-          
-          let response;
-          try {
-            response = await apiCallWithRetry(
-              () => base44.functions.invoke('createPart', partPayload),
-              MAX_RETRIES,
-              `createPart ${formattedRow.sku}`
-            );
-          } catch (invokeError) {
-            const errorDetails = invokeError.response?.data || invokeError.message;
-            addLog(`שגיאת קריאה ל-createPart (${formattedRow.sku}): ${JSON.stringify(errorDetails)}`, 'error');
-            throw invokeError;
-          }
-          
-          if (response?.data?.error) {
-            throw new Error(response.data.error);
-          }
-          
-          if (!response?.data?.success) {
-            throw new Error('התשובה מהשרת לא מצביעה על הצלחה');
-          }
-          
-          createdCount++;
-          } catch (e) {
-          const errorDetails = e.response?.data || e.message;
-          addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
-          errorCount++;
-          }
 
-          // Short delay every 3 items to avoid rate limiting
-          if (bi % 3 === 2) {
-            await new Promise(resolve => setTimeout(resolve, 200));
-          }
-          }
+              const partPayload = {
+                sku: String(formattedRow.sku).trim(),
+                name: String(formattedRow.name).trim(),
+                category: categoryCode,
+                unit: unitCode,
+                minimum_stock: parseFloat(formattedRow.minimum_stock) || 0,
+                notes: formattedRow.notes || '',
+                current_location: formattedRow.current_location || '',
+                replaced_sku: formattedRow.replaced_sku || '',
+                requires_serial_number: formattedRow.requires_serial_number || false,
+                warehouses: allWarehouses.map(wh => ({ warehouse_id: wh.warehouse_id, quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0 })),
+                cost_price: parseFloat(formattedRow.cost_price) || 0,
+                cost_currency: formattedRow.cost_currency || 'ILS',
+                sale_currency: formattedRow.sale_currency || 'ILS',
+                import_percentage: formattedRow.import_percentage != null && formattedRow.import_percentage !== '' ? parseFloat(formattedRow.import_percentage) : 0,
+                markup_percentage: formattedRow.markup_percentage != null && formattedRow.markup_percentage !== '' ? parseFloat(formattedRow.markup_percentage) : 0,
+                manual_sale_price: formattedRow.manual_sale_price && formattedRow.manual_sale_price !== '' ? parseFloat(formattedRow.manual_sale_price) : 0,
+                is_manual: !!(formattedRow.manual_sale_price && formattedRow.manual_sale_price !== ''),
+                supplier_number: formattedRow.supplier_number || '',
+                supplier_part_number: formattedRow.supplier_part_number || ''
+              };
 
-          // Short delay between batches
-          if (i + CREATE_BATCH_SIZE < newItems.length) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-          }
+              const response = await apiCallWithRetry(
+                () => base44.functions.invoke('createPart', partPayload),
+                MAX_RETRIES, `createPart ${formattedRow.sku}`
+              );
+
+              if (response?.data?.error) throw new Error(response.data.error);
+              if (!response?.data?.success) throw new Error('התשובה מהשרת לא מצביעה על הצלחה');
+
+              createdCount++;
+              consecutiveErrors = 0; // reset on success
+              } catch (e) {
+              const errorDetails = e.response?.data || e.message;
+              addLog(`שגיאה ביצירת פריט ${change.newData.sku}: ${JSON.stringify(errorDetails)}`, 'error');
+              errorCount++;
+              consecutiveErrors++;
+              // If errors pile up, pause to let server recover
+              if (consecutiveErrors >= 3) {
+                addLog(`${consecutiveErrors} שגיאות ברצף, ממתין 3 שניות...`, 'warn');
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                consecutiveErrors = 0;
+              }
+              }
+              }
+              addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
+              }
           addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
           }
 
