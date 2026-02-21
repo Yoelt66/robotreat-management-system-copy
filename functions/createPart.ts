@@ -73,29 +73,16 @@ Deno.serve(async (req) => {
             
             createdEntities.supplier = await base44.asServiceRole.entities.PartSupplier.create(supplierData);
 
-            // Step 4: Upsert PartStock for each warehouse (handles unique constraint)
+            // Step 4: Create PartStock for each warehouse in parallel (new part, no existing stocks)
             if (partData.warehouses && Array.isArray(partData.warehouses)) {
-                for (const wh of partData.warehouses) {
-                    const existingStocks = await base44.asServiceRole.entities.PartStock.filter({
+                const stocksToCreate = partData.warehouses
+                    .filter(wh => wh.warehouse_id)
+                    .map(wh => base44.asServiceRole.entities.PartStock.create({
                         part_sku: sku,
-                        warehouse_id: wh.warehouse_id
-                    });
-
-                    let stock;
-                    if (existingStocks && existingStocks.length > 0) {
-                        stock = await base44.asServiceRole.entities.PartStock.update(
-                            existingStocks[0].id,
-                            { quantity: wh.quantity || 0 }
-                        );
-                    } else {
-                        stock = await base44.asServiceRole.entities.PartStock.create({
-                            part_sku: sku,
-                            warehouse_id: wh.warehouse_id,
-                            quantity: wh.quantity || 0
-                        });
-                    }
-                    createdEntities.stocks.push(stock);
-                }
+                        warehouse_id: wh.warehouse_id,
+                        quantity: wh.quantity || 0
+                    }));
+                createdEntities.stocks = await Promise.all(stocksToCreate);
             }
 
             return Response.json({ 
