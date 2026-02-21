@@ -451,16 +451,14 @@ Deno.serve(async (req) => {
     let updatedCount = 0;
     let errorCount = 0;
 
-    // Phase 1: Create new items in batches
+    // Phase 1: Create new items with adaptive concurrency
     if (newItems.length > 0) {
-      addLog(`יוצר רשומות בסיסיות עבור ${newItems.length} פריטים חדשים בקבוצות של ${CREATE_BATCH_SIZE}...`, 'info');
+      const createController = createConcurrencyController(3, 1, 6);
+      addLog(`יוצר ${newItems.length} פריטים חדשים (מקביליות התחלתית: ${createController.concurrency})...`, 'info');
 
-      for (let i = 0; i < newItems.length; i += CREATE_BATCH_SIZE) {
-        const batch = newItems.slice(i, i + CREATE_BATCH_SIZE);
-        addLog(`יוצר קבוצה ${Math.floor(i / CREATE_BATCH_SIZE) + 1}/${Math.ceil(newItems.length / CREATE_BATCH_SIZE)} (${batch.length} פריטים)...`, 'info');
-
-      for (let bi = 0; bi < batch.length; bi++) {
-        const change = batch[bi];
+      const createTasks = newItems.map((change) => async () => {
+        const formattedRow = change.newData;
+        {
         let consecutiveErrors = 0;
         try {
               const formattedRow = change.newData;
