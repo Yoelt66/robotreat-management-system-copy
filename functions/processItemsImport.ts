@@ -630,9 +630,9 @@ Deno.serve(async (req) => {
             updatedCount++;
           }
 
-          // Small delay between items to avoid rate limiting
-          if (i % 5 === 4) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+          // Short delay every 3 items to avoid rate limiting
+          if (i % 3 === 2) {
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
 
         } catch (e) {
