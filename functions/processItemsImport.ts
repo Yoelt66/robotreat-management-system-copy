@@ -576,16 +576,14 @@ Deno.serve(async (req) => {
               addLog(`${createdCount} פריטים חדשים נוצרו בהצלחה.`, 'success');
               }
 
-    // Phase 2: Update existing items only (skip newly created ones)
+    // Phase 2: Update existing items with adaptive concurrency
     const itemsToUpdate = allItemsToProcess.filter(c => c.type !== 'new');
-    
-    if (itemsToUpdate.length > 0) {
-      addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים...`, 'info');
 
-      // Use already-loaded partMap (no need to reload from DB)
+    if (itemsToUpdate.length > 0) {
+      const updateController = createConcurrencyController(3, 1, 8);
+      addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים (מקביליות התחלתית: ${updateController.concurrency})...`, 'info');
+
       const partMapUpdated = partMap;
-      
-      let consecutiveUpdateErrors = 0;
       const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
       const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
       const numericCoreFields = ['minimum_stock'];
