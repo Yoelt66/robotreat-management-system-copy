@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
     }
 
     // ACTUAL IMPORT MODE - load all required data
-    addLog('מצב ייבוא מלא - טוען נתוני מערכת...', 'info');
+    addLog('מצב ייבוא מלא v2 - טוען נתוני מערכת...', 'info');
 
     const [allCategories, allWarehouses, allUnits, partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list(), MAX_RETRIES, "Category.list").catch(() => []),
