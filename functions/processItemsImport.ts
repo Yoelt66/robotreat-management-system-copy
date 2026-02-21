@@ -1,8 +1,64 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const MAX_RETRIES = 3;
-const CREATE_BATCH_SIZE = 5;
 const UPDATE_BATCH_SIZE = 10;
+
+// Adaptive concurrency controller
+function createConcurrencyController(initialConcurrency = 3, min = 1, max = 8) {
+  let current = initialConcurrency;
+  let consecutiveSuccesses = 0;
+  let consecutiveErrors = 0;
+
+  return {
+    get concurrency() { return current; },
+    onSuccess() {
+      consecutiveErrors = 0;
+      consecutiveSuccesses++;
+      if (consecutiveSuccesses >= 5 && current < max) {
+        current = Math.min(current + 1, max);
+        consecutiveSuccesses = 0;
+      }
+    },
+    onError() {
+      consecutiveSuccesses = 0;
+      consecutiveErrors++;
+      if (current > min) {
+        current = Math.max(Math.floor(current / 2), min);
+      }
+      consecutiveErrors = 0;
+    }
+  };
+}
+
+// Run tasks with adaptive concurrency (like a pool)
+async function runWithConcurrency(tasks, controller, onTaskDone) {
+  const results = [];
+  let index = 0;
+
+  async function runNext() {
+    while (index < tasks.length) {
+      const taskIndex = index++;
+      const task = tasks[taskIndex];
+      try {
+        const result = await task();
+        controller.onSuccess();
+        if (onTaskDone) onTaskDone(taskIndex, null, result);
+        results[taskIndex] = { success: true, result };
+      } catch (err) {
+        controller.onError();
+        if (onTaskDone) onTaskDone(taskIndex, err, null);
+        results[taskIndex] = { success: false, error: err };
+        // Back-off on error
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  // Start workers up to current concurrency
+  const workers = Array.from({ length: controller.concurrency }, () => runNext());
+  await Promise.all(workers);
+  return results;
+}
 
 async function apiCallWithRetry(apiCall, retries, callName) {
   for (let i = 0; i < retries; i++) {
