@@ -49,8 +49,10 @@ async function runWithConcurrency(tasks, controller, onTaskDone) {
         if (onTaskDone) onTaskDone(taskIndex, err, null);
         results[taskIndex] = { success: false, error: err };
         // Back-off on error
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
+      // Small delay between tasks to reduce server load
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
 
