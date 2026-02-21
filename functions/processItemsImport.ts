@@ -13,13 +13,24 @@ async function apiCallWithRetry(apiCall, retries, callName) {
     } catch (error) {
       console.error(`API call failed attempt ${i + 1}/${retries} for ${callName}:`, error);
       
-      const isRateLimit = error.message?.includes('429') || 
-                         error.message?.includes('Rate limit') ||
-                         error.response?.status === 429;
+      const status = error.response?.status || 
+                     (error.message?.includes('429') ? 429 : null) ||
+                     (error.message?.includes('500') ? 500 : null) ||
+                     (error.message?.includes('503') ? 503 : null);
+      
+      const isRateLimit = status === 429 || error.message?.includes('Rate limit');
+      const isServerError = status === 500 || status === 503;
       
       if (i < retries - 1) {
-        const waitTime = isRateLimit ? Math.min(3000 * Math.pow(2, i), 30000) : 1000;
-        console.log(`${isRateLimit ? 'Rate limit hit' : 'Error occurred'}, waiting ${waitTime}ms before retry...`);
+        let waitTime;
+        if (isRateLimit) {
+          waitTime = Math.min(3000 * Math.pow(2, i), 30000); // 3s, 6s, 12s...
+        } else if (isServerError) {
+          waitTime = Math.min(2000 * Math.pow(2, i), 16000); // 2s, 4s, 8s...
+        } else {
+          waitTime = 1000;
+        }
+        console.log(`${callName} attempt ${i + 1} failed (status: ${status}), waiting ${waitTime}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       } else {
         throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
