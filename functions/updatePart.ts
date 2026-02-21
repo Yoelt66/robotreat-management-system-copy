@@ -127,6 +127,28 @@ Deno.serve(async (req) => {
             }
         }
 
+        // Update PartStock - if warehouses array provided
+        if (partData.warehouses && Array.isArray(partData.warehouses) && partData.warehouses.length > 0) {
+            const existingStocks = await base44.asServiceRole.entities.PartStock.filter({ part_sku: sku });
+            const stockMap = new Map(existingStocks.map(s => [s.warehouse_id, s]));
+
+            for (const { warehouse_id, quantity } of partData.warehouses) {
+                if (warehouse_id === undefined || quantity === undefined) continue;
+                const newQty = parseFloat(quantity) || 0;
+                const existingStock = stockMap.get(warehouse_id);
+
+                if (existingStock) {
+                    if (existingStock.quantity !== newQty) {
+                        await base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty });
+                        updatedFields.push(`stock_${warehouse_id}`);
+                    }
+                } else {
+                    await base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id, quantity: newQty });
+                    updatedFields.push(`stock_${warehouse_id}`);
+                }
+            }
+        }
+
         return Response.json({ 
             success: true, 
             message: updatedFields.length > 0 ? 'פריט עודכן בהצלחה' : 'לא נמצאו שינויים',
