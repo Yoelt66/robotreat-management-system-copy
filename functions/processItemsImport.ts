@@ -44,6 +44,8 @@ async function runWithConcurrency(tasks, controller, onTaskDone) {
         controller.onSuccess();
         if (onTaskDone) onTaskDone(taskIndex, null, result);
         results[taskIndex] = { success: true, result };
+        // Small delay after success to pace requests
+        await new Promise(resolve => setTimeout(resolve, 150));
       } catch (err) {
         controller.onError();
         if (onTaskDone) onTaskDone(taskIndex, err, null);
