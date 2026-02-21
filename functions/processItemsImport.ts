@@ -620,6 +620,16 @@ Deno.serve(async (req) => {
             }
           });
 
+          // Add warehouse stock updates
+          const warehousesToUpdate = allWarehouses
+            .map(wh => ({ warehouse_id: wh.warehouse_id, quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0 }))
+            .filter(wh => formattedRow[wh.warehouse_id] !== null && formattedRow[wh.warehouse_id] !== undefined && formattedRow[wh.warehouse_id] !== '');
+          
+          if (warehousesToUpdate.length > 0) {
+            updateData.warehouses = warehousesToUpdate;
+            hasChanges = true;
+          }
+
           if (hasChanges) {
             const response = await apiCallWithRetry(
               () => base44.functions.invoke('updatePart', updateData),
