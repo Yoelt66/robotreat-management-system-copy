@@ -421,6 +421,136 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Retry failed items up to 3 more rounds
+    const MAX_RETRY_ROUNDS = 3;
+    let retryRound = 0;
+
+    while (errorCount > 0 && retryRound < MAX_RETRY_ROUNDS) {
+      retryRound++;
+      addLog(`=== סבב חוזר ${retryRound} - מנסה שוב ${errorCount} פריטים שנכשלו... ===`, 'warn');
+
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 3000 * retryRound));
+
+      // Collect failed SKUs from changesToProcess that had errors
+      const failedItems = changesToProcess.filter(c => c._failed);
+      changesToProcess.forEach(c => { c._failed = false; }); // Reset flags
+
+      let roundErrors = 0;
+
+      await processWithConcurrency(failedItems, 1, async (change) => {
+        const formattedRow = change.newData;
+        const existingPart = change.existingPart;
+
+        if (change.type === 'new') {
+          const sku = String(formattedRow.sku).trim();
+          const categoryCode = await resolveCategoryCode(formattedRow.category);
+          const unitCode = await resolveUnitCode(formattedRow.unit);
+
+          await apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.create({
+            sku, name: String(formattedRow.name).trim(), category: categoryCode, unit: unitCode,
+            minimum_stock: parseFloat(formattedRow.minimum_stock) || 0, notes: formattedRow.notes || '',
+            current_location: formattedRow.current_location || '', replaced_sku: formattedRow.replaced_sku || '',
+            requires_serial_number: formattedRow.requires_serial_number || false,
+          }), MAX_RETRIES, `PartCore.create ${sku}`);
+
+          await apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.create({
+            part_sku: sku, cost_price: parseFloat(formattedRow.cost_price) || 0,
+            cost_currency: formattedRow.cost_currency || 'ILS', sale_currency: formattedRow.sale_currency || 'ILS',
+            import_percentage: formattedRow.import_percentage != null ? parseFloat(formattedRow.import_percentage) : 0,
+            markup_percentage: formattedRow.markup_percentage != null ? parseFloat(formattedRow.markup_percentage) : 0,
+            manual_sale_price: formattedRow.manual_sale_price ? parseFloat(formattedRow.manual_sale_price) : 0,
+            is_manual: !!(formattedRow.manual_sale_price),
+          }), MAX_RETRIES, `PartPricing.create ${sku}`);
+
+          await apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({
+            part_sku: sku, supplier_number: formattedRow.supplier_number || '', supplier_part_number: formattedRow.supplier_part_number || '',
+          }), MAX_RETRIES, `PartSupplier.create ${sku}`);
+
+          await Promise.all(allWarehouses.map(wh =>
+            apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({
+              part_sku: sku, warehouse_id: wh.warehouse_id, quantity: parseFloat(formattedRow[wh.warehouse_id]) || 0,
+            }), MAX_RETRIES, `PartStock.create ${sku}/${wh.warehouse_id}`)
+          ));
+          createdCount++;
+        } else {
+          const sku = existingPart.sku;
+          const coreUpdate = {};
+          for (const field of coreFields) {
+            if (formattedRow[field] != null && formattedRow[field] !== '') {
+              const newValue = numericCoreFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+              const existingValue = numericCoreFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+              if (String(existingValue) !== String(newValue)) coreUpdate[field] = newValue;
+            }
+          }
+          if (Object.keys(coreUpdate).length > 0) {
+            await apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.update(existingPart.id, coreUpdate), MAX_RETRIES, `PartCore.update ${sku}`);
+          }
+
+          const pricingUpdate = {};
+          for (const field of pricingFields) {
+            if (formattedRow[field] != null && formattedRow[field] !== '') {
+              const newValue = numericPricingFields.includes(field) ? parseFloat(formattedRow[field]) || 0 : formattedRow[field];
+              const existingValue = numericPricingFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
+              if (String(existingValue) !== String(newValue)) pricingUpdate[field] = newValue;
+            }
+          }
+          if (formattedRow.manual_sale_price != null && formattedRow.manual_sale_price !== '') pricingUpdate.is_manual = true;
+          if (Object.keys(pricingUpdate).length > 0) {
+            const existingPricingRecord = pricingMap.get(sku);
+            if (existingPricingRecord) {
+              await apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.update(existingPricingRecord.id, pricingUpdate), MAX_RETRIES, `PartPricing.update ${sku}`);
+            } else {
+              await apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.create({ part_sku: sku, ...pricingUpdate }), MAX_RETRIES, `PartPricing.create ${sku}`);
+            }
+          }
+
+          const supplierUpdate = {};
+          for (const field of supplierFields) {
+            if (formattedRow[field] != null && formattedRow[field] !== '') {
+              if (String(existingPart[field] || '') !== String(formattedRow[field])) supplierUpdate[field] = formattedRow[field];
+            }
+          }
+          if (Object.keys(supplierUpdate).length > 0) {
+            const existingSupplierRecord = supplierMap.get(sku);
+            if (existingSupplierRecord) {
+              await apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.update(existingSupplierRecord.id, supplierUpdate), MAX_RETRIES, `PartSupplier.update ${sku}`);
+            } else {
+              await apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({ part_sku: sku, ...supplierUpdate }), MAX_RETRIES, `PartSupplier.create ${sku}`);
+            }
+          }
+
+          await Promise.all(
+            allWarehouses
+              .filter(wh => formattedRow[wh.warehouse_id] != null && formattedRow[wh.warehouse_id] !== '')
+              .map(async wh => {
+                const newQty = parseFloat(formattedRow[wh.warehouse_id]) || 0;
+                const existingStock = partStockData.find(s => s.part_sku === sku && s.warehouse_id === wh.warehouse_id);
+                if (existingStock) {
+                  if (existingStock.quantity !== newQty) {
+                    await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty }), MAX_RETRIES, `PartStock.update ${sku}/${wh.warehouse_id}`);
+                  }
+                } else {
+                  await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }), MAX_RETRIES, `PartStock.create ${sku}/${wh.warehouse_id}`);
+                }
+              })
+          );
+          updatedCount++;
+        }
+      }, (done, total, result) => {
+        if (!result.success) {
+          roundErrors++;
+          result.item._failed = true;
+          addLog(`שגיאה חוזרת במק"ט ${result.item?.newData?.sku}: ${result.error}`, 'error');
+        } else {
+          errorCount--;
+        }
+      });
+
+      errorCount = roundErrors;
+      addLog(`סבב חוזר ${retryRound} הסתיים: ${errorCount} שגיאות נותרו`, errorCount > 0 ? 'warn' : 'success');
+    }
+
     addLog('=== סיכום ייבוא ===', 'success');
     addLog(`פריטים חדשים שנוצרו: ${createdCount}`, 'success');
     addLog(`פריטים קיימים שעודכנו: ${updatedCount}`, 'success');
