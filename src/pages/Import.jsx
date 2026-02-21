@@ -499,6 +499,7 @@ export default function Import() {
         } else {
           // Existing item - detect changes
           const itemChanges = [];
+          const numericFields = ['cost_price', 'minimum_stock', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
           const allFields = [
             'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
             'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
@@ -511,23 +512,14 @@ export default function Import() {
               const oldValue = existingPart[field];
               const newValue = formattedRow[field];
               
-              // Special handling for cost_price: treat 0 and empty as the same
-              if (field === 'cost_price') {
-                const oldPrice = parseFloat(oldValue) || 0;
-                const newPrice = parseFloat(newValue) || 0;
-                if (oldPrice !== newPrice) {
-                  itemChanges.push({
-                    field: field,
-                    old: oldPrice || 'ריק',
-                    new: newPrice || 'ריק'
-                  });
+              if (numericFields.includes(field)) {
+                const oldNum = parseFloat(oldValue) || 0;
+                const newNum = parseFloat(newValue) || 0;
+                if (oldNum !== newNum) {
+                  itemChanges.push({ field, old: oldNum, new: newNum });
                 }
               } else if (String(oldValue || '') !== String(newValue || '')) {
-                itemChanges.push({
-                  field: field,
-                  old: oldValue || 'ריק',
-                  new: newValue || 'ריק'
-                });
+                itemChanges.push({ field, old: oldValue || 'ריק', new: newValue || 'ריק' });
               }
             }
           });
