@@ -236,7 +236,7 @@ export default function ServiceUnitsPage() {
     <div className="space-y-6" dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">יחידות שירות</h1>
-        <Button onClick={() => { resetForm(); setEditingUnit(null); setShowForm(true); }}>
+        <Button onClick={() => { resetForm(); setEditingUnit(null); loadPartsIfNeeded(); setShowForm(true); }}>
           <Plus className="h-4 w-4 ml-2" />
           יחידה חדשה
         </Button>
