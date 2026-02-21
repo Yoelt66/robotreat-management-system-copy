@@ -77,8 +77,8 @@ async function processWithConcurrency(items, concurrency, processor, onProgress)
       }
       done++;
       if (onProgress) onProgress(done, items.length, results[i]);
-      // Small delay between tasks
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Delay between tasks to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 700));
     }
   }
 
