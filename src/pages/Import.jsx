@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
 import { base44 } from "@/api/base44Client";
 
