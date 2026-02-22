@@ -92,28 +92,14 @@ Deno.serve(async (req) => {
 
     addLog('מתחיל עיבוד קובץ...', 'info');
 
-    // Fetch file content
+    // Fetch file as ArrayBuffer - SheetJS handles all formats (xlsx, csv, tsv, txt)
     const fileResponse = await fetch(file_url);
     if (!fileResponse.ok) throw new Error('Failed to fetch file from URL');
-    let text = await fileResponse.text();
+    const arrayBuffer = await fileResponse.arrayBuffer();
 
-    // Check for encoding issues
-    const hasGarbledChars = /[\xC0-\xFF]{2,}/.test(text) && !/[\u0590-\u05FF]/.test(text);
-    if (hasGarbledChars) {
-      addLog('זוהה קידוד לא תקין, מנסה קידוד חלופי...', 'info');
-      const fileResponse2 = await fetch(file_url);
-      const arrayBuffer = await fileResponse2.arrayBuffer();
-      const decoder = new TextDecoder('windows-1255');
-      text = decoder.decode(arrayBuffer);
-    }
+    addLog('קריאת הקובץ הסתיימה, מנתח תוכן עם SheetJS...', 'success');
 
-    addLog('קריאת הקובץ הסתיימה, מנתח תוכן...', 'success');
-
-    const isTabDelimited = text.includes('\t');
-    const delimiter = isTabDelimited ? '\t' : ',';
-    if (isTabDelimited) addLog('מזהה קובץ עם הפרדת טאב...', 'info');
-
-    const parsedData = parseCSV(text, hasHeaders, delimiter);
+    const parsedData = parseFileData(arrayBuffer, hasHeaders, file_url);
     addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
 
     if (parsedData.length === 0) throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
