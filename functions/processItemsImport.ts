@@ -164,8 +164,8 @@ Deno.serve(async (req) => {
     addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
 
     // Debug: log the fieldMapping to understand what we have
-    addLog(`fieldMapping SKU field: ${JSON.stringify(sortedFieldMapping.find(f => f.key === 'sku'))}`, 'info');
-    addLog(`שורה ראשונה בקובץ (10 תאים ראשונים): ${JSON.stringify(parsedData[0]?.slice(0, 10))}`, 'info');
+    addLog(`sortedFieldMapping (first 3): ${JSON.stringify(sortedFieldMapping.slice(0, 3))}`, 'info');
+    addLog(`שורה ראשונה בקובץ (כל התאים): ${JSON.stringify(parsedData[0])}`, 'info');
     addLog(`selectedChanges[0]="${selectedChanges[0]}", totalRows=${parsedData.length}`, 'info');
 
     // Build SKU -> row index map - search ALL columns for the SKU
