@@ -425,12 +425,15 @@ export default function Import() {
         .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
 
       const changes = [];
-      
+
       for (const row of data) {
         const formattedRow = {};
-        
-        sortedActiveFields.forEach((field, index) => {
-          let value = row[index];
+
+        sortedActiveFields.forEach((field) => {
+          // row is already re-mapped by processParsedData using field.column,
+          // so index in sortedActiveFields corresponds directly to the row array index
+          const fieldIndex = sortedActiveFields.indexOf(field);
+          let value = row[fieldIndex];
           if (value === null || value === undefined || value === '') {
             value = null;
           } else if (typeof value === 'string') {
