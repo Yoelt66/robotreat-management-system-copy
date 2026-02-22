@@ -271,40 +271,7 @@ export default function Import() {
     setLogs(prev => [...prev, { message, type, timestamp: new Date() }]);
   };
 
-  const parseCSV = (text, hasHeaders, delimiter = ',') => {
-    const lines = text.trim().split(/\r\n|\n/);
-    if (lines.length === 0) return [];
-  
-    const splitLine = (line, delim) => {
-        const result = [];
-        let inQuote = false;
-        let currentField = '';
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-                inQuote = !inQuote;
-            } else if (char === delim && !inQuote) {
-                result.push(currentField.trim());
-                currentField = '';
-            } else {
-                currentField += char;
-            }
-        }
-        result.push(currentField.trim()); // Add the last field
-        return result;
-    };
-
-    const data = [];
-    const startIndex = hasHeaders ? 1 : 0; // Skip first line if it has headers
-
-    for (let i = startIndex; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      
-      const values = splitLine(lines[i], delimiter);
-      data.push(values.map(v => v.replace(/"/g, ''))); // Store as array of strings, remove quotes
-    }
-    return data;
-  };
+  // parseCSV removed - now using SheetJS (XLSX) for all file types
 
 
   
