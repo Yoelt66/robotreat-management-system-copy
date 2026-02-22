@@ -1,62 +1,45 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import * as XLSX from 'npm:xlsx@0.18.5';
 
 const MAX_RETRIES = 3;
 const UPDATE_BATCH_SIZE = 10;
 
 async function apiCallWithRetry(apiCall, retries, callName) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await apiCall();
-    } catch (error) {
-      const status = error.response?.status ||
-        (error.message?.includes('429') ? 429 : null) ||
-        (error.message?.includes('500') ? 500 : null) ||
-        (error.message?.includes('503') ? 503 : null);
-
-      if (i < retries - 1) {
-        const isRateLimit = status === 429 || error.message?.includes('Rate limit');
-        const isServerError = status === 500 || status === 503;
-        let waitTime = 1500;
-        if (isRateLimit) waitTime = Math.min(5000 * Math.pow(2, i), 30000);
-        else if (isServerError) waitTime = Math.min(3000 * Math.pow(2, i), 16000);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      } else {
-        throw new Error(`Failed ${callName} after ${retries} attempts: ${error.message}`);
-      }
-    }
-  }
+...
 }
 
-function parseCSV(text, hasHeaders, delimiter = ',') {
-  const lines = text.trim().split(/\r\n|\n/);
-  if (lines.length === 0) return [];
+/**
+ * Parses a file (Excel or CSV/TSV) from an ArrayBuffer using SheetJS.
+ * Returns an array of rows, where each row is an array of cell values (strings or null).
+ * Empty cells are returned as null.
+ * hasHeaders: if true, the first row is skipped.
+ */
+function parseFileData(arrayBuffer, hasHeaders, fileName = '') {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
 
-  const splitLine = (line, delim) => {
-    const result = [];
-    let inQuote = false;
-    let currentField = '';
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuote = !inQuote;
-      } else if (char === delim && !inQuote) {
-        result.push(currentField.trim());
-        currentField = '';
-      } else {
-        currentField += char;
-      }
-    }
-    result.push(currentField.trim());
-    return result;
-  };
+  // sheet_to_json with header:1 gives array of arrays, raw:false converts numbers to strings
+  const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: null });
 
-  const data = [];
   const startIndex = hasHeaders ? 1 : 0;
-  for (let i = startIndex; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const values = splitLine(lines[i], delimiter);
-    data.push(values.map(v => v.replace(/"/g, '')));
+  const data = [];
+
+  for (let i = startIndex; i < allRows.length; i++) {
+    const row = allRows[i];
+    // Skip completely empty rows
+    if (!row || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) continue;
+
+    // Normalize each cell: trim strings, convert empty to null
+    const normalizedRow = row.map(cell => {
+      if (cell === null || cell === undefined) return null;
+      const str = String(cell).trim();
+      return str === '' ? null : str;
+    });
+
+    data.push(normalizedRow);
   }
+
   return data;
 }
 
