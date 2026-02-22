@@ -54,7 +54,7 @@ async function processWithConcurrency(items, concurrency, processor, onProgress)
       }
       done++;
       if (onProgress) onProgress(done, items.length, results[i]);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 700));
     }
   }
 
