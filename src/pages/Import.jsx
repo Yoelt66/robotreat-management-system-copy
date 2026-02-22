@@ -352,48 +352,37 @@ export default function Import() {
     setIsFileUploading(true);
     setUploadedFile(file);
 
-    const fileName = file.name.toLowerCase();
-    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
-    const isTabDelimited = fileName.endsWith('.txt') || fileName.endsWith('.tsv');
-
     try {
       let parsedData;
-      
-      if (isExcel) {
-        addLog('קבצי Excel אינם נתמכים ישירות. יש לייצא את הקובץ כ-CSV או טקסט עם הפרדת טאב.', 'error');
-        throw new Error('קבצי Excel (.xlsx/.xls) אינם נתמכים ישירות. יש לייצא את הקובץ מ-Excel כ-CSV UTF-8 או כטקסט עם הפרדת טאב.');
-      } else {
-        // CSV or Tab-delimited text file
-        // Try UTF-8 first, if Hebrew chars appear garbled, try Windows-1255
-        let text = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = (e) => reject(new Error('שגיאה בקריאת הקובץ'));
-          reader.readAsText(file, 'UTF-8');
-        });
-        
-        // Check for garbled Hebrew (common pattern: Ã or Â characters indicate wrong encoding)
-        const hasGarbledChars = /[\xC0-\xFF]{2,}/.test(text) && !/[\u0590-\u05FF]/.test(text);
-        if (hasGarbledChars) {
-          addLog('זוהה קידוד לא תקין, מנסה קידוד Windows-1255...', 'info');
-          text = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = (e) => reject(new Error('שגיאה בקריאת הקובץ'));
-            reader.readAsText(file, 'windows-1255');
-          });
-        }
-        
-        addLog('קריאת הקובץ הסתיימה, מנתח תוכן...', 'success');
-        
-        const delimiter = isTabDelimited ? '\t' : ',';
-        if (isTabDelimited) {
-          addLog('מזהה קובץ עם הפרדת טאב...', 'info');
-        }
-        
-        parsedData = parseCSV(text, hasHeaders, delimiter);
-        addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
+
+      // Use SheetJS to parse all file types (xlsx, xls, csv, tsv, txt)
+      const arrayBuffer = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('שגיאה בקריאת הקובץ'));
+        reader.readAsArrayBuffer(file);
+      });
+
+      addLog('קריאת הקובץ הסתיימה, מנתח תוכן עם SheetJS...', 'success');
+
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: null });
+
+      const startIndex = hasHeaders ? 1 : 0;
+      parsedData = [];
+      for (let i = startIndex; i < allRows.length; i++) {
+        const row = allRows[i];
+        if (!row || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) continue;
+        parsedData.push(row.map(cell => {
+          if (cell === null || cell === undefined) return null;
+          const str = String(cell).trim();
+          return str === '' ? null : str;
+        }));
       }
+
+      addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
       
       if (parsedData.length === 0) {
         throw new Error('הקובץ ריק או לא הכיל נתונים חוקיים.');
