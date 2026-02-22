@@ -739,7 +739,9 @@ export default function Import() {
                 <Info className="h-4 w-4" />
                 <AlertTitle>סוגי קבצים נתמכים</AlertTitle>
                 <AlertDescription>
-                  • <strong>CSV</strong> - יש לוודא קידוד UTF-8 (ב-Excel: שמור כ-CSV UTF-8)
+                  • <strong>Excel (.xlsx/.xls)</strong> - קבצי Excel ישירות, ללא צורך בייצוא
+                  <br />
+                  • <strong>CSV</strong> - כל קידוד (UTF-8, Windows-1255 וכו')
                   <br />
                   • <strong>טקסט עם טאב (.txt/.tsv)</strong> - הפרדה בטאב בין עמודות
                 </AlertDescription>
