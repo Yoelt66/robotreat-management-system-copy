@@ -166,12 +166,14 @@ Deno.serve(async (req) => {
     // Build SKU -> row index map
     const skuField = sortedFieldMapping.find(f => f.key === 'sku');
     if (!skuField) throw new Error('לא נמצאה עמודת SKU במיפוי');
-    // field.column is 1-based index into the RAW file columns
-    const skuFileColumnIndex = (skuField.column || 1) - 1;
+    // parsedData rows are raw file rows - use field.column (1-based) to find the sku column
+    // BUT the frontend sends data already re-mapped via processParsedData, so each row
+    // is ordered by sortedFieldMapping. SKU is at the position of skuField in sortedFieldMapping.
+    const skuIndexInRow = sortedFieldMapping.indexOf(skuField);
 
     const skuToRowIndex = new Map();
     parsedData.forEach((row, index) => {
-      const sku = row[skuFileColumnIndex];
+      const sku = row[skuIndexInRow];
       if (sku) skuToRowIndex.set(String(sku).trim(), index);
     });
 
