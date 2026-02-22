@@ -170,11 +170,15 @@ Deno.serve(async (req) => {
     // field.column is 1-based file column position, so sku is at column-1.
     const skuFileColumnIndex = (skuField.column || 1) - 1;
 
+    addLog(`עמודת SKU: column=${skuField.column}, index=${skuFileColumnIndex}, דוגמת שורה ראשונה: "${parsedData[0]?.[skuFileColumnIndex]}"`, 'info');
+
     const skuToRowIndex = new Map();
     parsedData.forEach((row, index) => {
       const sku = row[skuFileColumnIndex];
       if (sku) skuToRowIndex.set(String(sku).trim(), index);
     });
+    
+    addLog(`נמצאו ${skuToRowIndex.size} מק"טים בקובץ. מחפש: ${selectedChanges[0]}`, 'info');
 
     const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
     const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
