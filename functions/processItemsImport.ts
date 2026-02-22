@@ -90,14 +90,14 @@ Deno.serve(async (req) => {
       logs.push({ message, type, timestamp: new Date().toISOString() });
     };
 
-    addLog(`מתחיל עיבוד קובץ... (v2)`, 'info');
+    addLog(`מתחיל עיבוד קובץ... (v3)`, 'info');
 
     // Fetch file as ArrayBuffer - SheetJS handles all formats (xlsx, csv, tsv, txt)
     const fileResponse = await fetch(file_url);
     if (!fileResponse.ok) throw new Error('Failed to fetch file from URL');
     const arrayBuffer = await fileResponse.arrayBuffer();
 
-    addLog('קריאת הקובץ הסתיימה, מנתח תוכן עם SheetJS...', 'success');
+    addLog('קריאת הקובץ הסתיימה, מנתח תוכן עם SheetJS... (v3)', 'success');
 
     const parsedData = parseFileData(arrayBuffer, hasHeaders, file_url);
     addLog(`ניתוח הסתיים, נמצאו ${parsedData.length} שורות נתונים.`, 'success');
