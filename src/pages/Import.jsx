@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Warehouse, Category, Currency, ImportMapping } from "@/entities/all";
 import { base44 } from "@/api/base44Client";
-import * as XLSX from "xlsx";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
