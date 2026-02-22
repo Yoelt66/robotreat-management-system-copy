@@ -165,12 +165,13 @@ Deno.serve(async (req) => {
 
     // Build SKU -> row index map
     const skuField = sortedFieldMapping.find(f => f.key === 'sku');
-    const skuColumnIndex = skuField ? sortedFieldMapping.indexOf(skuField) : -1;
-    if (skuColumnIndex === -1) throw new Error('לא נמצאה עמודת SKU במיפוי');
+    if (!skuField) throw new Error('לא נמצאה עמודת SKU במיפוי');
+    // field.column is 1-based index into the RAW file columns
+    const skuFileColumnIndex = (skuField.column || 1) - 1;
 
     const skuToRowIndex = new Map();
     parsedData.forEach((row, index) => {
-      const sku = row[skuColumnIndex];
+      const sku = row[skuFileColumnIndex];
       if (sku) skuToRowIndex.set(String(sku).trim(), index);
     });
 
