@@ -227,8 +227,9 @@ Deno.serve(async (req) => {
 
       const rowValues = parsedData[rowIndex];
       const formattedRow = {};
-      sortedFieldMapping.forEach((field, index) => {
-        let value = rowValues[index];
+      sortedFieldMapping.forEach((field) => {
+        const colIndex = (field.column || 1) - 1; // field.column is 1-based file column
+        let value = rowValues[colIndex];
         if (value === null || value === undefined || value === '') value = null;
         else if (typeof value === 'string') { value = value.trim(); if (value === '') value = null; }
         formattedRow[field.key] = value;
