@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       logs.push({ message, type, timestamp: new Date().toISOString() });
     };
 
-    addLog(`מתחיל עיבוד קובץ... (v3)`, 'info');
+    addLog(`מתחיל עיבוד קובץ... (v4-${Date.now()})`, 'info');
 
     // Fetch file as ArrayBuffer - SheetJS handles all formats (xlsx, csv, tsv, txt)
     const fileResponse = await fetch(file_url);
