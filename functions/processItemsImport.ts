@@ -108,9 +108,7 @@ Deno.serve(async (req) => {
       .filter(field => field.checked)
       .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
 
-    // ALWAYS log debug info 
-    addLog(`DEBUG sortedFieldMapping[0]: ${JSON.stringify(sortedFieldMapping[0])}`, 'info');
-    addLog(`DEBUG parsedData[0]: ${JSON.stringify(parsedData[0]?.slice(0, 5))}`, 'info');
+
 
     // PREVIEW MODE
     if (!selectedChanges || selectedChanges.length === 0) {
