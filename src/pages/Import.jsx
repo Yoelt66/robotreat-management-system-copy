@@ -774,7 +774,7 @@ export default function Import() {
                         name="file-upload"
                         type="file"
                         className="sr-only"
-                        accept=".csv,.txt,.tsv"
+                        accept=".csv,.txt,.tsv,.xlsx,.xls"
                         onChange={handleFileUpload}
                         disabled={isFileUploading}
                         />
