@@ -731,7 +731,7 @@ export default function Import() {
             <CardHeader>
                 <CardTitle>שלב 2: העלאת נתונים</CardTitle>
                 <CardDescription>
-                  העלה קובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv).
+                  העלה קובץ Excel (.xlsx/.xls), CSV, או טקסט עם הפרדת טאב (.txt/.tsv).
                 </CardDescription>
             </CardHeader>
             <CardContent>
