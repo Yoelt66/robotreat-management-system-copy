@@ -611,20 +611,62 @@ export default function Import() {
         });
 
         if (!response.data.success) {
-          addLog(`שגיאה בקבוצה ${i + 1}: ${response.data.error}`, 'error');
-          totalErrors += chunk.length;
-        } else {
-          // Display logs from server
-          if (response.data.logs && response.data.logs.length > 0) {
-            response.data.logs.forEach(log => {
-              addLog(log.message, log.type);
-            });
-          }
+            addLog(`שגיאה בקבוצה ${i + 1}: ${response.data.error}`, 'error');
+            totalErrors += chunk.length;
+          } else {
+            // Display logs from server
+            if (response.data.logs && response.data.logs.length > 0) {
+              response.data.logs.forEach(log => {
+                addLog(log.message, log.type);
+              });
+            }
 
-          totalCreated += response.data.stats.created || 0;
-          totalUpdated += response.data.stats.updated || 0;
-          totalErrors += response.data.stats.errors || 0;
-        }
+            const chunkErrors = response.data.stats.errors || 0;
+
+            // Auto-retry failed items with a longer delay
+            if (chunkErrors > 0) {
+              addLog(`נמצאו ${chunkErrors} שגיאות בקבוצה ${i + 1}, מנסה מחדש עם השהיה...`, 'warn');
+              await new Promise(r => setTimeout(r, 5000));
+
+              // Extract failed SKUs from logs
+              const failedSkus = (response.data.logs || [])
+                .filter(l => l.type === 'error' && l.message.includes('מק"ט'))
+                .map(l => {
+                  const match = l.message.match(/מק"ט (.+?):/);
+                  return match ? match[1] : null;
+                })
+                .filter(Boolean);
+
+              if (failedSkus.length > 0) {
+                addLog(`מנסה מחדש ${failedSkus.length} פריטים שנכשלו...`, 'info');
+                const retryResponse = await base44.functions.invoke('processItemsImport', {
+                  file_url: fileUrl,
+                  fieldMapping: fieldMapping,
+                  hasHeaders: hasHeaders,
+                  selectedChanges: failedSkus
+                });
+
+                if (retryResponse.data.success) {
+                  (retryResponse.data.logs || []).forEach(log => addLog(log.message, log.type));
+                  totalCreated += retryResponse.data.stats.created || 0;
+                  totalUpdated += retryResponse.data.stats.updated || 0;
+                  const retryErrors = retryResponse.data.stats.errors || 0;
+                  totalErrors += retryErrors;
+                  addLog(`ניסיון חוזר: ${retryResponse.data.stats.updated || 0} הצליחו, ${retryErrors} נכשלו`, retryErrors > 0 ? 'warn' : 'success');
+                } else {
+                  totalErrors += failedSkus.length;
+                }
+                // Don't add original errors since we retried
+              } else {
+                totalErrors += chunkErrors;
+              }
+            } else {
+              totalErrors += chunkErrors;
+            }
+
+            totalCreated += response.data.stats.created || 0;
+            totalUpdated += response.data.stats.updated || 0;
+          }
 
         const progress = 5 + ((i + 1) / chunks.length) * 95;
         setProgress(progress);
