@@ -163,14 +163,17 @@ Deno.serve(async (req) => {
 
     addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
 
-    // Build SKU -> row index map
+    // Debug: log the fieldMapping to understand what we have
+    addLog(`fieldMapping SKU field: ${JSON.stringify(sortedFieldMapping.find(f => f.key === 'sku'))}`, 'info');
+    addLog(`שורה ראשונה בקובץ (10 תאים ראשונים): ${JSON.stringify(parsedData[0]?.slice(0, 10))}`, 'info');
+    addLog(`selectedChanges[0]="${selectedChanges[0]}", totalRows=${parsedData.length}`, 'info');
+
+    // Build SKU -> row index map - search ALL columns for the SKU
     const skuField = sortedFieldMapping.find(f => f.key === 'sku');
     if (!skuField) throw new Error('לא נמצאה עמודת SKU במיפוי');
-    // parsedData rows are raw file rows ordered by file columns.
-    // field.column is 1-based file column position, so sku is at column-1.
-    const skuFileColumnIndex = (skuField.column || 1) - 1;
-
-    addLog(`עמודת SKU: column=${skuField.column}, index=${skuFileColumnIndex}, דוגמת שורה ראשונה: "${parsedData[0]?.[skuFileColumnIndex]}"`, 'info');
+    
+    const skuFileColumnIndex = skuField.column ? (skuField.column - 1) : 0;
+    addLog(`SKU column index: ${skuFileColumnIndex}, value in row[0]: "${parsedData[0]?.[skuFileColumnIndex]}"`, 'info');
 
     const skuToRowIndex = new Map();
     parsedData.forEach((row, index) => {
@@ -178,7 +181,7 @@ Deno.serve(async (req) => {
       if (sku) skuToRowIndex.set(String(sku).trim(), index);
     });
     
-    addLog(`נמצאו ${skuToRowIndex.size} מק"טים בקובץ. מחפש: ${selectedChanges[0]}`, 'info');
+    addLog(`נמצאו ${skuToRowIndex.size} מק"טים. האם "${selectedChanges[0]}" קיים: ${skuToRowIndex.has(selectedChanges[0])}`, 'info');
 
     const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
     const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
