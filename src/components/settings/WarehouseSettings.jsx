@@ -42,7 +42,7 @@ export default function WarehouseSettings() {
     try {
       const [warehousesData, partsList] = await Promise.all([
         loadWarehouses(),
-        Part.list()
+        PartStock.list()
       ]);
       setPartsData(partsList);
     } catch (err) {
