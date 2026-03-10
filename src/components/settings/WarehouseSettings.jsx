@@ -347,14 +347,14 @@ export default function WarehouseSettings() {
 
   const isWarehouseEmpty = (warehouse) => {
     if (!partsData.length || !warehouse.warehouse_id) return true;
-    
-    return !partsData.some(part => (part[warehouse.warehouse_id] || 0) > 0);
+    return !partsData.some(s => s.warehouse_id === warehouse.warehouse_id && (s.quantity || 0) > 0);
   };
 
   const getWarehouseStockCount = (warehouse) => {
     if (!partsData.length || !warehouse.warehouse_id) return 0;
-    
-    return partsData.reduce((total, part) => total + (part[warehouse.warehouse_id] || 0), 0);
+    return partsData
+      .filter(s => s.warehouse_id === warehouse.warehouse_id)
+      .reduce((total, s) => total + (s.quantity || 0), 0);
   };
 
   const filteredWarehouses = warehouses.filter(warehouse =>
