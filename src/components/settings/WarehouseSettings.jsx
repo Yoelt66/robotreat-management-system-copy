@@ -208,7 +208,7 @@ export default function WarehouseSettings() {
     try {
       console.log(`Removing warehouse column ${warehouseId} from all part records...`);
       
-      const allParts = await Part.list();
+      const allParts = await PartStock.list();
       console.log(`Found ${allParts.length} part records to update`);
       
       let removedCount = 0;
@@ -222,7 +222,7 @@ export default function WarehouseSettings() {
           try {
             if (part.hasOwnProperty(warehouseId)) {
               const updateData = { [warehouseId]: null };
-              await Part.update(part.id, updateData);
+              await PartStock.update(part.id, updateData);
               removedCount++;
               console.log(`Removed ${warehouseId} column from part ${part.id}`);
             } else {
