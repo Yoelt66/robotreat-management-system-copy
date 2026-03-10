@@ -151,7 +151,7 @@ export default function WarehouseSettings() {
     try {
       console.log(`Adding warehouse column ${warehouseId} to all part records...`);
       
-      const allParts = await Part.list();
+      const allParts = await PartStock.list();
       console.log(`Found ${allParts.length} part records to update`);
       
       let updatedCount = 0;
@@ -165,9 +165,8 @@ export default function WarehouseSettings() {
           try {
             if (!part.hasOwnProperty(warehouseId)) {
               const updateData = { [warehouseId]: 0 };
-              await Part.update(part.id, updateData);
+              await PartStock.update(part.id, updateData);
               updatedCount++;
-              console.log(`Added ${warehouseId} column to part ${part.id}`);
             } else {
               console.log(`Part ${part.id} already has ${warehouseId} column, skipping`);
             }
