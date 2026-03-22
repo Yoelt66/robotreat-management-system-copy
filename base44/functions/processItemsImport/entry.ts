@@ -139,6 +139,41 @@ Deno.serve(async (req) => {
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
     const supplierMap = new Map(partSupplierData.map(p => [p.part_sku, p]));
 
+    // ─── Deduplicate PartStock records ────────────────────────────────────────
+    // Group by "part_sku/warehouse_id" - keep the record with highest quantity, delete the rest
+    const stockGroups = new Map();
+    for (const s of partStockData) {
+      const key = `${s.part_sku}/${s.warehouse_id}`;
+      if (!stockGroups.has(key)) {
+        stockGroups.set(key, []);
+      }
+      stockGroups.get(key).push(s);
+    }
+
+    let dedupCount = 0;
+    for (const [, records] of stockGroups) {
+      if (records.length > 1) {
+        // Keep the record with the highest quantity
+        records.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
+        const toDelete = records.slice(1);
+        for (const dup of toDelete) {
+          await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.delete(dup.id)).catch(() => {});
+          dedupCount++;
+        }
+        // Update the data array - keep only the winner
+        const winner = records[0];
+        const idx = partStockData.indexOf(toDelete[0]);
+        // remove duplicates from partStockData in-memory
+        for (const dup of toDelete) {
+          const i = partStockData.indexOf(dup);
+          if (i !== -1) partStockData.splice(i, 1);
+        }
+      }
+    }
+    if (dedupCount > 0) {
+      addLog(`נמחקו ${dedupCount} רישומי מלאי כפולים`, 'warn');
+    }
+
     // O(1) stock lookup: "sku/warehouse_id" -> record
     const stockLookup = new Map();
     partStockData.forEach(s => stockLookup.set(`${s.part_sku}/${s.warehouse_id}`, s));
@@ -148,6 +183,20 @@ Deno.serve(async (req) => {
       if (!stockByPart.has(stock.part_sku)) stockByPart.set(stock.part_sku, {});
       stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
     });
+
+    // Safe stock upsert: update if exists, create if not
+    async function upsertStock(sku, warehouseId, quantity) {
+      const key = `${sku}/${warehouseId}`;
+      const existing = stockLookup.get(key);
+      if (existing) {
+        if (existing.quantity !== quantity) {
+          await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existing.id, { quantity }));
+        }
+      } else {
+        const created = await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: warehouseId, quantity }));
+        stockLookup.set(key, created);
+      }
+    }
 
     const allParts = partCoreData.map(core => {
       const { id: _pid, ...pricing } = pricingMap.get(core.sku) || {};
