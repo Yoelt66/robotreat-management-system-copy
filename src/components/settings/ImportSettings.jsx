@@ -82,10 +82,16 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
 
     const deviceType = hebrewDeviceTypeMap[normalizedInput] || normalizedInput;
     
-    const validTypes = ["Astronaut_A3", "Astronaut_A3N", "Astronaut_A4", "Delaval_2008", "Delaval_2011", "Milk_tank", "CRS", "Juno_100", "Juno_150", "Luna", "other"];
-    if (!validTypes.includes(deviceType)) throw new Error(`שורה ${row.join(',')}: סוג מכשיר לא תקין: ${row[2]}`);
+    const brandData = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
+    const brandId = brandData?.id;
     
-    const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
+    // Validate device type against brand's unit_types if brand is specified
+    if (brandId && brandData?.unit_types) {
+        const validTypes = brandData.unit_types;
+        if (!validTypes.includes(deviceType) && deviceType !== 'other') {
+            throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${validTypes.join(', ')}`);
+        }
+    }
     
     const newData = {
         customer_id: customerId,
