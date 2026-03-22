@@ -68,35 +68,20 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
         throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
     }
     
-    // Normalize input by replacing spaces with underscores
-    const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
-    
-    // Map Hebrew display names and other aliases to system keys
-    const hebrewDeviceTypeMap = {
-      "מיכל_חלב": "Milk_tank",
-      "מערכת_אחרת": "other",
-      "כללי": "other",
-      "מחשב": "other",
-      "CRS+": "CRS",
-    };
-
-    const deviceType = hebrewDeviceTypeMap[normalizedInput] || normalizedInput;
+    // Normalize device type: lowercase, trim, and remove spaces/underscores
+    const normalizeType = (t) => t.trim().toLowerCase().replace(/[\s_]/g, '');
+    const deviceType = row[2] ? normalizeType(row[2]) : null;
     
     const brandData = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     const brandId = brandData?.id;
     
     // Validate device type against brand's unit_types if brand is specified
     if (brandId && brandData?.unit_types) {
-        const normalizeType = (t) => t.trim().toLowerCase().replace(/[\s_]/g, '');
         const validTypes = brandData.unit_types.map(normalizeType);
         if (!validTypes.includes(deviceType) && deviceType !== 'other') {
             throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${brandData.unit_types.join(', ')}`);
         }
     }
-    
-    // Normalize device type: lowercase, trim, and remove spaces/underscores
-    const normalizeType = (t) => t.trim().toLowerCase().replace(/[\s_]/g, '');
-    const deviceType = row[2] ? normalizeType(row[2]) : null;
     
     const newData = {
         customer_id: customerId,
