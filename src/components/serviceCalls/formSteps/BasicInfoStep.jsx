@@ -257,35 +257,35 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
               <div className="space-y-2">
                 <Label>מערכת *</Label>
                 <Select
-                  value={data.device || ''}
-                  onValueChange={(value) => {
-                    const selectedDevice = devices.find(d => d.name === value);
-                    console.log("Selected device data:", selectedDevice);
-                    handleDeviceSelect(
-                      value,
-                      selectedDevice?.id || '',
-                      selectedDevice?.type || ''
-                    );
-                  }}
-                  disabled={loading || devices.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="בחר מערכת" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {devices.length > 0 ? (
-                      devices.map((device) => (
-                        <SelectItem key={device.id} value={device.name}>
-                          {device.name} {device.type && deviceTypeLabels[device.type] ? `- ${deviceTypeLabels[device.type]}` : ''}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value={null} disabled>
-                        אין מערכות זמינות ללקוח זה
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                   value={data.device || ''}
+                   onValueChange={(value) => {
+                     const selectedUnit = serviceUnits.find(u => u.name === value);
+                     console.log("Selected unit data:", selectedUnit);
+                     handleUnitSelect(
+                       value,
+                       selectedUnit?.id || '',
+                       selectedUnit?.type || ''
+                     );
+                   }}
+                   disabled={loading || serviceUnits.length === 0}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="בחר מערכת" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {serviceUnits.length > 0 ? (
+                       serviceUnits.map((unit) => (
+                         <SelectItem key={unit.id} value={unit.name}>
+                           {unit.name} {unit.type && deviceTypeLabels[unit.type] ? `- ${deviceTypeLabels[unit.type]}` : ''}
+                         </SelectItem>
+                       ))
+                     ) : (
+                       <SelectItem value={null} disabled>
+                         אין מערכות זמינות ללקוח זה
+                       </SelectItem>
+                     )}
+                   </SelectContent>
+                 </Select>
               </div>
             ) : (
               <div className="space-y-2">
