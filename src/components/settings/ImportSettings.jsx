@@ -609,7 +609,7 @@ export default function ImportSettings() {
                     requiredFields={customerRequiredFields}
                     preImportTask={preImportCustomers}
                     mapRowToEntity={mapCustomerRow}
-                    entityCreateFn={(batch) => Customer.bulkCreate(batch)}
+                    entityCreateFn={bulkCreateCustomersWithDelay}
                     icon={Users}
                 />
                  <DataImporter 
