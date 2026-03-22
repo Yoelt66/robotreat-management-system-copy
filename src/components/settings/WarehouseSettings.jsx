@@ -404,7 +404,7 @@ export default function WarehouseSettings() {
           </Table>
         </div>
 
-        <AlertDialog open={!!warehouseToDelete} onOpenChange={() => setWarehouseToDelete(null)}>
+        <AlertDialog open={!!warehouseToDelete} onOpenChange={(open) => { if (!open && !loading) setWarehouseToDelete(null); }}>
           <AlertDialogContent dir="rtl">
             <AlertDialogHeader>
               <AlertDialogTitle>אישור מחיקת מחסן</AlertDialogTitle>
