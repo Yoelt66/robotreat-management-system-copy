@@ -87,7 +87,8 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
     
     // Validate device type against brand's unit_types if brand is specified
     if (brandId && brandData?.unit_types) {
-        const validTypes = brandData.unit_types.map(t => t.toLowerCase());
+        // Normalize both for comparison: convert to lowercase and replace spaces with underscores
+        const validTypes = brandData.unit_types.map(t => t.toLowerCase().replace(/ /g, '_'));
         const deviceTypeLower = deviceType.toLowerCase();
         if (!validTypes.includes(deviceTypeLower) && deviceTypeLower !== 'other') {
             throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${brandData.unit_types.join(', ')}`);
