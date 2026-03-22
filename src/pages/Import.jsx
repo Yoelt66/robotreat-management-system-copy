@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 
 import { Upload, Settings, CheckCircle, Loader2, Info, ChevronDown, AlertCircle, File, Terminal, Zap } from "lucide-react";
 import ImportFieldMapping from "../components/import/ImportFieldMapping";
+import ImportProgressModal from "../components/import/ImportProgressModal";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
