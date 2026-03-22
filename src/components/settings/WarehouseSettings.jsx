@@ -417,10 +417,7 @@ export default function WarehouseSettings() {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={loading}>ביטול</AlertDialogCancel>
               <AlertDialogAction
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDeleteWarehouse();
-                }}
+                onClick={handleDeleteWarehouse}
                 className="bg-red-600 hover:bg-red-700"
                 disabled={loading}
               >
