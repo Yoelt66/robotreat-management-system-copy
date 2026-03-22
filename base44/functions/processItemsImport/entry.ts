@@ -101,9 +101,9 @@ Deno.serve(async (req) => {
       .filter(field => field.checked)
       .sort((a, b) => (a.column || Infinity) - (b.column || Infinity));
 
-    const skuField = sortedFieldMapping.find(f => f.key === 'sku');
-    if (!skuField) throw new Error('לא נמצאה עמודת SKU במיפוי');
-    const skuFileColumnIndex = skuField.column ? (skuField.column - 1) : 0;
+    const clientNameField = sortedFieldMapping.find(f => f.key === 'client_name');
+    if (!clientNameField) throw new Error('לא נמצאה עמודת שם לקוח במיפוי');
+    const clientNameFileColumnIndex = clientNameField.column ? (clientNameField.column - 1) : 0;
 
     // PREVIEW MODE
     if (!selectedChanges || selectedChanges.length === 0) {
