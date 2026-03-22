@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from '@/entities/User';
-import { Client } from '@/entities/Client';
-import { Device } from '@/entities/Device';
+import { Customer } from '@/entities/Customer';
+import { ServiceUnit } from '@/entities/ServiceUnit';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
