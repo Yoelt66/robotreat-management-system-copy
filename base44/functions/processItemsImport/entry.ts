@@ -254,8 +254,8 @@ Deno.serve(async (req) => {
     }
 
     addLog('=== סיכום ייבוא ===', 'success');
-    addLog(`פריטים חדשים שנוצרו: ${createdCount}`, 'success');
-    addLog(`פריטים קיימים שעודכנו: ${updatedCount}`, 'success');
+    addLog(`לקוחות חדשים שנוצרו: ${createdCount}`, 'success');
+    addLog(`מכשירים שנוצרו עבור לקוחות קיימים: ${updatedCount}`, 'success');
     addLog(`שגיאות: ${errorCount}`, errorCount > 0 ? 'error' : 'success');
     addLog(errorCount === 0 ? 'הייבוא הושלם בהצלחה! 🎉' : `הייבוא הושלם עם ${errorCount} שגיאות.`, errorCount === 0 ? 'success' : 'warn');
 
