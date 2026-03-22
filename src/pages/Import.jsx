@@ -582,35 +582,46 @@ export default function Import() {
       return;
     }
 
+    const startTime = new Date();
+    setImportStartTime(startTime);
     setIsImporting(true);
+    setIsImportFinished(false);
     setProgress(0);
     setLogs([]);
-    addLog(`מעלה קובץ לשרת...`, 'info');
+    setRetryAttempt(0);
+    setProgressStats({ processed: 0, created: 0, updated: 0, errors: 0, total: selectedSkus.length });
+    setShowProgressModal(true);
+
+    const localAddLog = (message, type = 'info') => {
+      const entry = { message, type, timestamp: new Date().toISOString() };
+      setLogs(prev => [...prev, entry]);
+      return entry;
+    };
 
     try {
-      // Upload file to server
+      localAddLog(`מעלה קובץ לשרת...`, 'info');
       const uploadResponse = await base44.integrations.Core.UploadFile({ file: uploadedFile });
       const fileUrl = uploadResponse.file_url;
-
-      addLog(`קובץ הועלה בהצלחה, מתחיל עיבוד בקבוצות...`, 'success');
+      localAddLog(`קובץ הועלה בהצלחה`, 'success');
       setProgress(5);
 
-      // Process in batches to avoid timeout
+      // Process in chunks of 50 to avoid timeout
       const CHUNK_SIZE = 50;
       const chunks = [];
       for (let i = 0; i < selectedSkus.length; i += CHUNK_SIZE) {
         chunks.push(selectedSkus.slice(i, i + CHUNK_SIZE));
       }
 
-      addLog(`מעבד ${selectedSkus.length} פריטים ב-${chunks.length} קבוצות...`, 'info');
+      localAddLog(`מעבד ${selectedSkus.length} פריטים ב-${chunks.length} קבוצות...`, 'info');
 
       let totalCreated = 0;
       let totalUpdated = 0;
-      let totalErrors = 0;
+      let allFailedSkus = [];
 
+      // ─── First pass ───────────────────────────────────────────────────────
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        addLog(`מעבד קבוצה ${i + 1}/${chunks.length} (${chunk.length} פריטים)...`, 'info');
+        localAddLog(`קבוצה ${i + 1}/${chunks.length} (${chunk.length} פריטים)...`, 'info');
 
         const response = await base44.functions.invoke('processItemsImport', {
           file_url: fileUrl,
@@ -619,85 +630,107 @@ export default function Import() {
           selectedChanges: chunk
         });
 
-        if (!response.data.success) {
-            addLog(`שגיאה בקבוצה ${i + 1}: ${response.data.error}`, 'error');
-            totalErrors += chunk.length;
+        (response.data.logs || []).forEach(l => setLogs(prev => [...prev, l]));
+
+        if (response.data.success) {
+          totalCreated += response.data.stats.created || 0;
+          totalUpdated += response.data.stats.updated || 0;
+          const chunkFailed = response.data.failed_skus || [];
+          allFailedSkus.push(...chunkFailed);
+        } else {
+          localAddLog(`שגיאה בקבוצה ${i + 1}: ${response.data.error}`, 'error');
+          allFailedSkus.push(...chunk);
+        }
+
+        const pct = 5 + ((i + 1) / chunks.length) * (allFailedSkus.length > 0 ? 70 : 95);
+        setProgress(pct);
+        setProgressStats(prev => ({
+          ...prev,
+          processed: Math.min(prev.processed + chunk.length, selectedSkus.length),
+          created: totalCreated,
+          updated: totalUpdated,
+          errors: allFailedSkus.length
+        }));
+      }
+
+      // ─── Retry loop (up to MAX_RETRIES times) ────────────────────────────
+      let attempt = 0;
+      while (allFailedSkus.length > 0 && attempt < MAX_RETRIES) {
+        attempt++;
+        setRetryAttempt(attempt);
+        const retrySkus = [...new Set(allFailedSkus)]; // deduplicate
+        allFailedSkus = [];
+
+        localAddLog(`ניסיון חוזר ${attempt}/${MAX_RETRIES} עבור ${retrySkus.length} פריטים שנכשלו...`, 'warn');
+        await new Promise(r => setTimeout(r, Math.min(2000 * attempt, 15000)));
+
+        // Retry in chunks too
+        const retryChunks = [];
+        for (let i = 0; i < retrySkus.length; i += CHUNK_SIZE) {
+          retryChunks.push(retrySkus.slice(i, i + CHUNK_SIZE));
+        }
+
+        for (let i = 0; i < retryChunks.length; i++) {
+          const chunk = retryChunks[i];
+          const retryResponse = await base44.functions.invoke('processItemsImport', {
+            file_url: fileUrl,
+            fieldMapping: fieldMapping,
+            hasHeaders: hasHeaders,
+            selectedChanges: chunk
+          });
+
+          (retryResponse.data.logs || []).forEach(l => setLogs(prev => [...prev, l]));
+
+          if (retryResponse.data.success) {
+            totalCreated += retryResponse.data.stats.created || 0;
+            totalUpdated += retryResponse.data.stats.updated || 0;
+            const chunkFailed = retryResponse.data.failed_skus || [];
+            allFailedSkus.push(...chunkFailed);
           } else {
-            // Display logs from server
-            if (response.data.logs && response.data.logs.length > 0) {
-              response.data.logs.forEach(log => {
-                addLog(log.message, log.type);
-              });
-            }
-
-            const chunkErrors = response.data.stats.errors || 0;
-
-            // Auto-retry failed items with a longer delay
-            if (chunkErrors > 0) {
-              addLog(`נמצאו ${chunkErrors} שגיאות בקבוצה ${i + 1}, מנסה מחדש עם השהיה...`, 'warn');
-              await new Promise(r => setTimeout(r, 5000));
-
-              // Extract failed SKUs from logs
-              const failedSkus = (response.data.logs || [])
-                .filter(l => l.type === 'error' && l.message.includes('מק"ט'))
-                .map(l => {
-                  const match = l.message.match(/מק"ט (.+?):/);
-                  return match ? match[1] : null;
-                })
-                .filter(Boolean);
-
-              if (failedSkus.length > 0) {
-                addLog(`מנסה מחדש ${failedSkus.length} פריטים שנכשלו...`, 'info');
-                const retryResponse = await base44.functions.invoke('processItemsImport', {
-                  file_url: fileUrl,
-                  fieldMapping: fieldMapping,
-                  hasHeaders: hasHeaders,
-                  selectedChanges: failedSkus
-                });
-
-                if (retryResponse.data.success) {
-                  (retryResponse.data.logs || []).forEach(log => addLog(log.message, log.type));
-                  totalCreated += retryResponse.data.stats.created || 0;
-                  totalUpdated += retryResponse.data.stats.updated || 0;
-                  const retryErrors = retryResponse.data.stats.errors || 0;
-                  totalErrors += retryErrors;
-                  addLog(`ניסיון חוזר: ${retryResponse.data.stats.updated || 0} הצליחו, ${retryErrors} נכשלו`, retryErrors > 0 ? 'warn' : 'success');
-                } else {
-                  totalErrors += failedSkus.length;
-                }
-                // Don't add original errors since we retried
-              } else {
-                totalErrors += chunkErrors;
-              }
-            } else {
-              totalErrors += chunkErrors;
-            }
-
-            totalCreated += response.data.stats.created || 0;
-            totalUpdated += response.data.stats.updated || 0;
+            allFailedSkus.push(...chunk);
           }
+        }
 
-        const progress = 5 + ((i + 1) / chunks.length) * 95;
-        setProgress(progress);
+        const retrySucceeded = retrySkus.length - allFailedSkus.length;
+        localAddLog(
+          `ניסיון ${attempt}: ${retrySucceeded} הצליחו, ${allFailedSkus.length} עדיין נכשלים`,
+          allFailedSkus.length > 0 ? 'warn' : 'success'
+        );
+
+        const pct = 75 + (attempt / MAX_RETRIES) * (allFailedSkus.length === 0 ? 25 : 20);
+        setProgress(pct);
+        setProgressStats(prev => ({
+          ...prev,
+          created: totalCreated,
+          updated: totalUpdated,
+          errors: allFailedSkus.length
+        }));
+
+        if (allFailedSkus.length === 0) break;
       }
 
       setProgress(100);
+      setRetryAttempt(0);
+      const finalErrors = allFailedSkus.length;
 
-      addLog('=== סיכום ייבוא ===', 'success');
-      addLog(`פריטים חדשים: ${totalCreated}`, 'success');
-      addLog(`פריטים שעודכנו: ${totalUpdated}`, 'success');
-      addLog(`שגיאות: ${totalErrors}`, totalErrors > 0 ? 'error' : 'success');
+      localAddLog('=== סיכום ייבוא ===', 'success');
+      localAddLog(`פריטים חדשים: ${totalCreated}`, 'success');
+      localAddLog(`פריטים שעודכנו: ${totalUpdated}`, 'success');
+      localAddLog(`שגיאות סופיות: ${finalErrors}`, finalErrors > 0 ? 'error' : 'success');
 
-      if (totalErrors === 0) {
-        alert(`הייבוא הושלם בהצלחה! ${totalCreated} פריטים נוצרו, ${totalUpdated} עודכנו.`);
-      } else {
-        alert(`הייבוא הושלם עם ${totalErrors} שגיאות. ${totalCreated} נוצרו, ${totalUpdated} עודכנו.`);
-      }
+      setProgressStats(prev => ({
+        ...prev,
+        created: totalCreated,
+        updated: totalUpdated,
+        errors: finalErrors,
+        processed: selectedSkus.length
+      }));
+      setIsImportFinished(true);
 
     } catch (error) {
       console.error("Import failed:", error);
-      addLog(`הייבוא נכשל: ${error.message}`, "error");
-      alert(`הייבוא נכשל: ${error.message}`);
+      setLogs(prev => [...prev, { message: `הייבוא נכשל: ${error.message}`, type: 'error', timestamp: new Date().toISOString() }]);
+      setIsImportFinished(true);
     } finally {
       setIsImporting(false);
       setProgress(100);
