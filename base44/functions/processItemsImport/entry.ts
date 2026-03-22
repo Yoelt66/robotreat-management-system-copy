@@ -149,11 +149,12 @@ Deno.serve(async (req) => {
     addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
 
     const changesToProcess = [];
-    for (const selectedClientName of selectedChanges) {
+    for (let i = 0; i < selectedChanges.length; i++) {
+      const selectedClientName = selectedChanges[i];
       const clientNameStr = String(selectedClientName).trim().toLowerCase();
       const rowIndex = clientNameToRowIndex.get(clientNameStr);
       if (rowIndex === undefined) {
-        addLog(`לא נמצאה שורה עבור לקוח ${selectedClientName}`, 'warn');
+        addLog(`שורה ${rowIndex + 2}: לא נמצאה שורה עבור לקוח ${selectedClientName}`, 'warn');
         continue;
       }
 
