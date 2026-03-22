@@ -601,14 +601,21 @@ export default function ImportSettings() {
                 />
                  <DataImporter 
                     title="ייבוא מכשירים"
-                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות."
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות. מכשירים קיימים יעודכנו אם יש שינויים."
                     entityName="ServiceUnit"
                     templateHeaders={serviceUnitTemplateHeaders}
                     templateDisplayHeaders={serviceUnitTemplateDisplayHeaders}
                     requiredFields={serviceUnitRequiredFields}
                     preImportTask={preImportServiceUnits}
                     mapRowToEntity={mapServiceUnitRow}
-                    entityCreateFn={(batch) => ServiceUnit.bulkCreate(batch)}
+                    entityCreateFn={(batch) => {
+                        const creates = batch.filter(b => !b.id);
+                        const updates = batch.filter(b => b.id);
+                        const promises = [];
+                        if (creates.length > 0) promises.push(ServiceUnit.bulkCreate(creates));
+                        if (updates.length > 0) promises.push(Promise.all(updates.map(u => ServiceUnit.update(u.id, u))));
+                        return Promise.all(promises);
+                    }}
                     icon={HardDrive}
                 />
                 <DataImporter 
