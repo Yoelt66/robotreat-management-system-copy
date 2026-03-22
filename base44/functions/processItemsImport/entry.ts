@@ -126,14 +126,9 @@ Deno.serve(async (req) => {
     // ACTUAL IMPORT MODE
     addLog('מצב ייבוא מלא - טוען נתוני מערכת...', 'info');
 
-    const [allCategories, allWarehouses, allUnits, partCoreData, partPricingData, partSupplierData, partStockData] = await Promise.all([
-      apiCallWithRetry(() => base44.asServiceRole.entities.Category.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(undefined, 10000)).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(undefined, 10000)).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(undefined, 10000)).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(undefined, 50000)).catch(() => [])
+    const [clientsData, devicesData] = await Promise.all([
+      apiCallWithRetry(() => base44.asServiceRole.entities.Client.list()).catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.Device.list()).catch(() => [])
     ]);
 
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
