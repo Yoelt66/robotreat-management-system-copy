@@ -940,15 +940,15 @@ export default function Import() {
                   size="lg"
                 >
                   {isAnalyzing ? (
-                    <>
-                      <Loader2 className="h-5 w-5 ml-2 animate-spin" />
-                      מנתח שינויים...
-                    </>
+                   <>
+                     <Loader2 className="h-5 w-5 ml-2 animate-spin" />
+                     מנתח מכשירים...
+                   </>
                   ) : (
-                    <>
-                      <Zap className="h-5 w-5 ml-2" />
-                      התחל ייבוא מהיר
-                    </>
+                   <>
+                     <Zap className="h-5 w-5 ml-2" />
+                     התחל ייבוא מכשירים
+                   </>
                   )}
                 </Button>
               </div>
