@@ -33,7 +33,7 @@ export default function WarehouseSettings() {
   const [error, setError] = useState("");
   const [warehouseToDelete, setWarehouseToDelete] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  const warehouseToDeleteRef = React.useRef(null);
+  const warehouseToDeleteRef = useRef(null);
 
   useEffect(() => {
     loadData();
