@@ -18,8 +18,8 @@ import ServiceCallFormSteps from "../components/serviceCalls/ServiceCallFormStep
 
 export default function ServiceCalls() {
   const [serviceCalls, setServiceCalls] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [devices, setDevices] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [serviceUnits, setServiceUnits] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
