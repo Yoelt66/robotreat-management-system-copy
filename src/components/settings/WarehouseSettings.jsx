@@ -46,9 +46,9 @@ export default function WarehouseSettings() {
         PartStock.list()
       ]);
       setPartsData(partsList);
-      // Ensure all existing warehouses are in import mappings
+      // Ensure all existing warehouses are in import mappings (fire & forget)
       if (warehousesData && warehousesData.length > 0) {
-        await ensureAllWarehousesInMappings(warehousesData);
+        ensureAllWarehousesInMappings(warehousesData).catch(console.error);
       }
     } catch (err) {
       console.error("Error loading data:", err);
