@@ -733,9 +733,9 @@ export default function Import() {
         {/* Step 1: Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>שלב 1: הגדרות ייבוא</CardTitle>
-            <div className="flex justify-between items-center">
-                <CardDescription>בחר תבנית מיפוי עמודות או הגדר מיפוי חדש.</CardDescription>
+          <CardTitle>שלב 1: הגדרות ייבוא מכשירים</CardTitle>
+          <div className="flex justify-between items-center">
+              <CardDescription>עמודה ראשונה: שם לקוח (כמפתח). העמודות הבאות: פרטי המכשיר.</CardDescription>
                 <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
                     <Settings className="h-4 w-4 ml-2" />
                     {showSettings ? 'הסתר הגדרות מיפוי' : 'הצג הגדרות מיפוי'}
