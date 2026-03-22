@@ -44,9 +44,10 @@ const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מ�
 const serviceUnitRequiredFields = ["customer_name", "name"];
 const preImportServiceUnits = async () => {
     const [customers, serviceUnits, brands] = await Promise.all([Customer.list(), ServiceUnit.list(), UnitBrand.list()]);
+    const serviceUnitMap = new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su]));
     return { 
         customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])),
-        serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su.id])),
+        serviceUnitMap,
         brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id]))
     };
 };
