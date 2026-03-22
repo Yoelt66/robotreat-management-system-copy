@@ -152,60 +152,24 @@ export default function WarehouseSettings() {
     }
   };
 
-  const addWarehouseColumnToAllParts = async (warehouseId, warehouseName) => {
+  const addWarehouseColumnToAllParts = async (warehouseId) => {
     try {
-      console.log(`Adding warehouse column ${warehouseId} to all part records...`);
-      
-      const allParts = await PartStock.list();
-      console.log(`Found ${allParts.length} part records to update`);
-      
-      let updatedCount = 0;
-      let errorCount = 0;
-      
+      const { PartCore } = await import("@/entities/PartCore");
+      const allPartCores = await PartCore.list();
+      const existingStocks = await PartStock.filter({ warehouse_id: warehouseId });
+      const existingSkus = new Set(existingStocks.map(s => s.part_sku));
+
+      const toCreate = allPartCores.filter(p => !existingSkus.has(p.sku));
       const batchSize = 5;
-      for (let i = 0; i < allParts.length; i += batchSize) {
-        const batch = allParts.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (part) => {
-          try {
-            if (!part.hasOwnProperty(warehouseId)) {
-              const updateData = { [warehouseId]: 0 };
-              await PartStock.update(part.id, updateData);
-              updatedCount++;
-            } else {
-              console.log(`Part ${part.id} already has ${warehouseId} column, skipping`);
-            }
-          } catch (error) {
-            console.error(`Failed to add ${warehouseId} column to part ${part.id}:`, error);
-            errorCount++;
-          }
-        }));
-        
+      for (let i = 0; i < toCreate.length; i += batchSize) {
+        const batch = toCreate.slice(i, i + batchSize);
+        await Promise.all(batch.map(p =>
+          PartStock.create({ part_sku: p.sku, warehouse_id: warehouseId, quantity: 0 })
+        ));
         await new Promise(resolve => setTimeout(resolve, 200));
       }
-      
-      console.log(`Warehouse column addition completed: ${updatedCount} updated, ${errorCount} errors`);
-      
-      if (errorCount > 0) {
-        toast({
-          variant: "destructive",
-          title: "עדכון חלקי של המלאי",
-          description: `${updatedCount} רשומות עודכנו, ${errorCount} שגיאות`
-        });
-      } else {
-        toast({
-          title: "עמודת מחסן נוספה",
-          description: `עמודת ${warehouseName} נוספה ל-${updatedCount} רשומות מלאי`
-        });
-      }
-      
     } catch (error) {
-      console.error("Error adding warehouse column to parts:", error);
-      toast({
-        variant: "destructive",
-        title: "שגיאה בעדכון המלאי",
-        description: error.message
-      });
+      console.error("Error adding warehouse stock records:", error);
     }
   };
 
