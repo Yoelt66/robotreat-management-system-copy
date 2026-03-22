@@ -39,8 +39,8 @@ const mapCustomerRow = (row, { customerNameMap }) => {
 };
 
 // ServiceUnit import configuration
-const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "serial_number", "location"];
-const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
+const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "brand_name", "serial_number", "location"];
+const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מותג", "מספר סידורי", "מיקום"];
 const serviceUnitRequiredFields = ["customer_name", "name"];
 const preImportServiceUnits = async () => {
     const [customers, serviceUnits] = await Promise.all([Customer.list(), ServiceUnit.list()]);
