@@ -727,7 +727,7 @@ export default function Import() {
     <div className="p-6" dir="rtl">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">ייבוא פריטים</h1>
+          <h1 className="text-2xl font-bold">ייבוא מכשירים</h1>
         </div>
 
         {/* Step 1: Settings */}
