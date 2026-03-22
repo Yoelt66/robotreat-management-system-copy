@@ -888,11 +888,11 @@ export default function Import() {
         {selectedMapping && data.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>שלב 3: תצוגה מקדימה וייבוא</CardTitle>
-              <CardDescription>
-                כך ייראו {Math.min(PREVIEW_ROWS, data.length)} השורות הראשונות לאחר הייבוא. לחץ על "בדוק שינויים" לפני הייבוא.
-                {data.length > PREVIEW_ROWS && ` (מוצגות ${PREVIEW_ROWS} מתוך ${data.length} שורות)`}
-              </CardDescription>
+            <CardTitle>שלב 3: תצוגה מקדימה וייבוא</CardTitle>
+            <CardDescription>
+              תצוגה מקדימה: שם לקוח (עמודה 1) ופרטי המכשיר. לחץ על "התחל ייבוא" כדי לייבא את המכשירים.
+              {data.length > PREVIEW_ROWS && ` (מוצגות ${PREVIEW_ROWS} מתוך ${data.length} שורות)`}
+            </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto border rounded-lg mb-4">
