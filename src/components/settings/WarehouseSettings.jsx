@@ -416,14 +416,14 @@ export default function WarehouseSettings() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={loading}>ביטול</AlertDialogCancel>
-              <AlertDialogAction
+              <Button
                 onClick={handleDeleteWarehouse}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 disabled={loading}
               >
                 <Trash2 className="h-4 w-4 ml-2" />
                 {loading ? "מוחק..." : "מחק מחסן"}
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
