@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileDown, Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { FileDown, Upload, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Progress } from '@/components/ui/progress';
 
@@ -18,7 +18,7 @@ const downloadCSVTemplate = (headers, filename) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Clean up blob URL
+    URL.revokeObjectURL(url);
 };
 
 export default function DataImporter({
@@ -26,7 +26,7 @@ export default function DataImporter({
     description,
     entityName,
     templateHeaders,
-    templateDisplayHeaders, // New prop for display headers
+    templateDisplayHeaders,
     requiredFields,
     mapRowToEntity,
     preImportTask,
@@ -37,9 +37,10 @@ export default function DataImporter({
     const [isImporting, setIsImporting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState([]);
+    const fileInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        setFile(e.target.files[0]);
+        setFile(e.target.files[0] || null);
         setLogs([]);
     };
     
@@ -63,21 +64,25 @@ export default function DataImporter({
             const preImportData = preImportTask ? await preImportTask() : {};
             addLog('איסוף נתונים מקדימים הושלם.', 'info');
             
-            // Read file with proper encoding support for Hebrew
+            // Parse file using SheetJS - supports xlsx, xls, csv, tsv, txt
+            addLog('קורא קובץ...', 'info');
             const arrayBuffer = await file.arrayBuffer();
-            const decoder = new TextDecoder('utf-8');
-            const fileContent = decoder.decode(arrayBuffer);
-            
-            const fileName = file.name.toLowerCase();
-            const isTabDelimited = fileName.endsWith('.txt') || fileName.endsWith('.tsv');
-            const delimiter = isTabDelimited ? '\t' : ',';
-            
-            if (isTabDelimited) {
-                addLog('מזהה קובץ עם הפרדת טאב...', 'info');
+            const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: null });
+
+            // Skip header row (index 0)
+            const dataRows = [];
+            for (let i = 1; i < allRows.length; i++) {
+                const row = allRows[i];
+                if (!row || row.every(cell => cell === null || cell === undefined || String(cell).trim() === '')) continue;
+                dataRows.push(row.map(cell => {
+                    if (cell === null || cell === undefined) return null;
+                    const str = String(cell).trim();
+                    return str === '' ? null : str;
+                }));
             }
-            
-            const rows = fileContent.trim().split(/\r\n|\n/);
-            const dataRows = rows.slice(1);
 
             if (dataRows.length === 0) {
                 throw new Error("הקובץ ריק או מכיל רק שורת כותרת.");
@@ -90,17 +95,12 @@ export default function DataImporter({
 
             for (let i = 0; i < dataRows.length; i++) {
                 try {
-                    const rowString = dataRows[i].trim();
-                    if (!rowString || rowString.split(',').every(cell => !cell.trim())) {
-                        continue; // Skip empty or whitespace-only rows
-                    }
-
-                    const rowArray = rowString.split(delimiter).map(v => v.trim().replace(/"/g, ''));
+                    const rowArray = dataRows[i];
                     
                     const missingFields = [];
-                    for(const field of requiredFields) {
+                    for (const field of requiredFields) {
                         const index = templateHeaders.indexOf(field);
-                        if(index === -1 || !rowArray[index]) {
+                        if (index === -1 || !rowArray[index]) {
                             missingFields.push(templateDisplayHeaders?.[index] || field);
                         }
                     }
@@ -138,7 +138,7 @@ export default function DataImporter({
                 await entityCreateFn(batch);
                 successCount += batch.length;
                 setProgress((i + batch.length) / entitiesToCreate.length * 100);
-                addLog(`הועלו ${batch.length} רשומות...`, 'info');
+                addLog(`הועלו ${successCount} / ${entitiesToCreate.length} רשומות...`, 'info');
             }
 
             addLog(`הייבוא הושלם! ${successCount} רשומות חדשות נוצרו.`, 'success');
@@ -150,11 +150,10 @@ export default function DataImporter({
             toast({ variant: 'destructive', title: 'שגיאה בייבוא', description: error.message, duration: 8000 });
         } finally {
             setIsImporting(false);
-            if (file) {
-                 // Clear the file input for re-uploading the same file if needed
-                document.querySelector('input[type="file"]').value = '';
-            }
             setFile(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -173,7 +172,14 @@ export default function DataImporter({
             </CardHeader>
             <CardContent className="space-y-4 flex-grow">
                 <div className="flex flex-col sm:flex-row gap-4">
-                    <Input type="file" accept=".csv,.txt,.tsv" onChange={handleFileChange} disabled={isImporting} className="flex-grow" />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv,.txt,.tsv,.xlsx,.xls"
+                        onChange={handleFileChange}
+                        disabled={isImporting}
+                        className="flex-grow text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 border border-input rounded-md px-3 py-1.5 cursor-pointer"
+                    />
                     <Button 
                         variant="outline" 
                         onClick={() => downloadCSVTemplate(downloadHeaders, `${entityName}_template.csv`)}
@@ -183,7 +189,8 @@ export default function DataImporter({
                         הורד תבנית
                     </Button>
                 </div>
-                 <Button onClick={handleImport} disabled={!file || isImporting} className="w-full">
+                <p className="text-xs text-muted-foreground">סוגי קבצים נתמכים: Excel (.xlsx/.xls), CSV, טקסט עם טאב (.txt/.tsv)</p>
+                <Button onClick={handleImport} disabled={!file || isImporting} className="w-full">
                     {isImporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 ml-2" />}
                     {isImporting ? 'מייבא...' : 'התחל ייבוא'}
                 </Button>
