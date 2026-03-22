@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Warehouse } from "@/entities/Warehouse";
 import { PartStock } from "@/entities/PartStock";
+import { ImportMapping } from "@/entities/ImportMapping";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
