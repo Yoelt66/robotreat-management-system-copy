@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, AlertTriangle, Clock, Zap, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckCircle, AlertTriangle, Clock, Zap, RefreshCw, X } from "lucide-react";
 
 function formatDuration(seconds) {
   if (!isFinite(seconds) || seconds <= 0) return "מחשב...";
