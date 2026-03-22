@@ -183,48 +183,38 @@ Deno.serve(async (req) => {
     // ─── Process CREATE ────────────────────────────────────────────────────────
     const newItems = changesToProcess.filter(c => c.type === 'new');
     if (newItems.length > 0) {
-      addLog(`יוצר ${newItems.length} פריטים חדשים (${CONCURRENCY} במקביל)...`, 'info');
+      addLog(`יוצר ${newItems.length} לקוחות חדשים (${CONCURRENCY} במקביל)...`, 'info');
       await processWithConcurrency(newItems, CONCURRENCY, async (change) => {
         const f = change.newData;
-        const sku = String(f.sku).trim();
-        if (!sku || !f.name) throw new Error('חסרים שדות חובה (מק"ט / שם)');
+        const clientName = String(f.client_name).trim();
+        if (!clientName) throw new Error('חסרים שדות חובה (שם לקוח)');
 
-        const [categoryCode, unitCode] = await Promise.all([
-          resolveCategoryCode(f.category),
-          resolveUnitCode(f.unit)
-        ]);
-
-        // Phase 1: Create core
-        await apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.create({
-          sku, name: String(f.name).trim(), category: categoryCode, unit: unitCode,
-          minimum_stock: parseFloat(f.minimum_stock) || 0, notes: f.notes || '',
-          current_location: f.current_location || '', replaced_sku: f.replaced_sku || '',
-          requires_serial_number: f.requires_serial_number || false,
+        // Create client
+        const newClient = await apiCallWithRetry(() => base44.asServiceRole.entities.Client.create({
+          name: clientName,
+          phone: '',
+          email: '',
+          address: '',
+          company: '',
+          notes: ''
         }));
 
-        // Phase 2: Create pricing, supplier, stock - all in parallel
-        await Promise.all([
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.create({
-            part_sku: sku,
-            cost_price: parseNum(f.cost_price),
-            cost_currency: f.cost_currency || 'ILS',
-            sale_currency: f.sale_currency || 'ILS',
-            import_percentage: parseNum(f.import_percentage),
-            markup_percentage: parseNum(f.markup_percentage),
-            manual_sale_price: parseNum(f.manual_sale_price),
-            is_manual: !!(f.manual_sale_price),
-          })),
-          apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({
-            part_sku: sku, supplier_number: f.supplier_number || '', supplier_part_number: f.supplier_part_number || '',
-          })),
-          ...allWarehouses.map(wh => upsertStock(sku, wh.warehouse_id, parseNum(f[wh.warehouse_id])))
-        ]);
+        // Create device if device fields are provided
+        if (f.name) {
+          await apiCallWithRetry(() => base44.asServiceRole.entities.Device.create({
+            client_id: newClient.id,
+            name: f.name,
+            type: f.type || 'other',
+            serial_number: f.serial_number || '',
+            location: f.location || ''
+          }));
+        }
       }, (done, total, result) => {
         if (!result.success) {
           errorCount++;
-          const failedSku = result.item?.newData?.sku;
-          if (failedSku) failedSkus.push(failedSku);
-          addLog(`שגיאה ביצירת מק"ט ${failedSku}: ${result.error}`, 'error');
+          const failedName = result.item?.newData?.client_name;
+          if (failedName) failedSkus.push(failedName);
+          addLog(`שגיאה ביצירת לקוח ${failedName}: ${result.error}`, 'error');
         } else {
           createdCount++;
         }
