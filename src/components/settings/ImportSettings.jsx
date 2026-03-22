@@ -125,21 +125,21 @@ const preImportServiceCalls = async () => {
         serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name}`, su]))
     };
 };
-const mapServiceCallRow = (row, { clientMap, userMap, deviceMap }) => {
+const mapServiceCallRow = (row, { customerMap, userMap, serviceUnitMap }) => {
     const rowData = {};
     serviceCallTemplateHeaders.forEach((header, index) => {
         rowData[header] = row[index] || null;
     });
 
-    const client = clientMap.get(rowData.client_name);
-    if (!client) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם השם ${rowData.client_name}.`);
+    const customer = customerMap.get(rowData.client_name);
+    if (!customer) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם השם ${rowData.client_name}.`);
     
     const user = userMap.get(rowData.assigned_to_email);
     
-    let device = null;
-    if(rowData.device_name && client) {
-        const deviceKey = `${client.id}:${rowData.device_name}`;
-        device = deviceMap.get(deviceKey);
+    let serviceUnit = null;
+    if(rowData.device_name && customer) {
+        const serviceUnitKey = `${customer.id}:${rowData.device_name}`;
+        serviceUnit = serviceUnitMap.get(serviceUnitKey);
     }
 
     const hebrewStatusMap = {
