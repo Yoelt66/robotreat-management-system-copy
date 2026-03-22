@@ -378,36 +378,13 @@ export default function Import() {
     try {
       // Load all existing parts data from entities
       addLog('טוען נתוני מערכת קיימים...', 'info');
-      const [partCoreData, partPricingData, partSupplierData, partStockData, allCategories, allWarehouses] = await Promise.all([
-        base44.entities.PartCore.list(),
-        base44.entities.PartPricing.list(),
-        base44.entities.PartSupplier.list(),
-        base44.entities.PartStock.list(),
-        base44.entities.Category.list(),
+      const [clientsData, allWarehouses] = await Promise.all([
+        base44.entities.Client.list(),
         base44.entities.Warehouse.list()
       ]);
 
-      // Build parts lookup maps
-      const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
-      const supplierMap = new Map(partSupplierData.map(p => [p.part_sku, p]));
-      const stockByPart = new Map();
-      
-      partStockData.forEach(stock => {
-        if (!stockByPart.has(stock.part_sku)) {
-          stockByPart.set(stock.part_sku, {});
-        }
-        stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
-      });
-
-      const allParts = partCoreData.map(core => {
-        const pricing = pricingMap.get(core.sku) || {};
-        const supplier = supplierMap.get(core.sku) || {};
-        const stocks = stockByPart.get(core.sku) || {};
-        return { ...core, ...pricing, ...supplier, ...stocks };
-      });
-
-      const partMap = new Map(allParts.map(p => [p.sku, p]));
-      addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
+      addLog(`נטענו ${clientsData.length} לקוחות קיימים`, 'info');
+      setReferenceData(prev => ({ ...prev, clients: clientsData }));
 
       // Analyze each row
       const sortedActiveFields = fieldMapping
