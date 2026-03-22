@@ -278,12 +278,12 @@ Deno.serve(async (req) => {
         await Promise.all([
           apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.create({
             part_sku: sku,
-            cost_price: parseFloat(f.cost_price) || 0,
+            cost_price: parseNum(f.cost_price),
             cost_currency: f.cost_currency || 'ILS',
             sale_currency: f.sale_currency || 'ILS',
-            import_percentage: f.import_percentage != null ? parseFloat(f.import_percentage) : 0,
-            markup_percentage: f.markup_percentage != null ? parseFloat(f.markup_percentage) : 0,
-            manual_sale_price: f.manual_sale_price ? parseFloat(f.manual_sale_price) : 0,
+            import_percentage: parseNum(f.import_percentage),
+            markup_percentage: parseNum(f.markup_percentage),
+            manual_sale_price: parseNum(f.manual_sale_price),
             is_manual: !!(f.manual_sale_price),
           })),
           apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({
@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
           })),
           ...allWarehouses.map(wh =>
             apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({
-              part_sku: sku, warehouse_id: wh.warehouse_id, quantity: parseFloat(f[wh.warehouse_id]) || 0,
+              part_sku: sku, warehouse_id: wh.warehouse_id, quantity: parseNum(f[wh.warehouse_id]),
             }))
           )
         ]);
