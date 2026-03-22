@@ -393,7 +393,8 @@ export default function Import() {
 
       const changes = [];
 
-      for (const row of data) {
+      for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+        const row = data[rowIndex];
         const formattedRow = {};
 
         sortedActiveFields.forEach((field) => {
