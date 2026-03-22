@@ -25,6 +25,7 @@ export default function ImportProgressModal({
   maxRetries,
   startTime,          // Date object
   isFinished,
+  onClose,
 }) {
   const logsEndRef = useRef(null);
   const [eta, setEta] = useState(null);
