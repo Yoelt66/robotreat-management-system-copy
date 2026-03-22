@@ -52,7 +52,7 @@ const preImportServiceUnits = async () => {
     return { 
         customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])),
         serviceUnitMap,
-        brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id])),
+        brandMap: new Map(brands.map(b => [b.name.toLowerCase(), { id: b.id, unit_types: b.unit_types || [] }])),
         changeDetector
     };
 };
