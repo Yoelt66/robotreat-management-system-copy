@@ -203,6 +203,10 @@ Deno.serve(async (req) => {
     const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
     const supplierFields = ['supplier_number', 'supplier_part_number'];
 
+    // Parse numeric value: empty/null → 0, round to 2 decimal places
+    const parseNum = (val) => Math.round((parseFloat(val) || 0) * 100) / 100;
+    const mappedFieldKeys = new Set(sortedFieldMapping.map(f => f.key));
+
     addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
 
     const changesToProcess = [];
