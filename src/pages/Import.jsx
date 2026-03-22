@@ -1008,20 +1008,20 @@ export default function Import() {
           </Card>
         )}
 
-        {isImporting && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex justify-between mb-2">
-                <span className="font-medium">מתבצע ייבוא בשרת...</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} />
-              <div className="mt-2 text-sm text-gray-600">
-                הקובץ מעובד בשרת לביצועים מקסימליים
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <ImportProgressModal
+          isOpen={showProgressModal}
+          progress={progress}
+          logs={logs}
+          totalItems={progressStats.total}
+          processedItems={progressStats.processed}
+          createdItems={progressStats.created}
+          updatedItems={progressStats.updated}
+          errorItems={progressStats.errors}
+          retryAttempt={retryAttempt}
+          maxRetries={MAX_RETRIES}
+          startTime={importStartTime}
+          isFinished={isImportFinished}
+        />
 
         {logs.length > 0 && (
           <Card>
