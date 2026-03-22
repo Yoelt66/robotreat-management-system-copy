@@ -83,19 +83,30 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
         throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
     }
     
-    // Normalize device type: lowercase, trim, and remove spaces/underscores
+    // Get original device type from input
+    const originalDeviceType = row[2] ? row[2].trim() : null;
+
+    // Helper to normalize for comparison only
     const normalizeType = (t) => t.trim().toLowerCase().replace(/[\s_]/g, '');
-    const deviceType = row[2] ? normalizeType(row[2]) : null;
-    
+    const normalizedInput = originalDeviceType ? normalizeType(originalDeviceType) : null;
+
     const brandData = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     const brandId = brandData?.id;
-    
-    // Validate device type against brand's unit_types if brand is specified
+
+    // Determine final device type: use correct case from brand, or original input
+    let deviceType = originalDeviceType;
+
+    // Validate and map to correct case from brand's unit_types if brand is specified
     if (brandId && brandData?.unit_types) {
-        const validTypes = brandData.unit_types.map(normalizeType);
-        if (!validTypes.includes(deviceType) && deviceType !== 'other') {
-            throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${brandData.unit_types.join(', ')}`);
-        }
+       const validTypes = brandData.unit_types.map(normalizeType);
+       if (!validTypes.includes(normalizedInput) && normalizedInput !== 'other') {
+           throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${originalDeviceType}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${brandData.unit_types.join(', ')}`);
+       }
+       // Find and use the correct case from brand's unit_types
+       const matchingType = brandData.unit_types.find(t => normalizeType(t) === normalizedInput);
+       if (matchingType) {
+           deviceType = matchingType;
+       }
     }
     
     const newData = {
