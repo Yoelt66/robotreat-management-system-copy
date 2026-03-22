@@ -56,10 +56,10 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     const unitNameKey = `${customerId}:${row[1].toLowerCase()}`;
-    const existingId = serviceUnitMap.get(unitNameKey);
+    const existing = serviceUnitMap.get(unitNameKey);
     
     // If unit exists in batch, prevent duplicate
-    if (existingId === true) {
+    if (existing && existing === true) {
         throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
     }
     
@@ -80,8 +80,11 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     
     const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     
+    // Mark unit in batch to prevent duplicates
+    serviceUnitMap.set(unitNameKey, true);
+    
     return {
-        id: existingId || undefined,
+        id: existing?.id,
         customer_id: customerId,
         name: row[1],
         type: row[2] || null,
