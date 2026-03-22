@@ -621,13 +621,23 @@ export default function ImportSettings() {
                     requiredFields={serviceUnitRequiredFields}
                     preImportTask={preImportServiceUnits}
                     mapRowToEntity={mapServiceUnitRow}
-                    entityCreateFn={(batch) => {
+                    entityCreateFn={async (batch) => {
                         const creates = batch.filter(b => !b.id);
                         const updates = batch.filter(b => b.id);
-                        const promises = [];
-                        if (creates.length > 0) promises.push(ServiceUnit.bulkCreate(creates));
-                        if (updates.length > 0) promises.push(Promise.all(updates.map(u => ServiceUnit.update(u.id, u))));
-                        return Promise.all(promises);
+                        if (creates.length > 0) {
+                            const batchSize = 3;
+                            for (let i = 0; i < creates.length; i += batchSize) {
+                                const chunk = creates.slice(i, i + batchSize);
+                                await ServiceUnit.bulkCreate(chunk);
+                                if (i + batchSize < creates.length) await sleep(500);
+                            }
+                        }
+                        if (updates.length > 0) {
+                            for (const u of updates) {
+                                await ServiceUnit.update(u.id, u);
+                                await sleep(300);
+                            }
+                        }
                     }}
                     icon={HardDrive}
                 />
