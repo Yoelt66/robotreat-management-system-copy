@@ -22,16 +22,16 @@ const mapClientRow = (row) => ({
 });
 
 // Device import configuration
-const deviceTemplateHeaders = ["client_phone", "name", "type", "serial_number", "location"];
-const deviceTemplateDisplayHeaders = ["טלפון לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
-const deviceRequiredFields = ["client_phone", "name", "type", "serial_number"];
+const deviceTemplateHeaders = ["client_name", "name", "type", "serial_number", "location"];
+const deviceTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
+const deviceRequiredFields = ["client_name", "name", "type", "serial_number"];
 const preImportDevices = async () => {
     const clients = await Client.list();
-    return { clientMap: new Map(clients.map(c => [c.phone, c.id])) };
+    return { clientMap: new Map(clients.map(c => [c.name.toLowerCase(), c.id])) };
 };
 const mapDeviceRow = (row, { clientMap }) => {
-    const clientId = clientMap.get(row[0]);
-    if (!clientId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם מספר טלפון ${row[0]}.`);
+    const clientId = clientMap.get(row[0].toLowerCase());
+    if (!clientId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     // Normalize input by replacing spaces with underscores
     const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
