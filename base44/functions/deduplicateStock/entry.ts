@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const allStock = await base44.asServiceRole.entities.PartStock.list();
+    const allStock = await base44.asServiceRole.entities.PartStock.list(undefined, 100000);
 
     // Group by "part_sku/warehouse_id"
     const groups = new Map();
