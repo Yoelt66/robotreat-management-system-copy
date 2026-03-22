@@ -118,11 +118,11 @@ const parseImportedDate = (dateString) => {
 };
 
 const preImportServiceCalls = async () => {
-    const [clients, users, devices] = await Promise.all([Client.list(), User.list(), Device.list()]);
+    const [customers, users, serviceUnits] = await Promise.all([Customer.list(), User.list(), ServiceUnit.list()]);
     return { 
-        clientMap: new Map(clients.map(c => [c.name, c])),
+        customerMap: new Map(customers.map(c => [c.name, c])),
         userMap: new Map(users.map(u => [u.email, u])),
-        deviceMap: new Map(devices.map(d => [`${d.client_id}:${d.name}`, d]))
+        serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name}`, su]))
     };
 };
 const mapServiceCallRow = (row, { clientMap, userMap, deviceMap }) => {
