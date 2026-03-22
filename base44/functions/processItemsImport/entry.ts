@@ -398,21 +398,11 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Build stock updates list
+        // Build stock updates list using safe upsert (prevents duplicates)
         const stockOps = allWarehouses.map(wh => {
           if (!mappedFieldKeys.has(wh.warehouse_id)) return null; // skip unmapped warehouses
-          const rawValue = f[wh.warehouse_id];
-          const newQty = parseNum(rawValue); // empty → 0
-          const existingStock = stockLookup.get(`${sku}/${wh.warehouse_id}`);
-
-          if (existingStock) {
-            if (existingStock.quantity !== newQty) {
-              return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty }));
-            }
-          } else {
-            return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }));
-          }
-          return null;
+          const newQty = parseNum(f[wh.warehouse_id]); // empty → 0
+          return upsertStock(sku, wh.warehouse_id, newQty);
         }).filter(Boolean);
 
         // All updates in parallel
