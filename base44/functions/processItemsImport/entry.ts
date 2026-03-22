@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 import * as XLSX from 'npm:xlsx@0.18.5';
 
 const MAX_RETRIES = 10;
@@ -130,10 +130,10 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Category.list()).catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Warehouse.list()).catch(() => []),
       apiCallWithRetry(() => base44.asServiceRole.entities.Unit.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list()).catch(() => []),
-      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list()).catch(() => [])
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.list(undefined, 10000)).catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.list(undefined, 10000)).catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.list(undefined, 10000)).catch(() => []),
+      apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.list(undefined, 50000)).catch(() => [])
     ]);
 
     const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
