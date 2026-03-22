@@ -116,27 +116,27 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
     }
   };
 
-  const handleClientChange = async (clientName) => {
-    setSearchValue(clientName);
+  const handleCustomerChange = async (customerName) => {
+    setSearchValue(customerName);
     const updateData = { 
-      client_name: clientName, 
+      client_name: customerName, 
       system: '', 
       device: '', 
       device_id: '', 
       device_type: '',
-      // Clear maintenance procedure selection when client changes
+      // Clear maintenance procedure selection when customer changes
       selected_procedure_id: '',
       selected_procedure_name: '',
       procedure_steps: []
     };
     await onUpdate(updateData);
-    loadDevicesForClient(clientName);
+    loadServiceUnitsForCustomer(customerName);
     setShowDropdown(false);
     checkValidity({ ...data, ...updateData });
   };
 
-  const filteredClients = clients.filter(client => 
-    client.name.toLowerCase().includes(searchValue.toLowerCase())
+  const filteredCustomers = customers.filter(customer => 
+    customer.name.toLowerCase().includes(searchValue.toLowerCase())
   );
 
   const handleClearDevice = () => {
