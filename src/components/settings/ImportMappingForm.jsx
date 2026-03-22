@@ -33,7 +33,6 @@ const generateDefaultMapping = async () => {
     { key: 'import_percentage', label: 'אחוז ייבוא', checked: false, is_required: false },
     { key: 'markup_percentage', label: 'אחוז רווח', checked: false, is_required: false },
     { key: 'manual_sale_price', label: 'מחיר מכירה ידני', checked: false, is_required: false },
-    { key: 'exchange_rate', label: 'שער חליפין', checked: false, is_required: false },
   ];
 
   const warehouseFields = warehouses.map(w => ({
