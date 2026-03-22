@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ServiceCall } from "@/entities/ServiceCall";
-import { Client } from "@/entities/Client";
-import { Device } from "@/entities/Device";
+import { Customer } from "@/entities/Customer";
+import { ServiceUnit } from "@/entities/ServiceUnit";
 import { User } from "@/entities/User";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
