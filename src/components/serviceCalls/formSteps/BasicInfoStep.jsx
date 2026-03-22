@@ -149,13 +149,13 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
     checkValidity({ ...data, ...updateData });
   };
 
-  const handleDeviceSelect = async (deviceName, deviceId, deviceType) => {
-    console.log("Selected device:", { name: deviceName, id: deviceId, type: deviceType });
+  const handleUnitSelect = async (unitName, unitId, unitType) => {
+    console.log("Selected service unit:", { name: unitName, id: unitId, type: unitType });
     const updateData = {
-      device: deviceName,
-      device_id: deviceId,
-      device_type: deviceType,
-      // Clear maintenance procedure selection when device changes
+      device: unitName,
+      device_id: unitId,
+      device_type: unitType,
+      // Clear maintenance procedure selection when unit changes
       selected_procedure_id: '',
       selected_procedure_name: '',
       procedure_steps: []
