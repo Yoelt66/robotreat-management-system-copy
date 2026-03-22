@@ -277,16 +277,8 @@ export default function WarehouseSettings() {
         
         const newWarehouse = await Warehouse.create(newWarehouseData);
         
-        const updatedWarehouses = await Warehouse.list();
-        
-        await updatePartEntityFile(updatedWarehouses);
-        await addWarehouseColumnToAllParts(newWarehouse.warehouse_id, data.name);
+        await addWarehouseColumnToAllParts(newWarehouse.warehouse_id);
         await syncWarehouseToImportMappings(newWarehouse.warehouse_id, data.name);
-        
-        toast({ 
-          title: "מחסן חדש נוסף",
-          description: `מחסן ${data.name} נוסף ועמודת מלאי נוצרה`
-        });
       }
       
       setShowForm(false);
