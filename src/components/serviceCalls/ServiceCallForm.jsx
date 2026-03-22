@@ -920,7 +920,7 @@ export default function ServiceCallForm({ initialData, onSubmit, onCancel }) {
               </div>
             ) : (
               <div className="space-y-2">
-                {devices.map((device) => (
+                {[...devices].sort((a, b) => a.name?.localeCompare(b.name || "", 'he') || 0).map((device) => (
                   <div
                     key={device.id}
                     onClick={() => {
