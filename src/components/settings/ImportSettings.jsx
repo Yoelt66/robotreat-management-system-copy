@@ -43,10 +43,11 @@ const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "brand_name
 const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מותג", "מספר סידורי", "מיקום"];
 const serviceUnitRequiredFields = ["customer_name", "name"];
 const preImportServiceUnits = async () => {
-    const [customers, serviceUnits] = await Promise.all([Customer.list(), ServiceUnit.list()]);
+    const [customers, serviceUnits, brands] = await Promise.all([Customer.list(), ServiceUnit.list(), UnitBrand.list()]);
     return { 
         customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])),
-        serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su.id]))
+        serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su.id])),
+        brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id]))
     };
 };
 const mapServiceUnitRow = (row, { customerMap, serviceUnitMap }) => {
