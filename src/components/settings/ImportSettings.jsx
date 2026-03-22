@@ -56,10 +56,10 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     const unitNameKey = `${customerId}:${row[1].toLowerCase()}`;
-    const existing = serviceUnitMap.get(unitNameKey);
+    const existingId = serviceUnitMap.get(unitNameKey);
     
     // If unit exists in batch, prevent duplicate
-    if (existing && existing === true) {
+    if (existingId === true) {
         throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
     }
     
@@ -80,11 +80,8 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     
     const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     
-    // Mark unit in batch to prevent duplicates
-    serviceUnitMap.set(unitNameKey, true);
-    
     return {
-        id: existing?.id,
+        id: existingId || undefined,
         customer_id: customerId,
         name: row[1],
         type: row[2] || null,
@@ -583,14 +580,14 @@ export default function ImportSettings() {
                 />
                  <DataImporter 
                     title="ייבוא מכשירים"
-                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות."
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות. מכשירים קיימים יעודכנו אם נמצאו שינויים."
                     entityName="ServiceUnit"
                     templateHeaders={serviceUnitTemplateHeaders}
                     templateDisplayHeaders={serviceUnitTemplateDisplayHeaders}
                     requiredFields={serviceUnitRequiredFields}
                     preImportTask={preImportServiceUnits}
                     mapRowToEntity={mapServiceUnitRow}
-                    entityCreateFn={(batch) => ServiceUnit.bulkCreate(batch)}
+                    entityCreateFn={upsertServiceUnits}
                     icon={HardDrive}
                 />
                 <DataImporter 
