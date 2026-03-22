@@ -11,7 +11,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Paginate to get ALL PartStock records (1000 per page with delays)
+    const body = await req.json().catch(() => ({}));
+    const maxDeletes = body.max_deletes || 200; // process up to 200 deletions per call
+
+    // Fetch all PartStock records with pagination
     const allStock = [];
     const pageSize = 2000;
     let skip = 0;
@@ -21,7 +24,7 @@ Deno.serve(async (req) => {
       allStock.push(...page);
       if (page.length < pageSize) break;
       skip += pageSize;
-      await sleep(300);
+      await sleep(200);
     }
 
     // Group by "part_sku/warehouse_id"
@@ -32,34 +35,45 @@ Deno.serve(async (req) => {
       groups.get(key).push(s);
     }
 
-    // Collect all duplicates to delete
+    // Collect duplicates
     const toDeleteAll = [];
-    const details = [];
+    let duplicateGroups = 0;
 
     for (const [key, records] of groups) {
       if (records.length > 1) {
+        duplicateGroups++;
         records.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
-        const winner = records[0];
-        const toDelete = records.slice(1);
-        toDeleteAll.push(...toDelete);
-        details.push({ key, kept_quantity: winner.quantity, deleted_count: toDelete.length });
+        toDeleteAll.push(...records.slice(1));
       }
     }
 
-    // Delete one-by-one with 300ms delay to avoid rate limit
+    // Delete up to maxDeletes records, sequential with small delay
+    const batch = toDeleteAll.slice(0, maxDeletes);
     let deletedCount = 0;
-    for (const dup of toDeleteAll) {
-      await base44.asServiceRole.entities.PartStock.delete(dup.id);
-      deletedCount++;
-      await sleep(300);
+    let errors = 0;
+
+    for (const dup of batch) {
+      try {
+        await base44.asServiceRole.entities.PartStock.delete(dup.id);
+        deletedCount++;
+        await sleep(150);
+      } catch {
+        errors++;
+        await sleep(500); // longer delay on error
+      }
     }
+
+    const remaining = toDeleteAll.length - deletedCount;
 
     return Response.json({
       success: true,
       total_records: allStock.length,
-      duplicates_found: details.length,
-      records_deleted: deletedCount,
-      details
+      duplicate_groups: duplicateGroups,
+      total_to_delete: toDeleteAll.length,
+      deleted_this_run: deletedCount,
+      errors,
+      remaining_to_delete: remaining,
+      done: remaining <= 0
     });
 
   } catch (error) {
