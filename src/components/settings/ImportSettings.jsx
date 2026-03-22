@@ -547,13 +547,13 @@ export default function ImportSettings() {
                  <DataImporter 
                     title="ייבוא מכשירים"
                     description="ייבא רשימת מכשירים ושייך ללקוחות. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
-                    entityName="Device"
-                    templateHeaders={deviceTemplateHeaders}
-                    templateDisplayHeaders={deviceTemplateDisplayHeaders}
-                    requiredFields={deviceRequiredFields}
-                    preImportTask={preImportDevices}
-                    mapRowToEntity={mapDeviceRow}
-                    entityCreateFn={(batch) => Device.bulkCreate(batch)}
+                    entityName="ServiceUnit"
+                    templateHeaders={serviceUnitTemplateHeaders}
+                    templateDisplayHeaders={serviceUnitTemplateDisplayHeaders}
+                    requiredFields={serviceUnitRequiredFields}
+                    preImportTask={preImportServiceUnits}
+                    mapRowToEntity={mapServiceUnitRow}
+                    entityCreateFn={(batch) => ServiceUnit.bulkCreate(batch)}
                     icon={HardDrive}
                 />
                 <DataImporter 
