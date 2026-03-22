@@ -45,10 +45,15 @@ const serviceUnitRequiredFields = ["customer_name", "name"];
 const preImportServiceUnits = async () => {
     const [customers, serviceUnits, brands] = await Promise.all([Customer.list(), ServiceUnit.list(), UnitBrand.list()]);
     const serviceUnitMap = new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su]));
+    const changeDetector = {};
+    for (const su of serviceUnits) {
+        changeDetector[su.id] = su;
+    }
     return { 
         customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])),
         serviceUnitMap,
-        brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id]))
+        brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id])),
+        changeDetector
     };
 };
 const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
@@ -56,10 +61,10 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     const unitNameKey = `${customerId}:${row[1].toLowerCase()}`;
-    const existingId = serviceUnitMap.get(unitNameKey);
+    const existing = serviceUnitMap.get(unitNameKey);
     
     // If unit exists in batch, prevent duplicate
-    if (existingId === true) {
+    if (existing && existing === true) {
         throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
     }
     
@@ -80,8 +85,11 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     
     const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     
+    // Mark unit in batch to prevent duplicates
+    serviceUnitMap.set(unitNameKey, true);
+    
     return {
-        id: existingId || undefined,
+        id: existing?.id,
         customer_id: customerId,
         name: row[1],
         type: row[2] || null,
@@ -580,14 +588,14 @@ export default function ImportSettings() {
                 />
                  <DataImporter 
                     title="ייבוא מכשירים"
-                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות. מכשירים קיימים יעודכנו אם נמצאו שינויים."
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות."
                     entityName="ServiceUnit"
                     templateHeaders={serviceUnitTemplateHeaders}
                     templateDisplayHeaders={serviceUnitTemplateDisplayHeaders}
                     requiredFields={serviceUnitRequiredFields}
                     preImportTask={preImportServiceUnits}
                     mapRowToEntity={mapServiceUnitRow}
-                    entityCreateFn={upsertServiceUnits}
+                    entityCreateFn={(batch) => ServiceUnit.bulkCreate(batch)}
                     icon={HardDrive}
                 />
                 <DataImporter 
