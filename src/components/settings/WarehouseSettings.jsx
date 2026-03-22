@@ -4,14 +4,13 @@ import { PartStock } from "@/entities/PartStock";
 import { ImportMapping } from "@/entities/ImportMapping";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -47,7 +46,6 @@ export default function WarehouseSettings() {
         PartStock.list()
       ]);
       setPartsData(partsList);
-      // Ensure all existing warehouses are in import mappings (fire & forget)
       if (warehousesData && warehousesData.length > 0) {
         ensureAllWarehousesInMappings(warehousesData).catch(console.error);
       }
@@ -62,10 +60,7 @@ export default function WarehouseSettings() {
   const loadWarehouses = async () => {
     try {
       let warehousesData = await Warehouse.list();
-      
-      // Sort warehouses by number
       warehousesData.sort((a, b) => (a.number || 0) - (b.number || 0));
-      
       setWarehouses(warehousesData);
       setError("");
       return warehousesData;
@@ -97,14 +92,12 @@ export default function WarehouseSettings() {
     }
   };
 
-  const removeWarehouseColumnFromAllParts = async (warehouseId, warehouseName) => {
+  const removeWarehouseColumnFromAllParts = async (warehouseId) => {
     try {
-      // PartStock records have warehouse_id field - delete all records for this warehouse
       const warehouseStockRecords = await PartStock.filter({ warehouse_id: warehouseId });
-      
       let removedCount = 0;
       let errorCount = 0;
-      
+
       const batchSize = 5;
       for (let i = 0; i < warehouseStockRecords.length; i += batchSize) {
         const batch = warehouseStockRecords.slice(i, i + batchSize);
@@ -119,7 +112,7 @@ export default function WarehouseSettings() {
         }));
         await new Promise(resolve => setTimeout(resolve, 200));
       }
-      
+
       if (errorCount > 0) {
         toast({
           variant: "destructive",
@@ -127,7 +120,6 @@ export default function WarehouseSettings() {
           description: `${removedCount} רשומות נמחקו, ${errorCount} שגיאות`
         });
       }
-      
     } catch (error) {
       console.error("Error removing warehouse stock records:", error);
       toast({
@@ -146,12 +138,10 @@ export default function WarehouseSettings() {
         const exists = fields.some(f => f.key === warehouseId);
 
         if (!remove && !exists) {
-          // Add warehouse field to mapping
           const maxColumn = fields.filter(f => f.checked && f.column).reduce((max, f) => Math.max(max, f.column || 0), 0);
           const newField = { key: warehouseId, label: `מלאי: ${warehouseName}`, checked: true, is_required: false, column: maxColumn + 1 };
           await ImportMapping.update(mapping.id, { mapping: [...fields, newField] });
         } else if (remove && exists) {
-          // Remove warehouse field from mapping
           const updatedFields = fields.filter(f => f.key !== warehouseId);
           await ImportMapping.update(mapping.id, { mapping: updatedFields });
         }
@@ -194,21 +184,14 @@ export default function WarehouseSettings() {
         toast({ title: "המחסן עודכן בהצלחה" });
       } else {
         const warehouseId = `WH-${String(data.number).padStart(3, '0')}`;
-        const newWarehouseData = {
-          ...data,
-          warehouse_id: warehouseId
-        };
-        
+        const newWarehouseData = { ...data, warehouse_id: warehouseId };
         const newWarehouse = await Warehouse.create(newWarehouseData);
-        
         await addWarehouseColumnToAllParts(newWarehouse.warehouse_id);
         await syncWarehouseToImportMappings(newWarehouse.warehouse_id, data.name);
       }
-      
       setShowForm(false);
       setSelectedWarehouse(null);
       await loadData();
-      
     } catch (error) {
       console.error("Error saving warehouse:", error);
       toast({
@@ -228,22 +211,19 @@ export default function WarehouseSettings() {
 
   const handleDeleteWarehouse = async () => {
     if (!warehouseToDelete || isDeleting) return;
-    
-    const target = warehouseToDelete;
+
     setIsDeleting(true);
-    setWarehouseToDelete(null);
-    
     try {
-      await removeWarehouseColumnFromAllParts(target.warehouse_id, target.name);
-      await syncWarehouseToImportMappings(target.warehouse_id, target.name, true);
-      await Warehouse.delete(target.id);
+      await removeWarehouseColumnFromAllParts(warehouseToDelete.warehouse_id);
+      await syncWarehouseToImportMappings(warehouseToDelete.warehouse_id, warehouseToDelete.name, true);
+      await Warehouse.delete(warehouseToDelete.id);
+      setWarehouseToDelete(null);
       await loadData();
-      
     } catch (error) {
       console.error("Error deleting warehouse:", error);
       toast({
         variant: "destructive",
-        title: "שגיאה במחיקת המחסן", 
+        title: "שגיאה במחיקת המחסן",
         description: error.message || "אירעה שגיאה לא צפויה"
       });
     } finally {
@@ -273,14 +253,14 @@ export default function WarehouseSettings() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>ניהול מחסנים</CardTitle>
-        <Button 
+        <Button
           onClick={() => {
             setSelectedWarehouse(null);
             setShowForm(true);
           }}
           disabled={isCreating || loading}
         >
-          <Plus className="w-4 h-4 ml-2" /> 
+          <Plus className="w-4 h-4 ml-2" />
           {isCreating ? "יוצר מחסן..." : "הוסף מחסן"}
         </Button>
       </CardHeader>
@@ -311,7 +291,7 @@ export default function WarehouseSettings() {
               setShowForm(false);
               setSelectedWarehouse(null);
             }}
-            onDelete={selectedWarehouse && isWarehouseEmpty(selectedWarehouse) ? 
+            onDelete={selectedWarehouse && isWarehouseEmpty(selectedWarehouse) ?
               () => { setShowForm(false); setWarehouseToDelete(selectedWarehouse); } : null
             }
             loading={isCreating}
@@ -347,7 +327,7 @@ export default function WarehouseSettings() {
                 filteredWarehouses.map((warehouse) => {
                   const isEmpty = isWarehouseEmpty(warehouse);
                   const stockCount = getWarehouseStockCount(warehouse);
-                  
+
                   return (
                     <TableRow key={warehouse.id}>
                       <TableCell className="text-center">
@@ -404,7 +384,10 @@ export default function WarehouseSettings() {
           </Table>
         </div>
 
-        <AlertDialog open={!!warehouseToDelete} onOpenChange={(open) => { if (!open) setWarehouseToDelete(null); }}>
+        <AlertDialog
+          open={!!warehouseToDelete}
+          onOpenChange={(open) => { if (!open && !isDeleting) setWarehouseToDelete(null); }}
+        >
           <AlertDialogContent dir="rtl">
             <AlertDialogHeader>
               <AlertDialogTitle>אישור מחיקת מחסן</AlertDialogTitle>
@@ -414,13 +397,23 @@ export default function WarehouseSettings() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>ביטול</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
               <Button
                 onClick={handleDeleteWarehouse}
                 className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={isDeleting}
               >
-                <Trash2 className="h-4 w-4 ml-2" />
-                מחק מחסן
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                    מוחק...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4 ml-2" />
+                    מחק מחסן
+                  </>
+                )}
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
