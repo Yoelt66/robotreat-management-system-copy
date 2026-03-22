@@ -363,28 +363,25 @@ export default function Import() {
   };
   
   const analyzeChanges = async () => {
-    if (data.length === 0) {
-      alert('אין נתונים לייבוא');
-      return;
-    }
-    if (!selectedMapping) {
-      alert('יש לבחור תבנית מיפוי');
-      return;
-    }
+   if (data.length === 0) {
+     alert('אין נתונים לייבוא');
+     return;
+   }
+   if (!selectedMapping) {
+     alert('יש לבחור תבנית מיפוי');
+     return;
+   }
 
-    setIsAnalyzing(true);
-    addLog('מתחיל ניתוח שינויים בצד הלקוח...', 'info');
+   setIsAnalyzing(true);
+   addLog('מתחיל ניתוח שינויים בצד הלקוח...', 'info');
 
-    try {
-      // Load all existing parts data from entities
-      addLog('טוען נתוני מערכת קיימים...', 'info');
-      const [clientsData, allWarehouses] = await Promise.all([
-        base44.entities.Client.list(),
-        base44.entities.Warehouse.list()
-      ]);
+   try {
+     // Load all existing clients
+     addLog('טוען נתוני מערכת קיימים...', 'info');
+     const clientsData = await base44.entities.Client.list();
 
-      addLog(`נטענו ${clientsData.length} לקוחות קיימים`, 'info');
-      setReferenceData(prev => ({ ...prev, clients: clientsData }));
+     addLog(`נטענו ${clientsData.length} לקוחות קיימים`, 'info');
+     setReferenceData(prev => ({ ...prev, clients: clientsData }));
 
       // Analyze each row
       const sortedActiveFields = fieldMapping
