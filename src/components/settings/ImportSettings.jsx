@@ -12,14 +12,31 @@ import DataImporter from "./import/DataImporter";
 const customerTemplateHeaders = ["name", "company", "phone", "email", "address", "notes"];
 const customerTemplateDisplayHeaders = ["שם", "חברה", "טלפון", "אימייל", "כתובת", "הערות"];
 const customerRequiredFields = ["name", "phone"];
-const mapCustomerRow = (row) => ({
-  name: row[0],
-  company: row[1] || null,
-  phone: row[2],
-  email: row[3] || null,
-  address: row[4] || null,
-  notes: row[5] || null,
-});
+const preImportCustomers = async () => {
+    const customers = await Customer.list();
+    return { customerNameMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])) };
+};
+const mapCustomerRow = (row, { customerNameMap }) => {
+  const name = row[0];
+  const nameKey = name.toLowerCase();
+  
+  // Check for duplicates
+  if (customerNameMap.has(nameKey)) {
+    throw new Error(`שם הלקוח "${name}" כבר קיים במערכת.`);
+  }
+  
+  // Add to map to prevent duplicates within the same batch
+  customerNameMap.set(nameKey, true);
+  
+  return {
+    name: name,
+    company: row[1] || null,
+    phone: row[2],
+    email: row[3] || null,
+    address: row[4] || null,
+    notes: row[5] || null,
+  };
+};
 
 // ServiceUnit import configuration
 const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "serial_number", "location"];
