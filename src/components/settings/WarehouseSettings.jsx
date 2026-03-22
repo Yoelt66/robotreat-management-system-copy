@@ -386,7 +386,7 @@ export default function WarehouseSettings() {
                               variant="ghost"
                               size="sm"
                               className="text-red-500 hover:text-red-600"
-                              onClick={() => { warehouseToDeleteRef.current = warehouse; setWarehouseToDelete(warehouse); }}
+                              onClick={() => setWarehouseToDelete(warehouse)}
                               disabled={loading || isCreating}
                             >
                               <Trash2 className="h-4 w-4" />
