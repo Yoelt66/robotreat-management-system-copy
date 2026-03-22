@@ -9,7 +9,17 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const allStock = await base44.asServiceRole.entities.PartStock.list(undefined, 100000);
+    // Paginate to get ALL PartStock records
+    const allStock = [];
+    const pageSize = 5000;
+    let skip = 0;
+    while (true) {
+      const page = await base44.asServiceRole.entities.PartStock.list(undefined, pageSize, skip);
+      if (!page || page.length === 0) break;
+      allStock.push(...page);
+      if (page.length < pageSize) break;
+      skip += pageSize;
+    }
 
     // Group by "part_sku/warehouse_id"
     const groups = new Map();
@@ -38,7 +48,7 @@ Deno.serve(async (req) => {
           key,
           kept_id: winner.id,
           kept_quantity: winner.quantity,
-          deleted: toDelete.map(d => ({ id: d.id, quantity: d.quantity }))
+          deleted_count: toDelete.length
         });
       }
     }
