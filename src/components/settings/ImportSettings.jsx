@@ -43,12 +43,23 @@ const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "serial_num
 const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
 const serviceUnitRequiredFields = ["customer_name", "name"];
 const preImportServiceUnits = async () => {
-    const customers = await Customer.list();
-    return { customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])) };
+    const [customers, serviceUnits] = await Promise.all([Customer.list(), ServiceUnit.list()]);
+    return { 
+        customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])),
+        serviceUnitMap: new Map(serviceUnits.map(su => [`${su.customer_id}:${su.name.toLowerCase()}`, su.id]))
+    };
 };
-const mapServiceUnitRow = (row, { customerMap }) => {
+const mapServiceUnitRow = (row, { customerMap, serviceUnitMap }) => {
     const customerId = customerMap.get(row[0].toLowerCase());
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
+    
+    const unitNameKey = `${customerId}:${row[1].toLowerCase()}`;
+    if (serviceUnitMap.has(unitNameKey)) {
+        throw new Error(`מכשיר עם שם "${row[1]}" כבר קיים ללקוח "${row[0]}".`);
+    }
+    
+    // Add to map to prevent duplicates within the same batch
+    serviceUnitMap.set(unitNameKey, true);
     
     // Normalize input by replacing spaces with underscores
     const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
