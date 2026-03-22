@@ -233,14 +233,14 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
             />
             {showDropdown && searchValue && (
               <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border max-h-60 overflow-auto">
-                {filteredClients.length > 0 ? (
-                  filteredClients.map((client) => (
+                {filteredCustomers.length > 0 ? (
+                  filteredCustomers.map((customer) => (
                     <div
-                      key={client.id}
+                      key={customer.id}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => handleClientChange(client.name)}
+                      onClick={() => handleCustomerChange(customer.name)}
                     >
-                      {client.name}
+                      {customer.name}
                     </div>
                   ))
                 ) : (
