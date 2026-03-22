@@ -1,5 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -29,28 +31,28 @@ Deno.serve(async (req) => {
       groups.get(key).push(s);
     }
 
-    let deletedCount = 0;
+    // Collect all duplicates to delete
+    const toDeleteAll = [];
     const details = [];
 
     for (const [key, records] of groups) {
       if (records.length > 1) {
-        // Keep the record with the highest quantity, delete the rest
         records.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
         const winner = records[0];
         const toDelete = records.slice(1);
-
-        for (const dup of toDelete) {
-          await base44.asServiceRole.entities.PartStock.delete(dup.id);
-          deletedCount++;
-        }
-
-        details.push({
-          key,
-          kept_id: winner.id,
-          kept_quantity: winner.quantity,
-          deleted_count: toDelete.length
-        });
+        toDeleteAll.push(...toDelete);
+        details.push({ key, kept_quantity: winner.quantity, deleted_count: toDelete.length });
       }
+    }
+
+    // Delete in batches of 5 with 200ms delay to avoid rate limit
+    let deletedCount = 0;
+    const batchSize = 5;
+    for (let i = 0; i < toDeleteAll.length; i += batchSize) {
+      const batch = toDeleteAll.slice(i, i + batchSize);
+      await Promise.all(batch.map(dup => base44.asServiceRole.entities.PartStock.delete(dup.id)));
+      deletedCount += batch.length;
+      if (i + batchSize < toDeleteAll.length) await sleep(200);
     }
 
     return Response.json({
