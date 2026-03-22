@@ -180,11 +180,11 @@ const mapServiceCallRow = (row, { customerMap, userMap, serviceUnitMap }) => {
 
     return {
         call_number: rowData.call_number,
-        client_name: client.name,
-        client_phone: client.phone,
-        device: device ? device.name : null,
-        device_id: device ? device.id : null,
-        device_type: device ? device.type : null,
+        client_name: customer.name,
+        client_phone: customer.phone,
+        device: serviceUnit ? serviceUnit.name : null,
+        device_id: serviceUnit ? serviceUnit.id : null,
+        device_type: serviceUnit ? serviceUnit.type : null,
         location: rowData.location,
         status: status,
         service_type: serviceType,
