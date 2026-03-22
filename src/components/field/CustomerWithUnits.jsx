@@ -101,7 +101,7 @@ export default function CustomerWithUnits({
                         {unit.type ? ` · ${unit.type}` : ""}
                       </div>
                       <div className="text-slate-400 text-xs">
-                        {unit.serial_number ? `ס"נ: ${unit.serial_number}` : "ללא מ"ס"}
+                        {unit.serial_number ? `ס"נ: ${unit.serial_number}` : 'ללא מ"ס'}
                       </div>
                       <div className="text-slate-400 text-xs flex items-center gap-1">
                         <Settings2 className="h-3 w-3" />
