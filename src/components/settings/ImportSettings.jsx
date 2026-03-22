@@ -75,6 +75,8 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
     const hebrewDeviceTypeMap = {
       "מיכל_חלב": "Milk_tank",
       "מערכת_אחרת": "other",
+      "כללי": "other",
+      "מחשב": "other",
       "CRS+": "CRS",
     };
 
