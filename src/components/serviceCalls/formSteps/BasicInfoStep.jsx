@@ -274,7 +274,7 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
                    </SelectTrigger>
                    <SelectContent>
                      {serviceUnits.length > 0 ? (
-                       serviceUnits.map((unit) => (
+                       [...serviceUnits].sort((a, b) => a.name?.localeCompare(b.name || "", 'he') || 0).map((unit) => (
                          <SelectItem key={unit.id} value={unit.name}>
                            {unit.name} {unit.type && deviceTypeLabels[unit.type] ? `- ${deviceTypeLabels[unit.type]}` : ''}
                          </SelectItem>
