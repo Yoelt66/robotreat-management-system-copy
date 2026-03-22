@@ -263,6 +263,54 @@ export default function WarehouseSettings() {
     }
   };
 
+  const syncWarehouseToImportMappings = async (warehouseId, warehouseName, remove = false) => {
+    try {
+      const mappings = await ImportMapping.list();
+      for (const mapping of mappings) {
+        const fields = Array.isArray(mapping.mapping) ? mapping.mapping : [];
+        const exists = fields.some(f => f.key === warehouseId);
+
+        if (!remove && !exists) {
+          // Add warehouse field to mapping
+          const maxColumn = fields.filter(f => f.checked && f.column).reduce((max, f) => Math.max(max, f.column || 0), 0);
+          const newField = { key: warehouseId, label: `מלאי: ${warehouseName}`, checked: true, is_required: false, column: maxColumn + 1 };
+          await ImportMapping.update(mapping.id, { mapping: [...fields, newField] });
+        } else if (remove && exists) {
+          // Remove warehouse field from mapping
+          const updatedFields = fields.filter(f => f.key !== warehouseId);
+          await ImportMapping.update(mapping.id, { mapping: updatedFields });
+        }
+      }
+    } catch (err) {
+      console.error("Error syncing warehouse to import mappings:", err);
+    }
+  };
+
+  const ensureAllWarehousesInMappings = async (allWarehouses) => {
+    try {
+      const mappings = await ImportMapping.list();
+      for (const mapping of mappings) {
+        const fields = Array.isArray(mapping.mapping) ? mapping.mapping : [];
+        let updated = [...fields];
+        let changed = false;
+        let maxColumn = fields.filter(f => f.checked && f.column).reduce((max, f) => Math.max(max, f.column || 0), 0);
+
+        for (const wh of allWarehouses) {
+          if (!updated.some(f => f.key === wh.warehouse_id)) {
+            maxColumn++;
+            updated.push({ key: wh.warehouse_id, label: `מלאי: ${wh.name}`, checked: true, is_required: false, column: maxColumn });
+            changed = true;
+          }
+        }
+        if (changed) {
+          await ImportMapping.update(mapping.id, { mapping: updated });
+        }
+      }
+    } catch (err) {
+      console.error("Error ensuring warehouses in mappings:", err);
+    }
+  };
+
   const handleSubmit = async (data) => {
     setIsCreating(true);
     try {
@@ -276,14 +324,13 @@ export default function WarehouseSettings() {
           warehouse_id: warehouseId
         };
         
-        console.log("Creating new warehouse:", newWarehouseData);
         const newWarehouse = await Warehouse.create(newWarehouseData);
         
         const updatedWarehouses = await Warehouse.list();
-        console.log("Updated warehouses list:", updatedWarehouses);
         
         await updatePartEntityFile(updatedWarehouses);
         await addWarehouseColumnToAllParts(newWarehouse.warehouse_id, data.name);
+        await syncWarehouseToImportMappings(newWarehouse.warehouse_id, data.name);
         
         toast({ 
           title: "מחסן חדש נוסף",
