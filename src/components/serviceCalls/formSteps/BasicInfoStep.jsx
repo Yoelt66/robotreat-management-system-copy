@@ -29,20 +29,20 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [clientsList, currentUserData, usersList] = await Promise.all([
-          Client.list(),
+        const [customersList, currentUserData, usersList] = await Promise.all([
+          Customer.list(),
           User.me(),
           User.list().catch(() => [])
         ]);
         
-        setClients(clientsList || []);
+        setCustomers(customersList || []);
         setCurrentUser(currentUserData);
         // Ensure usersList includes the current user if not already present or if the list is empty
         const finalUsersList = usersList && usersList.length > 0 ? usersList : [currentUserData].filter(Boolean);
         setUsers(finalUsersList);
         
         if (data.client_name) {
-          await loadDevicesForClient(data.client_name, clientsList);
+          await loadServiceUnitsForCustomer(data.client_name, customersList);
         }
         
         // Set default technician to current user if no technician is assigned
