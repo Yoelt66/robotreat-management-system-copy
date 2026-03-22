@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       logs.push({ message, type, timestamp: new Date().toISOString() });
     };
 
-    addLog(`מתחיל עיבוד קובץ (MAX_RETRIES=${MAX_RETRIES}, CONCURRENCY=${CONCURRENCY})...`, 'info');
+    addLog(`מתחיל עיבוד קובץ לייבוא מכשירים (MAX_RETRIES=${MAX_RETRIES}, CONCURRENCY=${CONCURRENCY})...`, 'info');
 
     const fileResponse = await fetch(file_url);
     if (!fileResponse.ok) throw new Error('Failed to fetch file from URL');
