@@ -50,7 +50,7 @@ const preImportServiceUnits = async () => {
         brandMap: new Map(brands.map(b => [b.name.toLowerCase(), b.id]))
     };
 };
-const mapServiceUnitRow = (row, { customerMap, serviceUnitMap }) => {
+const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     const customerId = customerMap.get(row[0].toLowerCase());
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
@@ -78,12 +78,15 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap }) => {
     const validTypes = ["Astronaut_A3", "Astronaut_A3N", "Astronaut_A4", "Delaval_2008", "Delaval_2011", "Milk_tank", "CRS", "Juno_100", "Juno_150", "Luna", "other"];
     if (!validTypes.includes(deviceType)) throw new Error(`שורה ${row.join(',')}: סוג מכשיר לא תקין: ${row[2]}`);
     
+    const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
+    
     return {
         customer_id: customerId,
         name: row[1],
         type: row[2] || null,
-        serial_number: row[3] || null,
-        location: row[4] || null,
+        brand_id: brandId || null,
+        serial_number: row[4] || null,
+        location: row[5] || null,
     };
 };
 
