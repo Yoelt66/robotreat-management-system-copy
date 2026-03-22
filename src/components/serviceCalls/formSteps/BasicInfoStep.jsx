@@ -74,30 +74,30 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadDevicesForClient = async (clientName, clientsList = clients) => {
+  const loadServiceUnitsForCustomer = async (customerName, customersList = customers) => {
     try {
-      const selectedClient = clientsList.find(c => c.name === clientName);
-      if (selectedClient) {
-        const clientDevices = await Device.filter({ client_id: selectedClient.id });
-        setDevices(clientDevices || []);
+      const selectedCustomer = customersList.find(c => c.name === customerName);
+      if (selectedCustomer) {
+        const customerUnits = await ServiceUnit.filter({ customer_id: selectedCustomer.id });
+        setServiceUnits(customerUnits || []);
         
-        if (data.device_id && data.device && !clientDevices.some(d => d.id === data.device_id)) {
+        if (data.device_id && data.device && !customerUnits.some(u => u.id === data.device_id)) {
           try {
             setIsDeviceLoading(true);
-            const deviceData = await Device.get(data.device_id);
-            if (deviceData) {
-              setDevices(prev => [...prev, deviceData]);
+            const unitData = await ServiceUnit.get(data.device_id);
+            if (unitData) {
+              setServiceUnits(prev => [...prev, unitData]);
             }
-          } catch (deviceError) {
-            console.error("Could not load specific device:", deviceError);
+          } catch (unitError) {
+            console.error("Could not load specific unit:", unitError);
           } finally {
             setIsDeviceLoading(false);
           }
         }
       }
     } catch (error) {
-      console.error("Error loading devices:", error);
-      setDevices([]);
+      console.error("Error loading service units:", error);
+      setServiceUnits([]);
     }
   };
 
