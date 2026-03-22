@@ -30,39 +30,12 @@ export default function CustomersPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [customersData, unitsData, brandsData, typesData, devicesData, clientsData] = await Promise.all([
+      const [customersData, unitsData, brandsData, typesData] = await Promise.all([
         base44.entities.Customer.list(),
         base44.entities.ServiceUnit.list(),
         base44.entities.UnitBrand.list(),
         base44.entities.MaintenanceType.list(),
-        base44.entities.Device?.list?.() || [],
-        base44.entities.Client?.list?.() || [],
       ]);
-
-      // Migrate Device records to ServiceUnit if needed
-      if (devicesData?.length > 0 && clientsData?.length > 0) {
-        const clientToCustomerMap = new Map();
-        customersData.forEach(c => {
-          const matchingClient = clientsData.find(cl => cl.name === c.name);
-          if (matchingClient) clientToCustomerMap.set(matchingClient.id, c.id);
-        });
-
-        for (const device of devicesData) {
-          const customerId = clientToCustomerMap.get(device.client_id);
-          if (customerId && !unitsData.find(u => u.serial_number === device.serial_number)) {
-            try {
-              await base44.entities.ServiceUnit.create({
-                customer_id: customerId,
-                name: device.name,
-                type: device.type,
-                serial_number: device.serial_number,
-              });
-            } catch (err) {
-              console.warn(`Failed to migrate device ${device.serial_number}:`, err);
-            }
-          }
-        }
-      }
 
       setCustomers(customersData || []);
       setUnits(unitsData || []);
