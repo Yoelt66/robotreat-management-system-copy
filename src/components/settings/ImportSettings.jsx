@@ -648,17 +648,17 @@ export default function ImportSettings() {
                         const creates = batch.filter(b => !b.id);
                         const updates = batch.filter(b => b.id);
                         if (creates.length > 0) {
-                            const batchSize = 3;
+                            const batchSize = 5;
                             for (let i = 0; i < creates.length; i += batchSize) {
                                 const chunk = creates.slice(i, i + batchSize);
-                                await ServiceUnit.bulkCreate(chunk);
-                                if (i + batchSize < creates.length) await sleep(500);
+                                await retryWithBackoff(() => ServiceUnit.bulkCreate(chunk));
+                                if (i + batchSize < creates.length) await sleep(50);
                             }
                         }
                         if (updates.length > 0) {
                             for (const u of updates) {
-                                await ServiceUnit.update(u.id, u);
-                                await sleep(300);
+                                await retryWithBackoff(() => ServiceUnit.update(u.id, u));
+                                await sleep(50);
                             }
                         }
                     }}
