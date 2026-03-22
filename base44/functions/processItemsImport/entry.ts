@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
           else if (typeof value === 'string') { value = value.trim(); if (value === '') value = null; }
           formattedRow[field.key] = value;
         });
-        if (!formattedRow.sku) return null;
-        return { sku: formattedRow.sku, name: formattedRow.name || 'לא מוגדר', type: 'update', shouldUpdate: true, changes: ['תצוגה מקדימה'] };
+        if (!formattedRow.client_name) return null;
+        return { sku: formattedRow.client_name, name: formattedRow.client_name || 'לא מוגדר', type: 'update', shouldUpdate: true, changes: ['תצוגה מקדימה'] };
       }).filter(Boolean);
 
       return Response.json({ success: true, preview: true, changes, stats: { created: 0, updated: 0, errors: 0, total: changes.length }, failed_skus: [], logs });
