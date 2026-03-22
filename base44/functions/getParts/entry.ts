@@ -9,12 +9,12 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Fetch all data from split entities in parallel
+        // Fetch all data from split entities in parallel (high limit to get all records)
         const [cores, pricings, suppliers, stocks] = await Promise.all([
-            base44.asServiceRole.entities.PartCore.list(),
-            base44.asServiceRole.entities.PartPricing.list(),
-            base44.asServiceRole.entities.PartSupplier.list(),
-            base44.asServiceRole.entities.PartStock.list()
+            base44.asServiceRole.entities.PartCore.list(undefined, 10000),
+            base44.asServiceRole.entities.PartPricing.list(undefined, 10000),
+            base44.asServiceRole.entities.PartSupplier.list(undefined, 10000),
+            base44.asServiceRole.entities.PartStock.list(undefined, 50000)
         ]);
 
         // Create lookup maps for efficient joining
