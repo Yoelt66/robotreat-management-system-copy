@@ -33,10 +33,10 @@ export default function ServiceCalls() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [callsData, clientsData, devicesData, usersData, userData] = await Promise.all([
+      const [callsData, customersData, serviceUnitsData, usersData, userData] = await Promise.all([
         ServiceCall.list(),
-        Client.list(),
-        Device.list(),
+        Customer.list(),
+        ServiceUnit.list(),
         User.list(),
         User.me().catch(() => null)
       ]);
@@ -50,8 +50,8 @@ export default function ServiceCalls() {
       });
 
       setServiceCalls(sortedCalls);
-      setClients(clientsData || []);
-      setDevices(devicesData || []);
+      setCustomers(customersData || []);
+      setServiceUnits(serviceUnitsData || []);
       setUsers(usersData || []);
       setCurrentUser(userData);
     } catch (error) {
