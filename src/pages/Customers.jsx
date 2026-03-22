@@ -124,7 +124,9 @@ export default function CustomersPage() {
     c.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getCustomerUnits = (customerId) => units.filter(u => u.customer_id === customerId);
+  const getCustomerUnits = (customerId) => units
+    .filter(u => u.customer_id === customerId)
+    .sort((a, b) => b.name?.localeCompare(a.name || "", 'he') || 0);
 
   if (loading) {
     return (

@@ -75,12 +75,14 @@ export default function ServiceUnitsPage() {
   const getBrandName = (id) => unitBrands.find(b => b.id === id)?.name || "-";
   const getCustomerName = (id) => customers.find(c => c.id === id)?.name || "לא ידוע";
 
-  const filtered = units.filter(u => {
-    const matchSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.serial_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchCustomer = filterCustomer === "all" || u.customer_id === filterCustomer;
-    return matchSearch && matchCustomer;
-  });
+  const filtered = units
+    .filter(u => {
+      const matchSearch = u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.serial_number?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCustomer = filterCustomer === "all" || u.customer_id === filterCustomer;
+      return matchSearch && matchCustomer;
+    })
+    .sort((a, b) => b.name?.localeCompare(a.name || "", 'he') || 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>;
 
