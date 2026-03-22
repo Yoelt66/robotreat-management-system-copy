@@ -1023,21 +1023,7 @@ export default function Import() {
           isFinished={isImportFinished}
         />
 
-        {logs.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>יומן ייבוא</CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-60 overflow-y-auto bg-gray-900 text-white font-mono text-sm p-4 rounded-lg">
-              {logs.map((log, index) => (
-                <div key={index} className={`flex items-start gap-3 ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'warn' ? 'text-yellow-400' : 'text-gray-300'}`}>
-                  <span>{log.timestamp.toLocaleTimeString()}</span>
-                  <p className="flex-1">{log.message}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+
 
         {showChangeDetection && (
           <ChangeDetectionModal
