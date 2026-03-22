@@ -1021,6 +1021,7 @@ export default function Import() {
           maxRetries={MAX_RETRIES}
           startTime={importStartTime}
           isFinished={isImportFinished}
+          onClose={() => setShowProgressModal(false)}
         />
 
 
