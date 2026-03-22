@@ -87,9 +87,10 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
     
     // Validate device type against brand's unit_types if brand is specified
     if (brandId && brandData?.unit_types) {
-        const validTypes = brandData.unit_types;
-        if (!validTypes.includes(deviceType) && deviceType !== 'other') {
-            throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${validTypes.join(', ')}`);
+        const validTypes = brandData.unit_types.map(t => t.toLowerCase());
+        const deviceTypeLower = deviceType.toLowerCase();
+        if (!validTypes.includes(deviceTypeLower) && deviceTypeLower !== 'other') {
+            throw new Error(`שורה ${row.join(',')}: סוג מכשיר "${row[2]}" לא קיים עבור מותג "${row[3]}". סוגים תקינים: ${brandData.unit_types.join(', ')}`);
         }
     }
     
