@@ -453,6 +453,12 @@ export default function Import() {
       }
 
       addLog(`ניתוח הושלם: ${changes.length} שינויים זוהו`, 'success');
+
+      // Add logging for validation context
+      if (changes.length === 0) {
+        addLog('⚠️ לא זוהו שינויים. בדוק שלקוחות במערכת תואמים לשמות בקובץ.', 'warn');
+      }
+
       setDetectedChanges(changes);
       setShowChangeDetection(true);
 
