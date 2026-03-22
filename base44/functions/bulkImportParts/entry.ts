@@ -22,11 +22,11 @@ Deno.serve(async (req) => {
         };
 
         // קבלת כל הפריטים הקיימים
-        const existingPartsResponse = await base44.asServiceRole.entities.PartCore.list();
+        const existingPartsResponse = await base44.asServiceRole.entities.PartCore.list(undefined, 10000);
         const existingParts = new Map(existingPartsResponse.map(p => [p.sku, p]));
 
         // קבלת כל המחסנים
-        const warehouses = await base44.asServiceRole.entities.Warehouse.list();
+        const warehouses = await base44.asServiceRole.entities.Warehouse.list(undefined, 1000);
 
         for (const partData of parts) {
             try {
