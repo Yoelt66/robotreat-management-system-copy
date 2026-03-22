@@ -298,9 +298,9 @@ export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
                         "טוען פרטי מערכת..."
                       ) : (
                         (() => {
-                          const selectedDevice = devices.find(d => d.id === data.device_id || d.name === data.device);
-                          return selectedDevice 
-                            ? (deviceTypeLabels[selectedDevice.type] || selectedDevice.type) 
+                          const selectedUnit = serviceUnits.find(u => u.id === data.device_id || u.name === data.device);
+                          return selectedUnit 
+                            ? (deviceTypeLabels[selectedUnit.type] || selectedUnit.type) 
                             : "מערכת";
                         })()
                       )}
