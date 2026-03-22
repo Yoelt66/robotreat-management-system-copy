@@ -294,41 +294,45 @@ const mapServiceCallRow = (row, { customerMap, userMap, serviceUnitMap }) => {
 };
 
 const upsertServiceCalls = async (batch) => {
-    if (!batch || batch.length === 0) return;
+     if (!batch || batch.length === 0) return;
 
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    const callNumbers = batch.map(b => b.call_number).filter(Boolean);
-    
-    const toCreateWithoutNumber = batch.filter(item => !item.call_number);
+     const callNumbers = batch.map(b => b.call_number).filter(Boolean);
 
-    let existingCallsMap = new Map();
-    if (callNumbers.length > 0) {
-        const existingCalls = await ServiceCall.filter({ call_number: { $in: callNumbers } });
-        existingCallsMap = new Map(existingCalls.map(c => [c.call_number, c]));
-    }
+     const toCreateWithoutNumber = batch.filter(item => !item.call_number);
 
-    const toCreate = [...toCreateWithoutNumber];
-    const toUpdate = [];
+     let existingCallsMap = new Map();
+     if (callNumbers.length > 0) {
+         const existingCalls = await ServiceCall.filter({ call_number: { $in: callNumbers } });
+         existingCallsMap = new Map(existingCalls.map(c => [c.call_number, c]));
+     }
 
-    for (const item of batch) {
-        if (!item.call_number) continue; // Already handled
+     const toCreate = [...toCreateWithoutNumber];
+     const toUpdate = [];
 
-        const existing = existingCallsMap.get(item.call_number);
-        if (existing) {
-            toUpdate.push({ id: existing.id, data: item });
-        } else {
-            toCreate.push(item);
-        }
-    }
+     for (const item of batch) {
+         if (!item.call_number) continue; // Already handled
 
-    if (toCreate.length > 0) {
-        await ServiceCall.bulkCreate(toCreate);
-    }
+         const existing = existingCallsMap.get(item.call_number);
+         if (existing) {
+             toUpdate.push({ id: existing.id, data: item });
+         } else {
+             toCreate.push(item);
+         }
+     }
 
-    for (const update of toUpdate) {
-        await ServiceCall.update(update.id, update.data);
-        await sleep(300); // Increased delay to prevent rate limiting
-    }
+     if (toCreate.length > 0) {
+         const batchSize = 5;
+         for (let i = 0; i < toCreate.length; i += batchSize) {
+             const chunk = toCreate.slice(i, i + batchSize);
+             await retryWithBackoff(() => ServiceCall.bulkCreate(chunk));
+             if (i + batchSize < toCreate.length) await sleep(50);
+         }
+     }
+
+     for (const update of toUpdate) {
+         await retryWithBackoff(() => ServiceCall.update(update.id, update.data));
+         await sleep(50);
+     }
 };
 
 
