@@ -63,6 +63,7 @@ export default function ImportProgressModal({
 
         {/* Header */}
         <div className={`p-5 text-white ${isFinished && errorItems === 0 ? 'bg-gradient-to-l from-emerald-600 to-emerald-500' : isFinished && errorItems > 0 ? 'bg-gradient-to-l from-amber-600 to-amber-500' : 'bg-gradient-to-l from-slate-800 to-slate-700'}`}>
+          <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {isFinished ? (
               errorItems === 0
