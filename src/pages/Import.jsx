@@ -440,71 +440,34 @@ export default function Import() {
           c.name?.toLowerCase() === formattedRow.client_name?.toLowerCase()
         );
 
-        if (!existingPart) {
-          // New item
+        if (!existingClient) {
+          // New client
           changes.push({
-            sku: formattedRow.sku,
-            name: formattedRow.name || 'לא מוגדר',
+            sku: formattedRow.client_name,
+            name: formattedRow.client_name || 'לא מוגדר',
             type: 'new',
             shouldUpdate: true,
-            changes: ['יצירה חדשה'],
+            changes: ['יצירת לקוח חדש'],
             newData: formattedRow
           });
         } else {
-          // Existing item - detect changes
+          // Existing client - check for device-related changes
           const itemChanges = [];
-          const numericFields = ['cost_price', 'minimum_stock', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
-          const allFields = [
-            'name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location',
-            'replaced_sku', 'cost_price', 'cost_currency', 'sale_currency',
-            'import_percentage', 'markup_percentage', 'manual_sale_price',
-            'supplier_number', 'supplier_part_number'
-          ];
+          const deviceFields = ['name', 'type', 'serial_number', 'location'];
 
-          allFields.forEach(field => {
+          deviceFields.forEach(field => {
             if (formattedRow[field] !== undefined && formattedRow[field] !== null) {
-              const oldValue = existingPart[field];
               const newValue = formattedRow[field];
-              
-              if (numericFields.includes(field)) {
-                const oldNum = parseFloat(oldValue) || 0;
-                const newNum = parseFloat(newValue) || 0;
-                if (oldNum !== newNum) {
-                  itemChanges.push({ field, old: oldNum, new: newNum });
-                }
-              } else if (String(oldValue || '') !== String(newValue || '')) {
-                itemChanges.push({ field, old: oldValue || 'ריק', new: newValue || 'ריק' });
+              if (newValue && newValue !== '') {
+                itemChanges.push({ field, old: '-', new: newValue });
               }
             }
           });
 
-          // Check stock changes - only for warehouses enabled in field mapping
-            const enabledWarehouseKeys = new Set(
-              sortedActiveFields.filter(f => f.checked).map(f => f.key)
-            );
-
-            allWarehouses.forEach(warehouse => {
-              if (!enabledWarehouseKeys.has(String(warehouse.warehouse_id))) return;
-
-              const stockValue = formattedRow[String(warehouse.warehouse_id)];
-              const currentQuantity = existingPart[warehouse.warehouse_id] || 0;
-
-              if (stockValue !== null && stockValue !== undefined && stockValue !== '') {
-                // Explicit value in file
-                const newQuantity = parseFloat(stockValue) || 0;
-                if (newQuantity !== currentQuantity) {
-                  itemChanges.push({ field: `מלאי ${warehouse.name}`, old: currentQuantity, new: newQuantity });
-                }
-              } else if (currentQuantity !== 0) {
-                // Empty cell but existing stock is not 0 - will be zeroed
-                itemChanges.push({ field: `מלאי ${warehouse.name}`, old: currentQuantity, new: 0 });
-              }
-            });
-
           if (itemChanges.length > 0) {
             changes.push({
-              sku: formattedRow.sku,
-              name: formattedRow.name || existingPart.name,
+              sku: formattedRow.client_name,
+              name: formattedRow.client_name,
               type: 'update',
               shouldUpdate: true,
               changes: itemChanges,
