@@ -310,7 +310,7 @@ export default function WarehouseSettings() {
               setSelectedWarehouse(null);
             }}
             onDelete={selectedWarehouse && isWarehouseEmpty(selectedWarehouse) ? 
-              () => setWarehouseToDelete(selectedWarehouse) : null
+              () => { setShowForm(false); setWarehouseToDelete(selectedWarehouse); } : null
             }
             loading={isCreating}
           />
