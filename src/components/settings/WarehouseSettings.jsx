@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Warehouse } from "@/entities/Warehouse";
 import { PartStock } from "@/entities/PartStock";
 import { ImportMapping } from "@/entities/ImportMapping";
