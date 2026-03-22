@@ -377,50 +377,42 @@ const mapServiceCallPartRow = (row, { serviceCallMap, partMap }) => {
 };
 
 const updateServiceCallsWithParts = async (batch) => {
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    const groupedByCallNumber = batch.reduce((acc, { call_number, part_to_add }) => {
-        if (!acc[call_number]) {
-            acc[call_number] = [];
-        }
-        acc[call_number].push(part_to_add);
-        return acc;
-    }, {});
+     const groupedByCallNumber = batch.reduce((acc, { call_number, part_to_add }) => {
+         if (!acc[call_number]) {
+             acc[call_number] = [];
+         }
+         acc[call_number].push(part_to_add);
+         return acc;
+     }, {});
 
-    const callNumbersToUpdate = Object.keys(groupedByCallNumber);
-    if (callNumbersToUpdate.length === 0) return;
+     const callNumbersToUpdate = Object.keys(groupedByCallNumber);
+     if (callNumbersToUpdate.length === 0) return;
 
-    const serviceCallsToUpdate = await ServiceCall.filter({ call_number: { $in: callNumbersToUpdate } });
-    const serviceCallMap = new Map(serviceCallsToUpdate.map(sc => [sc.call_number, sc]));
+     const serviceCallsToUpdate = await ServiceCall.filter({ call_number: { $in: callNumbersToUpdate } });
+     const serviceCallMap = new Map(serviceCallsToUpdate.map(sc => [sc.call_number, sc]));
 
-    let skippedCount = 0;
-    let updatedCallsCount = 0;
+     for (const callNumber of callNumbersToUpdate) {
+         const serviceCall = serviceCallMap.get(callNumber);
+         if (serviceCall) {
+             const existingParts = serviceCall.parts_used || [];
+             const partsToAddFromCsv = groupedByCallNumber[callNumber];
 
-    for (const callNumber of callNumbersToUpdate) {
-        const serviceCall = serviceCallMap.get(callNumber);
-        if (serviceCall) {
-            const existingParts = serviceCall.parts_used || [];
-            const partsToAddFromCsv = groupedByCallNumber[callNumber];
-            
-            const existingPartSkus = new Set(existingParts.map(p => p.part_number));
-            
-            const newPartsToAdd = partsToAddFromCsv.filter(partToAdd => {
-                if (existingPartSkus.has(partToAdd.part_number)) {
-                    skippedCount++;
-                    return false; // Skip this part, it's a duplicate
-                }
-                return true; // Keep this part, it's new
-            });
+             const existingPartSkus = new Set(existingParts.map(p => p.part_number));
 
-            if (newPartsToAdd.length > 0) {
-                const updatedParts = [...existingParts, ...newPartsToAdd];
-                await ServiceCall.update(serviceCall.id, { parts_used: updatedParts });
-                updatedCallsCount++;
-                await sleep(300); // Add delay to prevent rate limiting
-            }
-        }
-    }
-    
+             const newPartsToAdd = partsToAddFromCsv.filter(partToAdd => {
+                 if (existingPartSkus.has(partToAdd.part_number)) {
+                     return false; // Skip this part, it's a duplicate
+                 }
+                 return true; // Keep this part, it's new
+             });
 
+             if (newPartsToAdd.length > 0) {
+                 const updatedParts = [...existingParts, ...newPartsToAdd];
+                 await retryWithBackoff(() => ServiceCall.update(serviceCall.id, { parts_used: updatedParts }));
+                 await sleep(50);
+             }
+         }
+     }
 };
 
 
