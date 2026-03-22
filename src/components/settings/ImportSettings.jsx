@@ -50,10 +50,10 @@ const mapServiceUnitRow = (row, { customerMap }) => {
     if (!validTypes.includes(deviceType)) throw new Error(`שורה ${row.join(',')}: סוג מכשיר לא תקין: ${row[2]}`);
     
     return {
-        client_id: clientId,
+        customer_id: customerId,
         name: row[1],
-        type: deviceType,
-        serial_number: row[3],
+        type: row[2] || null,
+        serial_number: row[3] || null,
         location: row[4] || null,
     };
 };
