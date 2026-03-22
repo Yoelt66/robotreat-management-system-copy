@@ -211,57 +211,40 @@ export default function WarehouseSettings() {
 
   const removeWarehouseColumnFromAllParts = async (warehouseId, warehouseName) => {
     try {
-      console.log(`Removing warehouse column ${warehouseId} from all part records...`);
-      
-      const allParts = await PartStock.list();
-      console.log(`Found ${allParts.length} part records to update`);
+      // PartStock records have warehouse_id field - delete all records for this warehouse
+      const warehouseStockRecords = await PartStock.filter({ warehouse_id: warehouseId });
       
       let removedCount = 0;
       let errorCount = 0;
       
       const batchSize = 5;
-      for (let i = 0; i < allParts.length; i += batchSize) {
-        const batch = allParts.slice(i, i + batchSize);
-        
-        await Promise.all(batch.map(async (part) => {
+      for (let i = 0; i < warehouseStockRecords.length; i += batchSize) {
+        const batch = warehouseStockRecords.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (record) => {
           try {
-            if (part.hasOwnProperty(warehouseId)) {
-              const updateData = { [warehouseId]: null };
-              await PartStock.update(part.id, updateData);
-              removedCount++;
-              console.log(`Removed ${warehouseId} column from part ${part.id}`);
-            } else {
-              console.log(`Part ${part.id} doesn't have ${warehouseId} column, skipping`);
-            }
+            await PartStock.delete(record.id);
+            removedCount++;
           } catch (error) {
-            console.error(`Failed to remove ${warehouseId} column from part ${part.id}:`, error);
+            console.error(`Failed to delete PartStock record ${record.id}:`, error);
             errorCount++;
           }
         }));
-        
         await new Promise(resolve => setTimeout(resolve, 200));
       }
-      
-      console.log(`Warehouse column removal completed: ${removedCount} updated, ${errorCount} errors`);
       
       if (errorCount > 0) {
         toast({
           variant: "destructive",
-          title: "הסרה חלקית של עמודת מחסן",
-          description: `${removedCount} רשומות עודכנו, ${errorCount} שגיאות`
-        });
-      } else {
-        toast({
-          title: "עמודת מחסן הוסרה",
-          description: `עמודת ${warehouseName} הוסרה מ-${removedCount} רשומות מלאי`
+          title: "הסרה חלקית של מלאי מחסן",
+          description: `${removedCount} רשומות נמחקו, ${errorCount} שגיאות`
         });
       }
       
     } catch (error) {
-      console.error("Error removing warehouse column from parts:", error);
+      console.error("Error removing warehouse stock records:", error);
       toast({
         variant: "destructive",
-        title: "שגיאה בהסרת עמודת מחסן",
+        title: "שגיאה בהסרת מלאי המחסן",
         description: error.message
       });
     }
