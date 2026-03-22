@@ -143,24 +143,17 @@ Deno.serve(async (req) => {
     const clientMap = new Map(clientsData.map(c => [c.name.toLowerCase(), c]));
     addLog(`נטענו ${clientsData.length} לקוחות קיימים`, 'info');
 
-    const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
-    const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
-    const numericCoreFields = ['minimum_stock'];
-    const numericPricingFields = ['cost_price', 'import_percentage', 'markup_percentage', 'manual_sale_price'];
-    const supplierFields = ['supplier_number', 'supplier_part_number'];
-
-    // Parse numeric value: empty/null → 0, round to 2 decimal places
-    const parseNum = (val) => Math.round((parseFloat(val) || 0) * 100) / 100;
+    const deviceFields = ['name', 'type', 'serial_number', 'location'];
     const mappedFieldKeys = new Set(sortedFieldMapping.map(f => f.key));
 
     addLog(`מנתח ${selectedChanges.length} שינויים נבחרים...`, 'info');
 
     const changesToProcess = [];
-    for (const selectedSku of selectedChanges) {
-      const skuStr = String(selectedSku).trim();
-      const rowIndex = skuToRowIndex.get(skuStr);
+    for (const selectedClientName of selectedChanges) {
+      const clientNameStr = String(selectedClientName).trim().toLowerCase();
+      const rowIndex = clientNameToRowIndex.get(clientNameStr);
       if (rowIndex === undefined) {
-        addLog(`לא נמצאה שורה עבור מק"ט ${selectedSku}`, 'warn');
+        addLog(`לא נמצאה שורה עבור לקוח ${selectedClientName}`, 'warn');
         continue;
       }
 
@@ -174,21 +167,10 @@ Deno.serve(async (req) => {
         formattedRow[field.key] = value;
       });
 
-      if (!formattedRow.sku) continue;
+      if (!formattedRow.client_name) continue;
 
-      if (formattedRow.category) {
-        const catSettings = categoryMap.get(formattedRow.category) || allCategories.find(c => c.name === formattedRow.category);
-        if (catSettings) {
-          if (!formattedRow.supplier_number && catSettings.supplier_number) formattedRow.supplier_number = catSettings.supplier_number;
-          if (!formattedRow.cost_currency && catSettings.cost_currency) formattedRow.cost_currency = catSettings.cost_currency;
-          if (!formattedRow.sale_currency && catSettings.sale_currency) formattedRow.sale_currency = catSettings.sale_currency;
-          if (formattedRow.import_percentage == null) formattedRow.import_percentage = catSettings.import_percentage;
-          if (formattedRow.markup_percentage == null) formattedRow.markup_percentage = catSettings.margin_percentage;
-        }
-      }
-
-      const existingPart = partMap.get(String(formattedRow.sku).trim());
-      changesToProcess.push({ type: existingPart ? 'update' : 'new', newData: formattedRow, existingPart });
+      const existingClient = clientMap.get(formattedRow.client_name.toLowerCase());
+      changesToProcess.push({ type: existingClient ? 'update' : 'new', newData: formattedRow, existingClient });
     }
 
     addLog(`נמצאו ${changesToProcess.length} שינויים לעיבוד`, 'success');
