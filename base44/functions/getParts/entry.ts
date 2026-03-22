@@ -33,7 +33,9 @@ Deno.serve(async (req) => {
             if (!stockMap.has(st.part_sku)) {
                 stockMap.set(st.part_sku, {});
             }
-            stockMap.get(st.part_sku)[st.warehouse_id] = st.quantity;
+            const existing = stockMap.get(st.part_sku)[st.warehouse_id] || 0;
+            // In case of duplicates, keep the maximum quantity
+            stockMap.get(st.part_sku)[st.warehouse_id] = Math.max(existing, st.quantity || 0);
         }
 
         // Combine into unified Part objects
