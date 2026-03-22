@@ -12,10 +12,25 @@ import DataImporter from "./import/DataImporter";
 const customerTemplateHeaders = ["name", "company", "phone", "email", "address", "notes"];
 const customerTemplateDisplayHeaders = ["שם", "חברה", "טלפון", "אימייל", "כתובת", "הערות"];
 const customerRequiredFields = ["name", "phone"];
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const preImportCustomers = async () => {
     const customers = await Customer.list();
     return { customerNameMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])) };
 };
+
+const bulkCreateCustomersWithDelay = async (batch) => {
+    const batchSize = 5;
+    for (let i = 0; i < batch.length; i += batchSize) {
+        const chunk = batch.slice(i, i + batchSize);
+        await Customer.bulkCreate(chunk);
+        if (i + batchSize < batch.length) {
+            await sleep(500);
+        }
+    }
+};
+
 const mapCustomerRow = (row, { customerNameMap }) => {
   const name = row[0];
   const nameKey = name.toLowerCase();
