@@ -798,9 +798,9 @@ export default function Import() {
         {selectedMapping && (
             <Card>
             <CardHeader>
-                <CardTitle>שלב 2: העלאת נתונים</CardTitle>
+                <CardTitle>שלב 2: העלאת רשימת מכשירים</CardTitle>
                 <CardDescription>
-                  העלה קובץ Excel (.xlsx/.xls), CSV, או טקסט עם הפרדת טאב (.txt/.tsv).
+                  העלה קובץ עם שמות לקוחות בעמודה הראשונה ופרטי המכשירים בעמודות הבאות.
                 </CardDescription>
             </CardHeader>
             <CardContent>
