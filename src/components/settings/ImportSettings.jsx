@@ -33,12 +33,12 @@ const preImportCustomers = async () => {
 };
 
 const bulkCreateCustomersWithDelay = async (batch) => {
-    const batchSize = 10;
+    const batchSize = 20;
     for (let i = 0; i < batch.length; i += batchSize) {
         const chunk = batch.slice(i, i + batchSize);
         await retryWithBackoff(() => Customer.bulkCreate(chunk));
         if (i + batchSize < batch.length) {
-            await sleep(100);
+            await sleep(30);
         }
     }
 };
