@@ -433,9 +433,12 @@ export default function Import() {
           formattedRow[field.key] = value;
         });
 
-        if (!formattedRow.sku) continue;
+        if (!formattedRow.client_name) continue;
 
-        const existingPart = partMap.get(formattedRow.sku);
+        // Search for existing clients with this name
+        const existingClient = referenceData.clients?.find(c => 
+          c.name?.toLowerCase() === formattedRow.client_name?.toLowerCase()
+        );
 
         if (!existingPart) {
           // New item
