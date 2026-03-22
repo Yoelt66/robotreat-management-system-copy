@@ -575,7 +575,7 @@ export default function ImportSettings() {
                 />
                  <DataImporter 
                     title="ייבוא מכשירים"
-                    description="ייבא רשימת מכשירים ושייך ללקוחות. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
+                    description="ייבא רשימת מכשירים ושייך ללקוחות. קובץ CSV או טקסט עם הפרדת טאב בקידוד UTF-8. בדיקה אוטומטית למניעת כפילויות שמות."
                     entityName="ServiceUnit"
                     templateHeaders={serviceUnitTemplateHeaders}
                     templateDisplayHeaders={serviceUnitTemplateDisplayHeaders}
