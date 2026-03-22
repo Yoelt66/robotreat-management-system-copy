@@ -225,82 +225,27 @@ Deno.serve(async (req) => {
     // ─── Process UPDATE ────────────────────────────────────────────────────────
     const itemsToUpdate = changesToProcess.filter(c => c.type === 'update');
     if (itemsToUpdate.length > 0) {
-      addLog(`מעדכן ${itemsToUpdate.length} פריטים קיימים (${CONCURRENCY} במקביל)...`, 'info');
+      addLog(`מעדכן ${itemsToUpdate.length} לקוחות קיימים (${CONCURRENCY} במקביל)...`, 'info');
       await processWithConcurrency(itemsToUpdate, CONCURRENCY, async (change) => {
         const f = change.newData;
-        const existingPart = change.existingPart;
-        const sku = existingPart.sku;
+        const existingClient = change.existingClient;
 
-        const coreUpdate = {};
-        for (const field of coreFields) {
-          if (!mappedFieldKeys.has(field)) continue; // only process mapped fields
-          const isMapped = f[field] != null && f[field] !== '';
-          if (numericCoreFields.includes(field)) {
-            const newValue = parseNum(isMapped ? f[field] : 0);
-            const existingValue = parseNum(existingPart[field]);
-            if (existingValue !== newValue) coreUpdate[field] = newValue;
-          } else if (isMapped) {
-            const existingValue = existingPart[field] || '';
-            if (String(existingValue) !== String(f[field])) coreUpdate[field] = f[field];
-          }
+        // Create device if device fields are provided
+        if (f.name) {
+          await apiCallWithRetry(() => base44.asServiceRole.entities.Device.create({
+            client_id: existingClient.id,
+            name: f.name,
+            type: f.type || 'other',
+            serial_number: f.serial_number || '',
+            location: f.location || ''
+          }));
         }
-
-        const pricingUpdate = {};
-        for (const field of pricingFields) {
-          if (!mappedFieldKeys.has(field)) continue; // only process mapped fields
-          const isMapped = f[field] != null && f[field] !== '';
-          if (numericPricingFields.includes(field)) {
-            const newValue = parseNum(isMapped ? f[field] : 0);
-            const existingValue = parseNum(existingPart[field]);
-            if (existingValue !== newValue) pricingUpdate[field] = newValue;
-          } else if (isMapped) {
-            const existingValue = existingPart[field] || '';
-            if (String(existingValue) !== String(f[field])) pricingUpdate[field] = f[field];
-          }
-        }
-        if (f.manual_sale_price != null && f.manual_sale_price !== '') pricingUpdate.is_manual = true;
-
-        const supplierUpdate = {};
-        for (const field of supplierFields) {
-          if (f[field] != null && f[field] !== '') {
-            if (String(existingPart[field] || '') !== String(f[field])) supplierUpdate[field] = f[field];
-          }
-        }
-
-        // Build stock updates list using safe upsert (prevents duplicates)
-        const stockOps = allWarehouses.map(wh => {
-          if (!mappedFieldKeys.has(wh.warehouse_id)) return null; // skip unmapped warehouses
-          const newQty = parseNum(f[wh.warehouse_id]); // empty → 0
-          return upsertStock(sku, wh.warehouse_id, newQty);
-        }).filter(Boolean);
-
-        // All updates in parallel
-        const pricingRecord = pricingMap.get(sku);
-        const supplierRecord = supplierMap.get(sku);
-
-        await Promise.all([
-          Object.keys(coreUpdate).length > 0
-            ? apiCallWithRetry(() => base44.asServiceRole.entities.PartCore.update(existingPart.id, coreUpdate))
-            : null,
-          Object.keys(pricingUpdate).length > 0
-            ? (pricingRecord
-              ? apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.update(pricingRecord.id, pricingUpdate))
-              : apiCallWithRetry(() => base44.asServiceRole.entities.PartPricing.create({ part_sku: sku, ...pricingUpdate })))
-            : null,
-          Object.keys(supplierUpdate).length > 0
-            ? (supplierRecord
-              ? apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.update(supplierRecord.id, supplierUpdate))
-              : apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({ part_sku: sku, ...supplierUpdate })))
-            : null,
-          ...stockOps
-        ].filter(Boolean));
-
       }, (done, total, result) => {
         if (!result.success) {
           errorCount++;
-          const failedSku = result.item?.newData?.sku || result.item?.existingPart?.sku;
-          if (failedSku) failedSkus.push(failedSku);
-          addLog(`שגיאה בעדכון מק"ט ${failedSku}: ${result.error}`, 'error');
+          const failedName = result.item?.newData?.client_name;
+          if (failedName) failedSkus.push(failedName);
+          addLog(`שגיאה בעדכון לקוח ${failedName}: ${result.error}`, 'error');
         } else {
           updatedCount++;
         }
