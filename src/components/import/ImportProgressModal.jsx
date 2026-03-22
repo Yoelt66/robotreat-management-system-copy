@@ -89,6 +89,20 @@ export default function ImportProgressModal({
               )}
             </div>
           </div>
+          {onClose && (
+            <button
+              onClick={() => {
+                if (!isFinished) {
+                  if (!window.confirm("הייבוא עדיין בתהליך. האם אתה בטוח שברצונך לסגור?")) return;
+                }
+                onClose();
+              }}
+              className="text-white/70 hover:text-white transition-colors p-1 rounded"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+          </div>
         </div>
 
         {/* Progress bar */}
