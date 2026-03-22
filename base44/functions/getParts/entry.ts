@@ -9,12 +9,27 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Fetch all data from split entities in parallel (high limit to get all records)
+        // Paginate through ALL PartStock records (default list() may cap per page)
+        const fetchAllPages = async (entityClient) => {
+            const all = [];
+            const pageSize = 2000;
+            let skip = 0;
+            while (true) {
+                const page = await entityClient.list(undefined, pageSize, skip);
+                if (!page || page.length === 0) break;
+                all.push(...page);
+                if (page.length < pageSize) break;
+                skip += pageSize;
+            }
+            return all;
+        };
+
+        // Fetch all data from split entities in parallel
         const [cores, pricings, suppliers, stocks] = await Promise.all([
-            base44.asServiceRole.entities.PartCore.list(undefined, 10000),
-            base44.asServiceRole.entities.PartPricing.list(undefined, 10000),
-            base44.asServiceRole.entities.PartSupplier.list(undefined, 10000),
-            base44.asServiceRole.entities.PartStock.list(undefined, 50000)
+            fetchAllPages(base44.asServiceRole.entities.PartCore),
+            fetchAllPages(base44.asServiceRole.entities.PartPricing),
+            fetchAllPages(base44.asServiceRole.entities.PartSupplier),
+            fetchAllPages(base44.asServiceRole.entities.PartStock),
         ]);
 
         // Create lookup maps for efficient joining
