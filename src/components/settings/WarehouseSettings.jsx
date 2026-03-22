@@ -227,15 +227,16 @@ export default function WarehouseSettings() {
   };
 
   const handleDeleteWarehouse = async () => {
-    if (!warehouseToDelete) return;
+    if (!warehouseToDelete || isDeleting) return;
     
-    setLoading(true);
+    const target = warehouseToDelete;
+    setIsDeleting(true);
+    setWarehouseToDelete(null);
+    
     try {
-      await removeWarehouseColumnFromAllParts(warehouseToDelete.warehouse_id, warehouseToDelete.name);
-      await syncWarehouseToImportMappings(warehouseToDelete.warehouse_id, warehouseToDelete.name, true);
-      await Warehouse.delete(warehouseToDelete.id);
-      
-      setWarehouseToDelete(null);
+      await removeWarehouseColumnFromAllParts(target.warehouse_id, target.name);
+      await syncWarehouseToImportMappings(target.warehouse_id, target.name, true);
+      await Warehouse.delete(target.id);
       await loadData();
       
     } catch (error) {
@@ -246,7 +247,7 @@ export default function WarehouseSettings() {
         description: error.message || "אירעה שגיאה לא צפויה"
       });
     } finally {
-      setLoading(false);
+      setIsDeleting(false);
     }
   };
 
