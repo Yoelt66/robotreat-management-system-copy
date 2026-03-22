@@ -312,15 +312,6 @@ export default function WarehouseSettings() {
       await removeWarehouseColumnFromAllParts(warehouseToDelete.warehouse_id, warehouseToDelete.name);
       await syncWarehouseToImportMappings(warehouseToDelete.warehouse_id, warehouseToDelete.name, true);
       await Warehouse.delete(warehouseToDelete.id);
-
-      const updatedWarehouses = await Warehouse.list();
-      await updatePartEntityFile(updatedWarehouses);
-      
-      toast({ 
-        title: "מחסן נמחק בהצלחה",
-        description: `מחסן ${warehouseToDelete.name} נמחק ועמודת המלאי הוסרה`,
-        duration: 5000
-      });
       
       setWarehouseToDelete(null);
       await loadData();
