@@ -15,8 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 export default function BasicInfoStep({ data, onUpdate, onValidityChange }) {
-  const [clients, setClients] = useState([]);
-  const [devices, setDevices] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [serviceUnits, setServiceUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [searchValue, setSearchValue] = useState(data.client_name || "");
