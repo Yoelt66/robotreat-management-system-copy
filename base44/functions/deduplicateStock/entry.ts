@@ -11,9 +11,9 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Paginate to get ALL PartStock records
+    // Paginate to get ALL PartStock records (1000 per page with delays)
     const allStock = [];
-    const pageSize = 5000;
+    const pageSize = 2000;
     let skip = 0;
     while (true) {
       const page = await base44.asServiceRole.entities.PartStock.list(undefined, pageSize, skip);
@@ -21,6 +21,7 @@ Deno.serve(async (req) => {
       allStock.push(...page);
       if (page.length < pageSize) break;
       skip += pageSize;
+      await sleep(300);
     }
 
     // Group by "part_sku/warehouse_id"
@@ -45,14 +46,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Delete in batches of 5 with 200ms delay to avoid rate limit
+    // Delete one-by-one with 300ms delay to avoid rate limit
     let deletedCount = 0;
-    const batchSize = 5;
-    for (let i = 0; i < toDeleteAll.length; i += batchSize) {
-      const batch = toDeleteAll.slice(i, i + batchSize);
-      await Promise.all(batch.map(dup => base44.asServiceRole.entities.PartStock.delete(dup.id)));
-      deletedCount += batch.length;
-      if (i + batchSize < toDeleteAll.length) await sleep(200);
+    for (const dup of toDeleteAll) {
+      await base44.asServiceRole.entities.PartStock.delete(dup.id);
+      deletedCount++;
+      await sleep(300);
     }
 
     return Response.json({
