@@ -338,11 +338,7 @@ Deno.serve(async (req) => {
           apiCallWithRetry(() => base44.asServiceRole.entities.PartSupplier.create({
             part_sku: sku, supplier_number: f.supplier_number || '', supplier_part_number: f.supplier_part_number || '',
           })),
-          ...allWarehouses.map(wh =>
-            apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({
-              part_sku: sku, warehouse_id: wh.warehouse_id, quantity: parseNum(f[wh.warehouse_id]),
-            }))
-          )
+          ...allWarehouses.map(wh => upsertStock(sku, wh.warehouse_id, parseNum(f[wh.warehouse_id])))
         ]);
       }, (done, total, result) => {
         if (!result.success) {
