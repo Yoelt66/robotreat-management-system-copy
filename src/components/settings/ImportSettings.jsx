@@ -55,12 +55,12 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     const unitNameKey = `${customerId}:${row[1].toLowerCase()}`;
-    if (serviceUnitMap.has(unitNameKey)) {
-        throw new Error(`מכשיר עם שם "${row[1]}" כבר קיים ללקוח "${row[0]}".`);
-    }
+    const existingId = serviceUnitMap.get(unitNameKey);
     
-    // Add to map to prevent duplicates within the same batch
-    serviceUnitMap.set(unitNameKey, true);
+    // If unit exists in batch, prevent duplicate
+    if (existingId === true) {
+        throw new Error(`כפל בקובץ: מכשיר עם שם "${row[1]}" ללקוח "${row[0]}" מופיע יותר מפעם אחת.`);
+    }
     
     // Normalize input by replacing spaces with underscores
     const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
@@ -69,10 +69,9 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     const hebrewDeviceTypeMap = {
       "מיכל_חלב": "Milk_tank",
       "מערכת_אחרת": "other",
-      "CRS+": "CRS", // Added alias for CRS+
+      "CRS+": "CRS",
     };
 
-    // Use the mapped value if it exists, otherwise use the normalized input
     const deviceType = hebrewDeviceTypeMap[normalizedInput] || normalizedInput;
     
     const validTypes = ["Astronaut_A3", "Astronaut_A3N", "Astronaut_A4", "Delaval_2008", "Delaval_2011", "Milk_tank", "CRS", "Juno_100", "Juno_150", "Luna", "other"];
@@ -81,6 +80,7 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap }) => {
     const brandId = row[3] ? brandMap.get(row[3].toLowerCase()) : null;
     
     return {
+        id: existingId || undefined,
         customer_id: customerId,
         name: row[1],
         type: row[2] || null,
