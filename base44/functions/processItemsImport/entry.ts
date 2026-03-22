@@ -319,19 +319,29 @@ Deno.serve(async (req) => {
 
         const coreUpdate = {};
         for (const field of coreFields) {
-          if (f[field] != null && f[field] !== '') {
-            const newValue = numericCoreFields.includes(field) ? parseFloat(f[field]) || 0 : f[field];
-            const existingValue = numericCoreFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
-            if (String(existingValue) !== String(newValue)) coreUpdate[field] = newValue;
+          if (!mappedFieldKeys.has(field)) continue; // only process mapped fields
+          const isMapped = f[field] != null && f[field] !== '';
+          if (numericCoreFields.includes(field)) {
+            const newValue = parseNum(isMapped ? f[field] : 0);
+            const existingValue = parseNum(existingPart[field]);
+            if (existingValue !== newValue) coreUpdate[field] = newValue;
+          } else if (isMapped) {
+            const existingValue = existingPart[field] || '';
+            if (String(existingValue) !== String(f[field])) coreUpdate[field] = f[field];
           }
         }
 
         const pricingUpdate = {};
         for (const field of pricingFields) {
-          if (f[field] != null && f[field] !== '') {
-            const newValue = numericPricingFields.includes(field) ? parseFloat(f[field]) || 0 : f[field];
-            const existingValue = numericPricingFields.includes(field) ? parseFloat(existingPart[field]) || 0 : existingPart[field] || '';
-            if (String(existingValue) !== String(newValue)) pricingUpdate[field] = newValue;
+          if (!mappedFieldKeys.has(field)) continue; // only process mapped fields
+          const isMapped = f[field] != null && f[field] !== '';
+          if (numericPricingFields.includes(field)) {
+            const newValue = parseNum(isMapped ? f[field] : 0);
+            const existingValue = parseNum(existingPart[field]);
+            if (existingValue !== newValue) pricingUpdate[field] = newValue;
+          } else if (isMapped) {
+            const existingValue = existingPart[field] || '';
+            if (String(existingValue) !== String(f[field])) pricingUpdate[field] = f[field];
           }
         }
         if (f.manual_sale_price != null && f.manual_sale_price !== '') pricingUpdate.is_manual = true;
