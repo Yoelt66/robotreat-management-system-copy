@@ -568,6 +568,7 @@ export default function ImportSettings() {
                     templateHeaders={customerTemplateHeaders}
                     templateDisplayHeaders={customerTemplateDisplayHeaders}
                     requiredFields={customerRequiredFields}
+                    preImportTask={preImportCustomers}
                     mapRowToEntity={mapCustomerRow}
                     entityCreateFn={(batch) => Customer.bulkCreate(batch)}
                     icon={Users}
