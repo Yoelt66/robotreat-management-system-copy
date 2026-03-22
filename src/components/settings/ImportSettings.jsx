@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ImportMapping, Client, Device, ServiceCall, User, Part, Warehouse } from "@/entities/all";
+import { ImportMapping, Customer, ServiceUnit, ServiceCall, User, Part, Warehouse } from "@/entities/all";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,11 +8,11 @@ import ImportMappingForm from "./ImportMappingForm";
 
 import DataImporter from "./import/DataImporter";
 
-// Client import configuration
-const clientTemplateHeaders = ["name", "company", "phone", "email", "address", "notes"];
-const clientTemplateDisplayHeaders = ["שם", "חברה", "טלפון", "אימייל", "כתובת", "הערות"];
-const clientRequiredFields = ["name", "phone"];
-const mapClientRow = (row) => ({
+// Customer import configuration
+const customerTemplateHeaders = ["name", "company", "phone", "email", "address", "notes"];
+const customerTemplateDisplayHeaders = ["שם", "חברה", "טלפון", "אימייל", "כתובת", "הערות"];
+const customerRequiredFields = ["name", "phone"];
+const mapCustomerRow = (row) => ({
   name: row[0],
   company: row[1] || null,
   phone: row[2],
@@ -21,17 +21,17 @@ const mapClientRow = (row) => ({
   notes: row[5] || null,
 });
 
-// Device import configuration
-const deviceTemplateHeaders = ["client_name", "name", "type", "serial_number", "location"];
-const deviceTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
-const deviceRequiredFields = ["client_name", "name", "type", "serial_number"];
-const preImportDevices = async () => {
-    const clients = await Client.list();
-    return { clientMap: new Map(clients.map(c => [c.name.toLowerCase(), c.id])) };
+// ServiceUnit import configuration
+const serviceUnitTemplateHeaders = ["customer_name", "name", "type", "serial_number", "location"];
+const serviceUnitTemplateDisplayHeaders = ["שם לקוח (מפתח)", "שם מכשיר", "סוג", "מספר סידורי", "מיקום"];
+const serviceUnitRequiredFields = ["customer_name", "name"];
+const preImportServiceUnits = async () => {
+    const customers = await Customer.list();
+    return { customerMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])) };
 };
-const mapDeviceRow = (row, { clientMap }) => {
-    const clientId = clientMap.get(row[0].toLowerCase());
-    if (!clientId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
+const mapServiceUnitRow = (row, { customerMap }) => {
+    const customerId = customerMap.get(row[0].toLowerCase());
+    if (!customerId) throw new Error(`שורה ${row.join(',')}: לא נמצא לקוח עם שם ${row[0]}.`);
     
     // Normalize input by replacing spaces with underscores
     const normalizedInput = row[2] ? row[2].replace(/ /g, '_') : '';
