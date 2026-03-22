@@ -126,7 +126,7 @@ export default function CustomersPage() {
 
   const getCustomerUnits = (customerId) => units
     .filter(u => u.customer_id === customerId)
-    .sort((a, b) => b.name?.localeCompare(a.name || "", 'he') || 0);
+    .sort((a, b) => a.name?.localeCompare(b.name || "", 'he') || 0);
 
   if (loading) {
     return (

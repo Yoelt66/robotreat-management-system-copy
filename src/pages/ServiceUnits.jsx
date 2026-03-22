@@ -82,7 +82,7 @@ export default function ServiceUnitsPage() {
       const matchCustomer = filterCustomer === "all" || u.customer_id === filterCustomer;
       return matchSearch && matchCustomer;
     })
-    .sort((a, b) => b.name?.localeCompare(a.name || "", 'he') || 0);
+    .sort((a, b) => a.name?.localeCompare(b.name || "", 'he') || 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>;
 

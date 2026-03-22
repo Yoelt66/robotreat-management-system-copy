@@ -86,7 +86,7 @@ export default function CustomerWithUnits({
               {units.length === 0 ? (
                 <div className="text-center py-4 text-slate-400 text-sm">אין יחידות שירות ללקוח זה</div>
               ) : (
-                [...units].sort((a, b) => b.name?.localeCompare(a.name || "", 'he') || 0).map(unit => (
+                [...units].sort((a, b) => a.name?.localeCompare(b.name || "", 'he') || 0).map(unit => (
                   <div key={unit.id} className="flex items-center gap-4 bg-white rounded-lg p-3 border border-slate-200 hover:border-slate-300 transition-colors">
                     <div className="shrink-0">
                       {unit.active !== false
