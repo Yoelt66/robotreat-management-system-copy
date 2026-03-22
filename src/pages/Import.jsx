@@ -173,7 +173,15 @@ export default function Import() {
 
   // New state for header detection
   const [hasHeaders, setHasHeaders] = useState(true);
-  const [debugInfo, setDebugInfo] = useState(""); // New state for debug info
+  const [debugInfo, setDebugInfo] = useState("");
+
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressStats, setProgressStats] = useState({ processed: 0, created: 0, updated: 0, errors: 0, total: 0 });
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const [importStartTime, setImportStartTime] = useState(null);
+  const [isImportFinished, setIsImportFinished] = useState(false);
+  const MAX_RETRIES = 10;
 
   useEffect(() => {
     const loadInitialData = async () => {
