@@ -96,10 +96,14 @@ const mapServiceUnitRow = (row, { customerMap, serviceUnitMap, brandMap, changeD
         }
     }
     
+    // Normalize device type: lowercase, trim, and remove spaces/underscores
+    const normalizeType = (t) => t.trim().toLowerCase().replace(/[\s_]/g, '');
+    const deviceType = row[2] ? normalizeType(row[2]) : null;
+    
     const newData = {
         customer_id: customerId,
         name: row[1],
-        type: row[2] || null,
+        type: deviceType,
         brand_id: brandId || null,
         serial_number: row[4] || null,
         location: row[5] || null,
