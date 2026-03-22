@@ -15,18 +15,30 @@ const customerRequiredFields = ["name", "phone"];
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const retryWithBackoff = async (fn, maxRetries = 3) => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (attempt === maxRetries - 1) throw error;
+            const delay = Math.pow(2, attempt) * 200; // 200ms, 400ms, 800ms
+            await sleep(delay);
+        }
+    }
+};
+
 const preImportCustomers = async () => {
     const customers = await Customer.list();
     return { customerNameMap: new Map(customers.map(c => [c.name.toLowerCase(), c.id])) };
 };
 
 const bulkCreateCustomersWithDelay = async (batch) => {
-    const batchSize = 5;
+    const batchSize = 10;
     for (let i = 0; i < batch.length; i += batchSize) {
         const chunk = batch.slice(i, i + batchSize);
-        await Customer.bulkCreate(chunk);
+        await retryWithBackoff(() => Customer.bulkCreate(chunk));
         if (i + batchSize < batch.length) {
-            await sleep(500);
+            await sleep(100);
         }
     }
 };
