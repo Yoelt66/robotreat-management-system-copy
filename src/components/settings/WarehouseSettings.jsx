@@ -404,7 +404,7 @@ export default function WarehouseSettings() {
           </Table>
         </div>
 
-        <AlertDialog open={!!warehouseToDelete} onOpenChange={(open) => { if (!open && !loading) setWarehouseToDelete(null); }}>
+        <AlertDialog open={!!warehouseToDelete} onOpenChange={(open) => { if (!open) setWarehouseToDelete(null); }}>
           <AlertDialogContent dir="rtl">
             <AlertDialogHeader>
               <AlertDialogTitle>אישור מחיקת מחסן</AlertDialogTitle>
@@ -414,14 +414,13 @@ export default function WarehouseSettings() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={loading}>ביטול</AlertDialogCancel>
+              <AlertDialogCancel>ביטול</AlertDialogCancel>
               <Button
                 onClick={handleDeleteWarehouse}
                 className="bg-red-600 hover:bg-red-700 text-white"
-                disabled={loading}
               >
                 <Trash2 className="h-4 w-4 ml-2" />
-                {loading ? "מוחק..." : "מחק מחסן"}
+                מחק מחסן
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
