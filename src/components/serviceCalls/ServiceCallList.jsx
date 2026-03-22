@@ -66,8 +66,8 @@ const deviceTypeLabels = {
 
 export default function ServiceCallList({ 
   serviceCalls, 
-  clients, 
-  devices, 
+  customers, 
+  serviceUnits, 
   users, 
   currentUser,
   onEdit, 
