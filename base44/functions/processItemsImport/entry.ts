@@ -131,115 +131,17 @@ Deno.serve(async (req) => {
       apiCallWithRetry(() => base44.asServiceRole.entities.Device.list()).catch(() => [])
     ]);
 
-    const pricingMap = new Map(partPricingData.map(p => [p.part_sku, p]));
-    const supplierMap = new Map(partSupplierData.map(p => [p.part_sku, p]));
-
-    // ─── Deduplicate PartStock records ────────────────────────────────────────
-    // Group by "part_sku/warehouse_id" - keep the record with highest quantity, delete the rest
-    const stockGroups = new Map();
-    for (const s of partStockData) {
-      const key = `${s.part_sku}/${s.warehouse_id}`;
-      if (!stockGroups.has(key)) {
-        stockGroups.set(key, []);
-      }
-      stockGroups.get(key).push(s);
-    }
-
-    let dedupCount = 0;
-    for (const [, records] of stockGroups) {
-      if (records.length > 1) {
-        // Keep the record with the highest quantity
-        records.sort((a, b) => (b.quantity || 0) - (a.quantity || 0));
-        const toDelete = records.slice(1);
-        for (const dup of toDelete) {
-          await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.delete(dup.id)).catch(() => {});
-          dedupCount++;
-        }
-        // Update the data array - keep only the winner
-        const winner = records[0];
-        const idx = partStockData.indexOf(toDelete[0]);
-        // remove duplicates from partStockData in-memory
-        for (const dup of toDelete) {
-          const i = partStockData.indexOf(dup);
-          if (i !== -1) partStockData.splice(i, 1);
-        }
-      }
-    }
-    if (dedupCount > 0) {
-      addLog(`נמחקו ${dedupCount} רישומי מלאי כפולים`, 'warn');
-    }
-
-    // O(1) stock lookup: "sku/warehouse_id" -> record
-    const stockLookup = new Map();
-    partStockData.forEach(s => stockLookup.set(`${s.part_sku}/${s.warehouse_id}`, s));
-
-    const stockByPart = new Map();
-    partStockData.forEach(stock => {
-      if (!stockByPart.has(stock.part_sku)) stockByPart.set(stock.part_sku, {});
-      stockByPart.get(stock.part_sku)[stock.warehouse_id] = stock.quantity;
-    });
-
-    // Safe stock upsert: update if exists, create if not
-    async function upsertStock(sku, warehouseId, quantity) {
-      const key = `${sku}/${warehouseId}`;
-      const existing = stockLookup.get(key);
-      if (existing) {
-        if (existing.quantity !== quantity) {
-          await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existing.id, { quantity }));
-        }
-      } else {
-        const created = await apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: warehouseId, quantity }));
-        stockLookup.set(key, created);
-      }
-    }
-
-    const allParts = partCoreData.map(core => {
-      const { id: _pid, ...pricing } = pricingMap.get(core.sku) || {};
-      const { id: _sid, ...supplier } = supplierMap.get(core.sku) || {};
-      const stocks = stockByPart.get(core.sku) || {};
-      return { ...pricing, ...supplier, ...stocks, ...core };
-    });
-
-    addLog(`נטענו ${allParts.length} פריטים קיימים`, 'info');
-    const partMap = new Map(allParts.map(p => [String(p.sku).trim(), p]));
-
-    const categoryMap = new Map(allCategories.map(c => [c.code, c]));
-    const categoryNameMap = new Map(allCategories.map(c => [c.name, c]));
-    const unitMap = new Map(allUnits.map(u => [u.code, u]));
-    const unitNameMap = new Map(allUnits.map(u => [u.name, u]));
-
-    async function resolveCategoryCode(code) {
-      if (!code) return allCategories.length > 0 ? allCategories[0].code : 'other';
-      if (categoryMap.has(code)) return code;
-      const byName = categoryNameMap.get(code);
-      if (byName) return byName.code;
-      try {
-        const created = await apiCallWithRetry(() => base44.asServiceRole.entities.Category.create({ code, name: code, color: 'bg-gray-100 text-gray-800' }));
-        categoryMap.set(code, created);
-        return code;
-      } catch { return allCategories.length > 0 ? allCategories[0].code : 'other'; }
-    }
-
-    async function resolveUnitCode(code) {
-      if (!code) return allUnits.length > 0 ? allUnits[0].code : 'pieces';
-      if (unitMap.has(code)) return code;
-      const byName = unitNameMap.get(code);
-      if (byName) return byName.code;
-      try {
-        const created = await apiCallWithRetry(() => base44.asServiceRole.entities.Unit.create({ code, name: code, type: 'quantity', is_active: true }));
-        unitMap.set(code, created);
-        return code;
-      } catch { return allUnits.length > 0 ? allUnits[0].code : 'pieces'; }
-    }
-
-    // Build SKU -> row index map
-    const skuToRowIndex = new Map();
+    // Build client name -> row index map
+    const clientNameToRowIndex = new Map();
     parsedData.forEach((row, index) => {
-      const sku = row[skuFileColumnIndex];
-      if (sku) skuToRowIndex.set(String(sku).trim(), index);
+      const clientName = row[clientNameFileColumnIndex];
+      if (clientName) clientNameToRowIndex.set(String(clientName).trim().toLowerCase(), index);
     });
 
-    addLog(`נמצאו ${skuToRowIndex.size} מק"טים בקובץ`, 'info');
+    addLog(`נמצאו ${clientNameToRowIndex.size} לקוחות בקובץ`, 'info');
+
+    const clientMap = new Map(clientsData.map(c => [c.name.toLowerCase(), c]));
+    addLog(`נטענו ${clientsData.length} לקוחות קיימים`, 'info');
 
     const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'current_location', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
     const pricingFields = ['cost_price', 'cost_currency', 'sale_currency', 'import_percentage', 'markup_percentage', 'manual_sale_price', 'is_manual'];
