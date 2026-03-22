@@ -371,6 +371,7 @@ export default function WarehouseSettings() {
       console.log(`Deleting warehouse: ${warehouseToDelete.name} (${warehouseToDelete.warehouse_id})`);
       
       await removeWarehouseColumnFromAllParts(warehouseToDelete.warehouse_id, warehouseToDelete.name);
+      await syncWarehouseToImportMappings(warehouseToDelete.warehouse_id, warehouseToDelete.name, true);
       await Warehouse.delete(warehouseToDelete.id);
 
       const updatedWarehouses = await Warehouse.list();
