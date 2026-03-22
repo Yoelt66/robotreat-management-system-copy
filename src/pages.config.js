@@ -49,6 +49,7 @@
  */
 import Clients from './pages/Clients';
 import Customers from './pages/Customers.jsx';
+// Note: .jsx extension used explicitly
 import Dashboard from './pages/Dashboard';
 import DeliveryNotes from './pages/DeliveryNotes';
 import ExpenseReturns from './pages/ExpenseReturns';
