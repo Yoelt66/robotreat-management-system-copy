@@ -355,21 +355,17 @@ Deno.serve(async (req) => {
 
         // Build stock updates list
         const stockOps = allWarehouses.map(wh => {
+          if (!mappedFieldKeys.has(wh.warehouse_id)) return null; // skip unmapped warehouses
           const rawValue = f[wh.warehouse_id];
-          const hasValue = rawValue != null && rawValue !== '';
+          const newQty = parseNum(rawValue); // empty → 0
           const existingStock = stockLookup.get(`${sku}/${wh.warehouse_id}`);
 
-          if (hasValue) {
-            const newQty = parseFloat(rawValue) || 0;
-            if (existingStock) {
-              if (existingStock.quantity !== newQty) {
-                return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty }));
-              }
-            } else {
-              return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }));
+          if (existingStock) {
+            if (existingStock.quantity !== newQty) {
+              return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: newQty }));
             }
-          } else if (existingStock && existingStock.quantity !== 0) {
-            return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.update(existingStock.id, { quantity: 0 }));
+          } else {
+            return apiCallWithRetry(() => base44.asServiceRole.entities.PartStock.create({ part_sku: sku, warehouse_id: wh.warehouse_id, quantity: newQty }));
           }
           return null;
         }).filter(Boolean);
