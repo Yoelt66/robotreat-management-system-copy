@@ -536,12 +536,12 @@ export default function ImportSettings() {
                 <DataImporter 
                     title="ייבוא לקוחות"
                     description="ייבא רשימת לקוחות חדשים. ניתן להשתמש בקובץ CSV או טקסט עם הפרדת טאב (.txt/.tsv). לשמירה על תאימות עם עברית, יש לשמור את הקובץ בקידוד UTF-8."
-                    entityName="Client"
-                    templateHeaders={clientTemplateHeaders}
-                    templateDisplayHeaders={clientTemplateDisplayHeaders}
-                    requiredFields={clientRequiredFields}
-                    mapRowToEntity={mapClientRow}
-                    entityCreateFn={(batch) => Client.bulkCreate(batch)}
+                    entityName="Customer"
+                    templateHeaders={customerTemplateHeaders}
+                    templateDisplayHeaders={customerTemplateDisplayHeaders}
+                    requiredFields={customerRequiredFields}
+                    mapRowToEntity={mapCustomerRow}
+                    entityCreateFn={(batch) => Customer.bulkCreate(batch)}
                     icon={Users}
                 />
                  <DataImporter 
