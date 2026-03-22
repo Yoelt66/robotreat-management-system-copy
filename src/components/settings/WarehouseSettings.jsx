@@ -226,16 +226,14 @@ export default function WarehouseSettings() {
   };
 
   const handleDeleteWarehouse = async () => {
-    const target = warehouseToDeleteRef.current;
-    if (!target) return;
+    if (!warehouseToDelete) return;
     
     setLoading(true);
     try {
-      await removeWarehouseColumnFromAllParts(target.warehouse_id, target.name);
-      await syncWarehouseToImportMappings(target.warehouse_id, target.name, true);
-      await Warehouse.delete(target.id);
+      await removeWarehouseColumnFromAllParts(warehouseToDelete.warehouse_id, warehouseToDelete.name);
+      await syncWarehouseToImportMappings(warehouseToDelete.warehouse_id, warehouseToDelete.name, true);
+      await Warehouse.delete(warehouseToDelete.id);
       
-      warehouseToDeleteRef.current = null;
       setWarehouseToDelete(null);
       await loadData();
       
