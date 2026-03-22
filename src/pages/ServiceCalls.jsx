@@ -133,8 +133,8 @@ export default function ServiceCalls() {
 
         <ServiceCallList
           serviceCalls={serviceCalls}
-          clients={clients}
-          devices={devices}
+          customers={customers}
+          serviceUnits={serviceUnits}
           users={users}
           currentUser={currentUser}
           onEdit={handleEdit}
