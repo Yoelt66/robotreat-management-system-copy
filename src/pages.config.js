@@ -48,7 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import Clients from './pages/Clients';
-import Customers from './pages/Customers';
+import Customers from './pages/Customers.jsx';
 import Dashboard from './pages/Dashboard';
 import DeliveryNotes from './pages/DeliveryNotes';
 import ExpenseReturns from './pages/ExpenseReturns';
@@ -59,13 +59,13 @@ import Import from './pages/Import';
 import Invoices from './pages/Invoices';
 import ItemsManagement from './pages/ItemsManagement';
 import MaintenanceProcedures from './pages/MaintenanceProcedures';
-import MaintenanceTypes from './pages/MaintenanceTypes';
+import MaintenanceTypes from './pages/MaintenanceTypes.jsx';
 import NewOrders from './pages/NewOrders';
 import Orders from './pages/Orders';
 import PartsManagement from './pages/PartsManagement';
 import Schedule from './pages/Schedule';
 import ServiceCalls from './pages/ServiceCalls';
-import ServiceUnits from './pages/ServiceUnits';
+import ServiceUnits from './pages/ServiceUnits.jsx';
 import Settings from './pages/Settings';
 import StockDashboard from './pages/StockDashboard';
 import Transfers from './pages/Transfers';
