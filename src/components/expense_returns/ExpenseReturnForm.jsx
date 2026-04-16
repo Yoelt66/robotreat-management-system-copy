@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, Printer } from "lucide-react";
+import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, Printer, CalendarIcon } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { User, ExpenseReturn } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
@@ -15,6 +15,8 @@ import { format } from 'date-fns';
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 const purchaseTypes = {
   tools: "כלי עבודה",
@@ -629,6 +631,40 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         setFormData(prev => ({ ...prev, [fieldName]: formattedDate }));
     };
 
+    const handleCalendarSelect = (fieldName, date) => {
+        if (!date) return;
+        const formatted = format(date, 'dd/MM/yyyy');
+        setDateErrors(prev => ({ ...prev, [fieldName]: null }));
+        setFormData(prev => ({ ...prev, [fieldName]: formatted }));
+    };
+
+    const handleTodayClick = (fieldName) => {
+        const formatted = format(new Date(), 'dd/MM/yyyy');
+        setDateErrors(prev => ({ ...prev, [fieldName]: null }));
+        setFormData(prev => ({ ...prev, [fieldName]: formatted }));
+    };
+
+    const parseDisplayDateToObj = (dateStr) => {
+        if (!dateStr) return undefined;
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return undefined;
+        const [day, month, year] = parts;
+        const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        return isNaN(d.getTime()) ? undefined : d;
+    };
+
+    const handleStatusChange = (newStatus) => {
+        setFormData(prev => {
+            let notes = prev.notes || '';
+            // Remove the draft note if status is changing away from temporary
+            if (prev.status === 'temporary' && newStatus !== 'temporary') {
+                const draftNote = 'טיוטה - החזר הוצאות זמני';
+                notes = notes.replace(draftNote, '').trim();
+            }
+            return { ...prev, status: newStatus, notes };
+        });
+    };
+
     const handleExpenseDateChange = (index, value) => {
         const fieldName = `expense_${index}_date`;
         const formattedDate = validateAndFormatDate(value, fieldName);
@@ -1131,9 +1167,9 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             <div className="space-y-2">
                                 <Label>סטטוס</Label>
                                 <Select 
-                                    value={formData.status} 
-                                    onValueChange={val => setFormData(p => ({...p, status: val}))}
-                                >
+                                     value={formData.status} 
+                                     onValueChange={handleStatusChange}
+                                 >
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                        <SelectItem value="temporary">טיוטה זמנית</SelectItem>
@@ -1165,19 +1201,40 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>תאריך אישור</Label>
-                                    <Input 
-                                        value={formData.approval_date} 
-                                        onChange={e => handleDateChange('approval_date', e.target.value)} 
-                                        placeholder="dd/mm/yyyy"
-                                    />
-                                    {dateErrors.approval_date && (
-                                        <Alert variant="destructive">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertDescription>{dateErrors.approval_date}</AlertDescription>
-                                        </Alert>
-                                    )}
-                                </div>
+                                     <Label>תאריך אישור</Label>
+                                     <div className="flex gap-1">
+                                         <Input 
+                                             value={formData.approval_date} 
+                                             onChange={e => handleDateChange('approval_date', e.target.value)} 
+                                             placeholder="dd/mm/yyyy"
+                                             className="flex-1"
+                                         />
+                                         <Popover>
+                                             <PopoverTrigger asChild>
+                                                 <Button type="button" variant="outline" size="icon">
+                                                     <CalendarIcon className="h-4 w-4" />
+                                                 </Button>
+                                             </PopoverTrigger>
+                                             <PopoverContent className="w-auto p-0" align="end">
+                                                 <Calendar
+                                                     mode="single"
+                                                     selected={parseDisplayDateToObj(formData.approval_date)}
+                                                     onSelect={d => handleCalendarSelect('approval_date', d)}
+                                                     initialFocus
+                                                 />
+                                             </PopoverContent>
+                                         </Popover>
+                                         <Button type="button" variant="outline" size="sm" onClick={() => handleTodayClick('approval_date')}>
+                                             היום
+                                         </Button>
+                                     </div>
+                                     {dateErrors.approval_date && (
+                                         <Alert variant="destructive">
+                                             <AlertCircle className="h-4 w-4" />
+                                             <AlertDescription>{dateErrors.approval_date}</AlertDescription>
+                                         </Alert>
+                                     )}
+                                 </div>
                                 <div className="space-y-2">
                                     <Label>מספר אסמכתא בנק</Label>
                                     <Input 
@@ -1187,19 +1244,40 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>תאריך החזר</Label>
-                                    <Input 
-                                        value={formData.return_date} 
-                                        onChange={e => handleDateChange('return_date', e.target.value)} 
-                                        placeholder="dd/mm/yyyy"
-                                    />
-                                    {dateErrors.return_date && (
-                                        <Alert variant="destructive">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <AlertDescription>{dateErrors.return_date}</AlertDescription>
-                                        </Alert>
-                                    )}
-                                </div>
+                                     <Label>תאריך החזר</Label>
+                                     <div className="flex gap-1">
+                                         <Input 
+                                             value={formData.return_date} 
+                                             onChange={e => handleDateChange('return_date', e.target.value)} 
+                                             placeholder="dd/mm/yyyy"
+                                             className="flex-1"
+                                         />
+                                         <Popover>
+                                             <PopoverTrigger asChild>
+                                                 <Button type="button" variant="outline" size="icon">
+                                                     <CalendarIcon className="h-4 w-4" />
+                                                 </Button>
+                                             </PopoverTrigger>
+                                             <PopoverContent className="w-auto p-0" align="end">
+                                                 <Calendar
+                                                     mode="single"
+                                                     selected={parseDisplayDateToObj(formData.return_date)}
+                                                     onSelect={d => handleCalendarSelect('return_date', d)}
+                                                     initialFocus
+                                                 />
+                                             </PopoverContent>
+                                         </Popover>
+                                         <Button type="button" variant="outline" size="sm" onClick={() => handleTodayClick('return_date')}>
+                                             היום
+                                         </Button>
+                                     </div>
+                                     {dateErrors.return_date && (
+                                         <Alert variant="destructive">
+                                             <AlertCircle className="h-4 w-4" />
+                                             <AlertDescription>{dateErrors.return_date}</AlertDescription>
+                                         </Alert>
+                                     )}
+                                 </div>
                             </div>
                         </div>
                     </CardContent>
