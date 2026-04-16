@@ -470,7 +470,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
             if (analysisResult) {
                 const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
                 
-                // Check for missing data and ask user
                 const missingFields = [];
                 if (!business_name) missingFields.push('שם העסק');
                 if (!invoice_date) missingFields.push('תאריך חשבונית');
@@ -480,10 +479,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                     toast.info(`לא ניתן לזהות: ${missingFields.join(', ')}. אנא הזן ידנית.`, { duration: 5000 });
                 }
                 
-                // Convert amount to ILS using Bank of Israel rates
                 let amountInILS = amount;
                 let exchangeRate = null;
-                
                 if (currency && currency !== 'ILS') {
                     const conversionResult = await convertCurrency(amount, currency, invoice_date || expense.invoice_date);
                     amountInILS = conversionResult.amountInILS;
@@ -491,19 +488,31 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 }
 
                 const purchaseType = mapCategoryToPurchaseType(accounting_category);
-                
-                handleExpenseChange(originalIndex, 'invoice_date', invoice_date || expense.invoice_date || format(new Date(), 'dd/MM/yyyy'));
-                handleExpenseChange(originalIndex, 'invoice_number', invoice_number || expense.invoice_number || '');
-                handleExpenseChange(originalIndex, 'business_name', business_name || expense.business_name || '');
-                handleExpenseChange(originalIndex, 'purchase_type', purchaseType);
-                handleExpenseChange(originalIndex, 'amount', parseFloat(amountInILS?.toFixed(2)) || expense.amount || 0);
-                handleExpenseChange(originalIndex, 'original_amount', amount || expense.original_amount || 0);
-                handleExpenseChange(originalIndex, 'original_currency', currency || expense.original_currency || 'ILS');
-                handleExpenseChange(originalIndex, 'exchange_rate', exchangeRate);
 
-                toast.success("הוצאה נותחה מחדש בהצלחה!");
+                // Update all fields in a single atomic state update to avoid index drift
+                setFormData(prev => ({
+                    ...prev,
+                    expenses: prev.expenses.map((exp, i) =>
+                        i === originalIndex ? {
+                            ...exp,
+                            invoice_date: invoice_date || exp.invoice_date || format(new Date(), 'dd/MM/yyyy'),
+                            invoice_number: invoice_number || exp.invoice_number || '',
+                            business_name: business_name || exp.business_name || '',
+                            purchase_type: purchaseType,
+                            amount: parseFloat(amountInILS?.toFixed(2)) || exp.amount || 0,
+                            original_amount: amount || exp.original_amount || 0,
+                            original_currency: currency || exp.original_currency || 'ILS',
+                            exchange_rate: exchangeRate,
+                            missing_fields: missingFields,
+                        } : exp
+                    )
+                }));
+
+                if (missingFields.length === 0) {
+                    toast.success("הוצאה נותחה מחדש בהצלחה!");
+                }
             } else {
-                toast.error("לא ניתן לנתח את הקובץ");
+                toast.error("לא ניתן לנתח את הקובץ — אנא מלא ידנית");
             }
         } catch (error) {
             console.error("Reanalysis error:", error);
