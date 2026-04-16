@@ -329,13 +329,23 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         if (!files.length) return;
         event.target.value = '';
 
+        // ── Filter out already-uploaded files ─────────────────────────────────
+        const existingNames = new Set((formData.receipt_files || []).map(f => f.name));
+        const skipped = files.filter(f => existingNames.has(f.name));
+        const newFiles = files.filter(f => !existingNames.has(f.name));
+
+        if (skipped.length > 0) {
+            toast.info(`${skipped.length} קובץ/ים כבר קיים/ים ודולגו: ${skipped.map(f => f.name).join(', ')}`, { duration: 5000 });
+        }
+        if (!newFiles.length) return;
+
         // ── Phase 1: Upload all files in parallel ──────────────────────────────
         setUploading(true);
-        setUploadProgress({ active: true, uploaded: 0, total: files.length });
+        setUploadProgress({ active: true, uploaded: 0, total: newFiles.length });
 
         let uploadedFiles = []; // { file_url, file_name }
         await Promise.all(
-            files.map(async (file) => {
+            newFiles.map(async (file) => {
                 try {
                     const { file_url } = await base44.integrations.Core.UploadFile({ file });
                     uploadedFiles.push({ file_url, file_name: file.name });
