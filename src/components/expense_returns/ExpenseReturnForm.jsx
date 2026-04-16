@@ -303,10 +303,30 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 .map(r => ({ url: r.file_url, name: r.file_name }));
 
             // Process analyzed data - with async conversion
+            // Always create an expense row for every successfully uploaded file
             const newExpenses = await Promise.all(
                 results
-                    .filter(r => r.analysisResult)
+                    .filter(r => r.file_url) // all successfully uploaded files, regardless of analysis
                     .map(async ({ file_url, file_name, analysisResult }) => {
+                        // If analysis failed, create a blank row with the file attached
+                        if (!analysisResult) {
+                            return {
+                                invoice_date: format(new Date(), 'dd/MM/yyyy'),
+                                invoice_number: '',
+                                business_name: '',
+                                purchase_type: 'other',
+                                amount: 0,
+                                currency: 'ILS',
+                                original_amount: 0,
+                                original_currency: 'ILS',
+                                exchange_rate: null,
+                                receipt_uploaded: true,
+                                receipt_url: file_url,
+                                receipt_file_name: file_name,
+                                missing_fields: ['שם העסק', 'תאריך', 'סכום']
+                            };
+                        }
+
                         const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
                         
                         // Check for missing data
