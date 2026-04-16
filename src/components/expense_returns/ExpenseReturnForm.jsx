@@ -168,9 +168,18 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     };
     
     const handleRemoveExpense = (index) => {
+        if (!window.confirm('למחוק את שורת ההוצאה והקובץ המקושר אליה?')) return;
+        const expense = formData.expenses[index];
         setFormData(prev => ({
             ...prev,
-            expenses: prev.expenses.filter((_, i) => i !== index)
+            expenses: prev.expenses.filter((_, i) => i !== index),
+            // Also remove the linked file if exists
+            receipt_files: expense?.receipt_url
+                ? prev.receipt_files.filter(f => f.url !== expense.receipt_url)
+                : prev.receipt_files,
+            receipt_urls: expense?.receipt_url
+                ? prev.receipt_urls.filter(u => u !== expense.receipt_url)
+                : prev.receipt_urls,
         }));
     };
 
@@ -433,10 +442,16 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     };
 
     const handleRemoveFile = (index) => {
+        if (!window.confirm('למחוק את הקובץ ושורת ההוצאה המקושרת אליו?')) return;
+        const fileUrl = formData.receipt_files[index]?.url;
         setFormData(prev => ({
             ...prev,
             receipt_urls: prev.receipt_urls.filter((_, i) => i !== index),
-            receipt_files: prev.receipt_files.filter((_, i) => i !== index)
+            receipt_files: prev.receipt_files.filter((_, i) => i !== index),
+            // Also remove the linked expense row if exists
+            expenses: fileUrl
+                ? prev.expenses.filter(e => e.receipt_url !== fileUrl)
+                : prev.expenses,
         }));
     };
 
