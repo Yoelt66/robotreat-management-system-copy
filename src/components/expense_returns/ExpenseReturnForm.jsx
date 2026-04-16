@@ -1185,6 +1185,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                 <div className="space-y-2">
                                     <Label>מאושר על ידי</Label>
                                     <Select 
+                                        key={`approved_by_${users.length}`}
                                         value={formData.approved_by} 
                                         onValueChange={val => setFormData(p => ({...p, approved_by: val}))}
                                     >
