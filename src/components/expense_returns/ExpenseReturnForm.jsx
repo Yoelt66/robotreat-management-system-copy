@@ -1184,22 +1184,17 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>מאושר על ידי</Label>
-                                    <Select 
-                                        key={`approved_by_${users.length}`}
-                                        value={formData.approved_by} 
-                                        onValueChange={val => setFormData(p => ({...p, approved_by: val}))}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="בחר מנהל" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {users.filter(u => u.role === 'admin').map(user => (
-                                                <SelectItem key={user.id} value={user.nickname || user.full_name}>
-                                                    {user.nickname || user.full_name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Input
+                                        list="admin-users-list"
+                                        value={formData.approved_by}
+                                        onChange={e => setFormData(p => ({...p, approved_by: e.target.value}))}
+                                        placeholder="שם המאשר"
+                                    />
+                                    <datalist id="admin-users-list">
+                                        {users.filter(u => u.role === 'admin').map(user => (
+                                            <option key={user.id} value={user.nickname || user.full_name} />
+                                        ))}
+                                    </datalist>
                                 </div>
                                 <div className="space-y-2">
                                      <Label>תאריך אישור</Label>
