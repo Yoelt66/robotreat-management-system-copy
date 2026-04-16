@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, Upload, X, RefreshCw, FileText, ExternalLink, Printer } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { User, ExpenseReturn } from "@/entities/all";
 import { Currency } from "@/entities/Currency";
 import { base44 } from "@/api/base44Client";
@@ -52,8 +53,10 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
     const [currencies, setCurrencies] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
-    const [dateErrors, setDateErrors] = useState({}); // Add date errors state
+    const [dateErrors, setDateErrors] = useState({});
     const [isSaving, setIsSaving] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState({ active: false, uploaded: 0, total: 0 });
+    const [analyzeProgress, setAnalyzeProgress] = useState({ active: false, done: 0, total: 0, currentFile: '' });
 
     useEffect(() => {
         const loadData = async () => {
@@ -279,127 +282,157 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         return mapping[category] || "other";
     };
 
-    // Process a single file: upload + analyze + optional retry
-    const processOneFile = async (file) => {
-        // 1. Upload
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-
-        // 2. Analyze (with one retry if first attempt returns nothing)
-        let analysisResult = await analyzeReceipt(file_url);
-        if (!analysisResult) {
-            await new Promise(r => setTimeout(r, 1500)); // short pause before retry
-            analysisResult = await analyzeReceipt(file_url);
+    // Analyze with up to maxRetries attempts, returning partial data if available
+    const analyzeWithRetry = async (fileUrl, maxRetries = 3) => {
+        let lastResult = null;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            const result = await analyzeReceipt(fileUrl);
+            if (result) {
+                // Check if we have at least business_name or amount — consider it "good enough"
+                if (result.business_name || result.amount) return result;
+                // Store as partial in case later attempts also fail
+                lastResult = result;
+            }
+            if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, 1500 * attempt)); // backoff: 1.5s, 3s
+            }
         }
+        return lastResult; // may be null or partial
+    };
 
-        if (!analysisResult) {
-            return {
-                file_url,
-                file_name: file.name,
-                expense: {
-                    _id: `${Date.now()}_${Math.random()}`,
-                    invoice_date: format(new Date(), 'dd/MM/yyyy'),
-                    invoice_number: '',
-                    business_name: '',
-                    purchase_type: 'other',
-                    amount: 0,
-                    currency: 'ILS',
-                    original_amount: 0,
-                    original_currency: 'ILS',
-                    exchange_rate: null,
-                    receipt_uploaded: true,
-                    receipt_url: file_url,
-                    receipt_file_name: file.name,
-                    missing_fields: ['שם העסק', 'תאריך', 'סכום']
-                }
-            };
-        }
-
+    const buildExpenseFromAnalysis = (analysisResult, file_url, file_name, amountInILS, exchangeRate) => {
         const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
         const missingFields = [];
         if (!business_name) missingFields.push('שם העסק');
         if (!invoice_date) missingFields.push('תאריך');
         if (!amount || amount === 0) missingFields.push('סכום');
-
-        let amountInILS = amount;
-        let exchangeRate = null;
-        if (currency && currency !== 'ILS') {
-            const conv = await convertCurrency(amount, currency, invoice_date);
-            amountInILS = conv.amountInILS;
-            exchangeRate = conv.exchangeRate;
-        }
-
         return {
-            file_url,
-            file_name: file.name,
-            expense: {
-                _id: `${Date.now()}_${Math.random()}`,
-                invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
-                invoice_number: invoice_number || '',
-                business_name: business_name || '',
-                purchase_type: mapCategoryToPurchaseType(accounting_category),
-                amount: parseFloat(amountInILS?.toFixed(2)) || 0,
-                currency: 'ILS',
-                original_amount: amount || 0,
-                original_currency: currency || 'ILS',
-                exchange_rate: exchangeRate,
-                receipt_uploaded: true,
-                receipt_url: file_url,
-                receipt_file_name: file.name,
-                missing_fields: missingFields
-            }
+            _id: `${Date.now()}_${Math.random()}`,
+            invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
+            invoice_number: invoice_number || '',
+            business_name: business_name || '',
+            purchase_type: mapCategoryToPurchaseType(accounting_category),
+            amount: parseFloat((amountInILS ?? amount ?? 0).toFixed(2)),
+            currency: 'ILS',
+            original_amount: amount || 0,
+            original_currency: currency || 'ILS',
+            exchange_rate: exchangeRate,
+            receipt_uploaded: true,
+            receipt_url: file_url,
+            receipt_file_name: file_name,
+            missing_fields: missingFields,
         };
     };
 
     const handleFileUpload = async (event) => {
         const files = Array.from(event.target.files);
         if (!files.length) return;
+        event.target.value = '';
 
+        // ── Phase 1: Upload all files in parallel ──────────────────────────────
         setUploading(true);
-        setAnalyzing(true);
+        setUploadProgress({ active: true, uploaded: 0, total: files.length });
 
-        const newExpenses = [];
-        const newReceiptFiles = [];
-        let successCount = 0;
+        let uploadedFiles = []; // { file_url, file_name }
+        await Promise.all(
+            files.map(async (file) => {
+                try {
+                    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                    uploadedFiles.push({ file_url, file_name: file.name });
+                } catch (err) {
+                    console.error(`Upload failed for ${file.name}:`, err);
+                    toast.error(`שגיאה בהעלאת: ${file.name}`);
+                } finally {
+                    setUploadProgress(p => ({ ...p, uploaded: p.uploaded + 1 }));
+                }
+            })
+        );
+
+        setUploading(false);
+        setUploadProgress(p => ({ ...p, active: false }));
+
+        if (!uploadedFiles.length) return;
+
+        // Add placeholder expense rows immediately so the user sees the files right away
+        const placeholders = uploadedFiles.map(({ file_url, file_name }) => ({
+            _id: `${Date.now()}_${Math.random()}_${file_name}`,
+            invoice_date: format(new Date(), 'dd/MM/yyyy'),
+            invoice_number: '',
+            business_name: '',
+            purchase_type: 'other',
+            amount: 0,
+            currency: 'ILS',
+            original_amount: 0,
+            original_currency: 'ILS',
+            exchange_rate: null,
+            receipt_uploaded: true,
+            receipt_url: file_url,
+            receipt_file_name: file_name,
+            missing_fields: ['שם העסק', 'תאריך', 'סכום'],
+            _analyzing: true,
+        }));
+
+        const newReceiptFiles = uploadedFiles.map(f => ({ url: f.file_url, name: f.file_name }));
+        setFormData(prev => ({
+            ...prev,
+            receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
+            receipt_files: [...prev.receipt_files, ...newReceiptFiles],
+            expenses: [...placeholders, ...prev.expenses],
+        }));
+
+        // ── Phase 2: Analyze sequentially, update rows as each finishes ─────────
+        setAnalyzing(true);
+        setAnalyzeProgress({ active: true, done: 0, total: uploadedFiles.length, currentFile: '' });
+
+        let doneCount = 0;
         let incompleteCount = 0;
 
-        try {
-            toast.info(`מעלה ומנתח ${files.length} קבצים...`);
+        for (const { file_url, file_name } of uploadedFiles) {
+            setAnalyzeProgress(p => ({ ...p, currentFile: file_name }));
+            const placeholderId = placeholders.find(p => p.receipt_url === file_url)?._id;
 
-            // Process files sequentially to avoid LLM rate-limit issues
-            for (const file of files) {
-                try {
-                    const result = await processOneFile(file);
-                    newExpenses.push(result.expense);
-                    newReceiptFiles.push({ url: result.file_url, name: result.file_name });
-                    successCount++;
-                    if (result.expense.missing_fields?.length > 0) incompleteCount++;
-                } catch (err) {
-                    console.error(`Error processing ${file.name}:`, err);
-                    toast.error(`שגיאה בעיבוד הקובץ: ${file.name}`);
+            const analysisResult = await analyzeWithRetry(file_url, 3);
+
+            let updatedExpense;
+            if (analysisResult) {
+                let amountInILS = analysisResult.amount;
+                let exchangeRate = null;
+                if (analysisResult.currency && analysisResult.currency !== 'ILS') {
+                    const conv = await convertCurrency(analysisResult.amount, analysisResult.currency, analysisResult.invoice_date);
+                    amountInILS = conv.amountInILS;
+                    exchangeRate = conv.exchangeRate;
                 }
+                updatedExpense = {
+                    ...buildExpenseFromAnalysis(analysisResult, file_url, file_name, amountInILS, exchangeRate),
+                    _id: placeholderId, // keep same id so row stays in place
+                    _analyzing: false,
+                };
+                if (updatedExpense.missing_fields.length > 0) incompleteCount++;
+            } else {
+                updatedExpense = {
+                    ...placeholders.find(p => p._id === placeholderId),
+                    _analyzing: false,
+                };
+                incompleteCount++;
             }
 
-            if (newExpenses.length > 0) {
-                setFormData(prev => ({
-                    ...prev,
-                    receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
-                    receipt_files: [...prev.receipt_files, ...newReceiptFiles],
-                    expenses: [...newExpenses, ...prev.expenses]
-                }));
+            // Update the specific row in state
+            setFormData(prev => ({
+                ...prev,
+                expenses: prev.expenses.map(exp => exp._id === placeholderId ? updatedExpense : exp),
+            }));
 
-                if (incompleteCount > 0) {
-                    toast.success(`${successCount} קבצים עובדו. ${incompleteCount} דורשים השלמה ידנית (מסומנים בצהוב).`, { duration: 7000 });
-                } else {
-                    toast.success(`${successCount} חשבוניות נותחו בהצלחה!`);
-                }
-            }
-        } catch (error) {
-            console.error("File upload error:", error);
-            toast.error("שגיאה בהעלאת הקבצים");
-        } finally {
-            setUploading(false);
-            setAnalyzing(false);
-            event.target.value = '';
+            doneCount++;
+            setAnalyzeProgress(p => ({ ...p, done: doneCount }));
+        }
+
+        setAnalyzing(false);
+        setAnalyzeProgress(p => ({ ...p, active: false, currentFile: '' }));
+
+        if (incompleteCount > 0) {
+            toast.success(`${doneCount} קבצים עובדו. ${incompleteCount} דורשים השלמה ידנית (מסומנים בצהוב).`, { duration: 7000 });
+        } else {
+            toast.success(`${doneCount} חשבוניות נותחו בהצלחה!`);
         }
     };
 
@@ -849,16 +882,23 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                         .map((expense) => {
                                             const expId = expense._id;
                                             const originalIndex = formData.expenses.findIndex(e => e._id === expId);
-                                            const hasIncompleteData = expense.missing_fields && expense.missing_fields.length > 0;
+                                            const isStillAnalyzing = expense._analyzing;
+                                            const hasIncompleteData = !isStillAnalyzing && expense.missing_fields && expense.missing_fields.length > 0;
                                             return (
-                                        <TableRow key={expId} className={hasIncompleteData ? 'bg-yellow-50' : ''}>
+                                        <TableRow key={expId} className={isStillAnalyzing ? 'bg-blue-50 opacity-70' : hasIncompleteData ? 'bg-yellow-50' : ''}>
                                             <TableCell>
+                                                {isStillAnalyzing ? (
+                                                    <span className="flex items-center gap-1 text-xs text-blue-500 whitespace-nowrap">
+                                                        <Loader2 className="w-3 h-3 animate-spin" /> מנתח...
+                                                    </span>
+                                                ) : (
                                                 <Input 
                                                     value={expense.invoice_date} 
                                                     onChange={e => handleExpenseDateChange(originalIndex, e.target.value)}
                                                     placeholder="dd/mm/yyyy"
                                                     className="w-32"
                                                 />
+                                                )}
                                                 {dateErrors[`expense_${originalIndex}_date`] && (
                                                     <div className="text-xs text-red-600 mt-1">
                                                         {dateErrors[`expense_${originalIndex}_date`]}
@@ -938,7 +978,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex gap-1">
-                                                    {expense.receipt_url && (
+                                                    {expense.receipt_url && !isStillAnalyzing && (
                                                         <Button 
                                                             type="button"
                                                             variant="ghost" 
@@ -1016,13 +1056,35 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                         </span>
                                     </Button>
                                 </label>
-                                {analyzing && (
-                                    <span className="text-sm text-slate-500">מנתח חשבוניות...</span>
-                                )}
                                 <span className="text-xs text-slate-500">ניתן לבחור מספר קבצים</span>
                             </div>
                         </div>
                         
+                        {/* Upload progress */}
+                        {uploadProgress.active && (
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-sm text-slate-600">
+                                    <span>מעלה קבצים...</span>
+                                    <span>{uploadProgress.uploaded} / {uploadProgress.total}</span>
+                                </div>
+                                <Progress value={(uploadProgress.uploaded / uploadProgress.total) * 100} className="h-2" />
+                            </div>
+                        )}
+
+                        {/* Analyze progress */}
+                        {analyzeProgress.active && (
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-sm text-slate-600">
+                                    <span className="flex items-center gap-1">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        מנתח: {analyzeProgress.currentFile}
+                                    </span>
+                                    <span>{analyzeProgress.done} / {analyzeProgress.total}</span>
+                                </div>
+                                <Progress value={(analyzeProgress.done / analyzeProgress.total) * 100} className="h-2" />
+                            </div>
+                        )}
+
                         {(formData.receipt_files || []).length > 0 && (
                             <div>
                                 <Label>קבצים שהועלו:</Label>
