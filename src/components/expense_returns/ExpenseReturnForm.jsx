@@ -366,6 +366,43 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                     })
             );
 
+            // Retry analysis for failed ones
+            const failedExpenses = newExpenses.filter(e => e.missing_fields?.length === 3); // all 3 missing = analysis failed
+            if (failedExpenses.length > 0) {
+                toast.info(`מנסה לנתח מחדש ${failedExpenses.length} קבצים שנכשלו...`);
+                await Promise.all(
+                    failedExpenses.map(async (expense) => {
+                        const retryResult = await analyzeReceipt(expense.receipt_url);
+                        if (retryResult) {
+                            const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = retryResult;
+                            const missingFields = [];
+                            if (!business_name) missingFields.push('שם העסק');
+                            if (!invoice_date) missingFields.push('תאריך');
+                            if (!amount || amount === 0) missingFields.push('סכום');
+
+                            let amountInILS = amount;
+                            let exchangeRate = null;
+                            if (currency && currency !== 'ILS') {
+                                const conv = await convertCurrency(amount, currency, invoice_date);
+                                amountInILS = conv.amountInILS;
+                                exchangeRate = conv.exchangeRate;
+                            }
+
+                            // Update the expense in-place
+                            expense.business_name = business_name || '';
+                            expense.invoice_number = invoice_number || '';
+                            expense.invoice_date = invoice_date || format(new Date(), 'dd/MM/yyyy');
+                            expense.purchase_type = mapCategoryToPurchaseType(accounting_category);
+                            expense.amount = parseFloat(amountInILS?.toFixed(2)) || 0;
+                            expense.original_amount = amount || 0;
+                            expense.original_currency = currency || 'ILS';
+                            expense.exchange_rate = exchangeRate;
+                            expense.missing_fields = missingFields;
+                        }
+                    })
+                );
+            }
+
             setFormData(prev => ({
                 ...prev,
                 receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
