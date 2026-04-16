@@ -92,6 +92,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 receipt_files: initialReturn.receipt_files || (initialReturn.receipt_urls || []).map((url, i) => ({ url, name: `קובץ ${i + 1}` })),
                 expenses: (initialReturn.expenses || []).map(exp => ({
                     ...exp,
+                    _id: exp._id || `${Date.now()}_${Math.random()}`,
                     invoice_date: formatForDisplay(exp.invoice_date)
                 }))
             }));
@@ -278,158 +279,119 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         return mapping[category] || "other";
     };
 
+    // Process a single file: upload + analyze + optional retry
+    const processOneFile = async (file) => {
+        // 1. Upload
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+        // 2. Analyze (with one retry if first attempt returns nothing)
+        let analysisResult = await analyzeReceipt(file_url);
+        if (!analysisResult) {
+            await new Promise(r => setTimeout(r, 1500)); // short pause before retry
+            analysisResult = await analyzeReceipt(file_url);
+        }
+
+        if (!analysisResult) {
+            return {
+                file_url,
+                file_name: file.name,
+                expense: {
+                    _id: `${Date.now()}_${Math.random()}`,
+                    invoice_date: format(new Date(), 'dd/MM/yyyy'),
+                    invoice_number: '',
+                    business_name: '',
+                    purchase_type: 'other',
+                    amount: 0,
+                    currency: 'ILS',
+                    original_amount: 0,
+                    original_currency: 'ILS',
+                    exchange_rate: null,
+                    receipt_uploaded: true,
+                    receipt_url: file_url,
+                    receipt_file_name: file.name,
+                    missing_fields: ['שם העסק', 'תאריך', 'סכום']
+                }
+            };
+        }
+
+        const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
+        const missingFields = [];
+        if (!business_name) missingFields.push('שם העסק');
+        if (!invoice_date) missingFields.push('תאריך');
+        if (!amount || amount === 0) missingFields.push('סכום');
+
+        let amountInILS = amount;
+        let exchangeRate = null;
+        if (currency && currency !== 'ILS') {
+            const conv = await convertCurrency(amount, currency, invoice_date);
+            amountInILS = conv.amountInILS;
+            exchangeRate = conv.exchangeRate;
+        }
+
+        return {
+            file_url,
+            file_name: file.name,
+            expense: {
+                _id: `${Date.now()}_${Math.random()}`,
+                invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
+                invoice_number: invoice_number || '',
+                business_name: business_name || '',
+                purchase_type: mapCategoryToPurchaseType(accounting_category),
+                amount: parseFloat(amountInILS?.toFixed(2)) || 0,
+                currency: 'ILS',
+                original_amount: amount || 0,
+                original_currency: currency || 'ILS',
+                exchange_rate: exchangeRate,
+                receipt_uploaded: true,
+                receipt_url: file_url,
+                receipt_file_name: file.name,
+                missing_fields: missingFields
+            }
+        };
+    };
+
     const handleFileUpload = async (event) => {
         const files = Array.from(event.target.files);
         if (!files.length) return;
 
         setUploading(true);
         setAnalyzing(true);
-        
+
+        const newExpenses = [];
+        const newReceiptFiles = [];
+        let successCount = 0;
+        let incompleteCount = 0;
+
         try {
-            toast.info(`מעלה ${files.length} קבצים...`);
-            
-            // Upload and analyze all files in parallel
-            const results = await Promise.all(
-                files.map(async (file) => {
-                    try {
-                        // Upload file
-                        const { file_url } = await base44.integrations.Core.UploadFile({ file });
-                        
-                        // Analyze receipt
-                        const analysisResult = await analyzeReceipt(file_url);
-                        
-                        return { file_url, file_name: file.name, analysisResult };
-                    } catch (error) {
-                        console.error("Error processing file:", error);
-                        return { file_url: null, file_name: file.name, analysisResult: null };
-                    }
-                })
-            );
+            toast.info(`מעלה ומנתח ${files.length} קבצים...`);
 
-            // Add receipt files with names
-            const newReceiptFiles = results
-                .filter(r => r.file_url)
-                .map(r => ({ url: r.file_url, name: r.file_name }));
-
-            // Process analyzed data - with async conversion
-            // Always create an expense row for every successfully uploaded file
-            const newExpenses = await Promise.all(
-                results
-                    .filter(r => r.file_url) // all successfully uploaded files, regardless of analysis
-                    .map(async ({ file_url, file_name, analysisResult }) => {
-                        // If analysis failed, create a blank row with the file attached
-                        if (!analysisResult) {
-                            return {
-                                invoice_date: format(new Date(), 'dd/MM/yyyy'),
-                                invoice_number: '',
-                                business_name: '',
-                                purchase_type: 'other',
-                                amount: 0,
-                                currency: 'ILS',
-                                original_amount: 0,
-                                original_currency: 'ILS',
-                                exchange_rate: null,
-                                receipt_uploaded: true,
-                                receipt_url: file_url,
-                                receipt_file_name: file_name,
-                                missing_fields: ['שם העסק', 'תאריך', 'סכום']
-                            };
-                        }
-
-                        const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
-                        
-                        // Check for missing data
-                        const missingFields = [];
-                        if (!business_name) missingFields.push('שם העסק');
-                        if (!invoice_date) missingFields.push('תאריך');
-                        if (!amount || amount === 0) missingFields.push('סכום');
-                        
-                        // Convert amount to ILS if needed using Bank of Israel rates
-                        let amountInILS = amount;
-                        let exchangeRate = null;
-                        
-                        if (currency && currency !== 'ILS') {
-                            const conversionResult = await convertCurrency(amount, currency, invoice_date);
-                            amountInILS = conversionResult.amountInILS;
-                            exchangeRate = conversionResult.exchangeRate;
-                        }
-
-                        // Map category to purchase type
-                        const purchaseType = mapCategoryToPurchaseType(accounting_category);
-
-                        return {
-                            invoice_date: invoice_date || format(new Date(), 'dd/MM/yyyy'),
-                            invoice_number: invoice_number || '',
-                            business_name: business_name || '',
-                            purchase_type: purchaseType,
-                            amount: parseFloat(amountInILS?.toFixed(2)) || 0,
-                            currency: 'ILS',
-                            original_amount: amount || 0,
-                            original_currency: currency || 'ILS',
-                            exchange_rate: exchangeRate,
-                            receipt_uploaded: true,
-                            receipt_url: file_url,
-                            receipt_file_name: file_name,
-                            missing_fields: missingFields
-                        };
-                    })
-            );
-
-            // Retry analysis for failed ones
-            const failedExpenses = newExpenses.filter(e => e.missing_fields?.length === 3); // all 3 missing = analysis failed
-            if (failedExpenses.length > 0) {
-                toast.info(`מנסה לנתח מחדש ${failedExpenses.length} קבצים שנכשלו...`);
-                await Promise.all(
-                    failedExpenses.map(async (expense) => {
-                        const retryResult = await analyzeReceipt(expense.receipt_url);
-                        if (retryResult) {
-                            const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = retryResult;
-                            const missingFields = [];
-                            if (!business_name) missingFields.push('שם העסק');
-                            if (!invoice_date) missingFields.push('תאריך');
-                            if (!amount || amount === 0) missingFields.push('סכום');
-
-                            let amountInILS = amount;
-                            let exchangeRate = null;
-                            if (currency && currency !== 'ILS') {
-                                const conv = await convertCurrency(amount, currency, invoice_date);
-                                amountInILS = conv.amountInILS;
-                                exchangeRate = conv.exchangeRate;
-                            }
-
-                            // Update the expense in-place
-                            expense.business_name = business_name || '';
-                            expense.invoice_number = invoice_number || '';
-                            expense.invoice_date = invoice_date || format(new Date(), 'dd/MM/yyyy');
-                            expense.purchase_type = mapCategoryToPurchaseType(accounting_category);
-                            expense.amount = parseFloat(amountInILS?.toFixed(2)) || 0;
-                            expense.original_amount = amount || 0;
-                            expense.original_currency = currency || 'ILS';
-                            expense.exchange_rate = exchangeRate;
-                            expense.missing_fields = missingFields;
-                        }
-                    })
-                );
+            // Process files sequentially to avoid LLM rate-limit issues
+            for (const file of files) {
+                try {
+                    const result = await processOneFile(file);
+                    newExpenses.push(result.expense);
+                    newReceiptFiles.push({ url: result.file_url, name: result.file_name });
+                    successCount++;
+                    if (result.expense.missing_fields?.length > 0) incompleteCount++;
+                } catch (err) {
+                    console.error(`Error processing ${file.name}:`, err);
+                    toast.error(`שגיאה בעיבוד הקובץ: ${file.name}`);
+                }
             }
 
-            setFormData(prev => ({
-                ...prev,
-                receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
-                receipt_files: [...prev.receipt_files, ...newReceiptFiles],
-                expenses: [...newExpenses, ...prev.expenses]
-            }));
+            if (newExpenses.length > 0) {
+                setFormData(prev => ({
+                    ...prev,
+                    receipt_urls: [...prev.receipt_urls, ...newReceiptFiles.map(f => f.url)],
+                    receipt_files: [...prev.receipt_files, ...newReceiptFiles],
+                    expenses: [...newExpenses, ...prev.expenses]
+                }));
 
-            const analyzedCount = newExpenses.length;
-            const incompleteParsing = newExpenses.filter(e => e.missing_fields?.length > 0);
-            
-            if (analyzedCount > 0) {
-                if (incompleteParsing.length > 0) {
-                    toast.success(`${analyzedCount} חשבוניות נותחו. ${incompleteParsing.length} דורשות השלמה ידנית.`, { duration: 6000 });
+                if (incompleteCount > 0) {
+                    toast.success(`${successCount} קבצים עובדו. ${incompleteCount} דורשים השלמה ידנית (מסומנים בצהוב).`, { duration: 7000 });
                 } else {
-                    toast.success(`${analyzedCount} מתוך ${files.length} חשבוניות נותחו בהצלחה!`);
+                    toast.success(`${successCount} חשבוניות נותחו בהצלחה!`);
                 }
-            } else {
-                toast.info("הקבצים הועלו, אך לא ניתן לנתח אותם אוטומטית");
             }
         } catch (error) {
             console.error("File upload error:", error);
@@ -437,7 +399,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         } finally {
             setUploading(false);
             setAnalyzing(false);
-            event.target.value = ''; // Reset input
+            event.target.value = '';
         }
     };
 
@@ -455,17 +417,22 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
         }));
     };
 
-    const reanalyzeExpense = async (originalIndex) => {
-        const expense = formData.expenses[originalIndex];
-        if (!expense.receipt_url) {
-            toast.error("לא נמצא קובץ מקושר להוצאה זו");
-            return;
-        }
+    const reanalyzeExpense = async (expenseId) => {
+        // Find by _id (stable identifier) instead of array index which shifts after sort
+        const expense = formData.expenses.find(e => e._id === expenseId);
+        if (!expense) { toast.error("לא נמצאה ההוצאה"); return; }
+        if (!expense.receipt_url) { toast.error("לא נמצא קובץ מקושר להוצאה זו"); return; }
 
         setAnalyzing(true);
         try {
             toast.info("מנתח מחדש את הקובץ המקושר...");
-            const analysisResult = await analyzeReceipt(expense.receipt_url);
+            
+            // Try up to 2 times
+            let analysisResult = await analyzeReceipt(expense.receipt_url);
+            if (!analysisResult) {
+                await new Promise(r => setTimeout(r, 2000));
+                analysisResult = await analyzeReceipt(expense.receipt_url);
+            }
             
             if (analysisResult) {
                 const { business_name, invoice_number, invoice_date, amount, currency, accounting_category } = analysisResult;
@@ -475,10 +442,6 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                 if (!invoice_date) missingFields.push('תאריך חשבונית');
                 if (!amount || amount === 0) missingFields.push('סכום');
                 
-                if (missingFields.length > 0) {
-                    toast.info(`לא ניתן לזהות: ${missingFields.join(', ')}. אנא הזן ידנית.`, { duration: 5000 });
-                }
-                
                 let amountInILS = amount;
                 let exchangeRate = null;
                 if (currency && currency !== 'ILS') {
@@ -487,18 +450,15 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                     exchangeRate = conversionResult.exchangeRate;
                 }
 
-                const purchaseType = mapCategoryToPurchaseType(accounting_category);
-
-                // Update all fields in a single atomic state update to avoid index drift
                 setFormData(prev => ({
                     ...prev,
-                    expenses: prev.expenses.map((exp, i) =>
-                        i === originalIndex ? {
+                    expenses: prev.expenses.map(exp =>
+                        exp._id === expenseId ? {
                             ...exp,
                             invoice_date: invoice_date || exp.invoice_date || format(new Date(), 'dd/MM/yyyy'),
                             invoice_number: invoice_number || exp.invoice_number || '',
                             business_name: business_name || exp.business_name || '',
-                            purchase_type: purchaseType,
+                            purchase_type: mapCategoryToPurchaseType(accounting_category),
                             amount: parseFloat(amountInILS?.toFixed(2)) || exp.amount || 0,
                             original_amount: amount || exp.original_amount || 0,
                             original_currency: currency || exp.original_currency || 'ILS',
@@ -510,6 +470,8 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
 
                 if (missingFields.length === 0) {
                     toast.success("הוצאה נותחה מחדש בהצלחה!");
+                } else {
+                    toast.info(`לא ניתן לזהות: ${missingFields.join(', ')}. אנא הזן ידנית.`, { duration: 5000 });
                 }
             } else {
                 toast.error("לא ניתן לנתח את הקובץ — אנא מלא ידנית");
@@ -878,22 +840,18 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                 <TableBody>
                                     {[...formData.expenses]
                                         .sort((a, b) => {
-                                            // Sort by business name first
                                             const nameCompare = (a.business_name || '').localeCompare(b.business_name || '');
                                             if (nameCompare !== 0) return nameCompare;
-                                            
-                                            // Then by date
                                             const dateA = convertDateForSubmission(a.invoice_date);
                                             const dateB = convertDateForSubmission(b.invoice_date);
-                                            return dateB.localeCompare(dateA); // Most recent first
+                                            return dateB.localeCompare(dateA);
                                         })
-                                        .map((expense, sortedIndex) => {
-                                            // Find the original index in unsorted array
-                                            const originalIndex = formData.expenses.indexOf(expense);
+                                        .map((expense) => {
+                                            const expId = expense._id;
+                                            const originalIndex = formData.expenses.findIndex(e => e._id === expId);
                                             const hasIncompleteData = expense.missing_fields && expense.missing_fields.length > 0;
-                                            
                                             return (
-                                        <TableRow key={originalIndex} className={hasIncompleteData ? 'bg-yellow-50' : ''}>
+                                        <TableRow key={expId} className={hasIncompleteData ? 'bg-yellow-50' : ''}>
                                             <TableCell>
                                                 <Input 
                                                     value={expense.invoice_date} 
@@ -985,7 +943,7 @@ export default function ExpenseReturnForm({ initialReturn, currentUser, onSubmit
                                                             type="button"
                                                             variant="ghost" 
                                                             size="icon"
-                                                            onClick={() => reanalyzeExpense(originalIndex)}
+                                                            onClick={() => reanalyzeExpense(expId)}
                                                             disabled={analyzing}
                                                             title="נתח מחדש את הקובץ המקושר"
                                                         >
