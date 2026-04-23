@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,48 +7,42 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Clock } from "lucide-react";
 
-const DEFAULT_FORM = { name: "", brand_id: "", unit_type: "", description: "", step_configs: [], estimated_duration_hours: 1, color: "#10b981" };
+const DEFAULT_FORM = {
+  name: "", brand_id: "", unit_type: "", description: "",
+  step_configs: [], estimated_duration_hours: 1, color: "#10b981"
+};
+
+function buildFormData(editingType) {
+  if (!editingType) return { ...DEFAULT_FORM };
+  return {
+    name: editingType.name || "",
+    brand_id: editingType.brand_id || "",
+    unit_type: editingType.unit_type || "",
+    description: editingType.description || "",
+    step_configs: editingType.step_configs ? editingType.step_configs.map(s => ({ ...s })) : [],
+    estimated_duration_hours: editingType.estimated_duration_hours || 1,
+    color: editingType.color || "#10b981"
+  };
+}
 
 export default function MaintenanceTypeFormDialog({ open, onClose, onSubmit, editingType, unitBrands, maintenanceSteps }) {
-  const [formData, setFormData] = useState(() => {
-    if (editingType) {
-      return {
-        name: editingType.name || "",
-        brand_id: editingType.brand_id || "",
-        unit_type: editingType.unit_type || "",
-        description: editingType.description || "",
-        step_configs: editingType.step_configs || [],
-        estimated_duration_hours: editingType.estimated_duration_hours || 1,
-        color: editingType.color || "#10b981"
-      };
-    }
-    return DEFAULT_FORM;
-  });
+  const [formData, setFormData] = useState(DEFAULT_FORM);
 
+  // Only re-initialize when the dialog opens
   useEffect(() => {
     if (open) {
-      if (editingType) {
-        setFormData({
-          name: editingType.name || "",
-          brand_id: editingType.brand_id || "",
-          unit_type: editingType.unit_type || "",
-          description: editingType.description || "",
-          step_configs: editingType.step_configs || [],
-          estimated_duration_hours: editingType.estimated_duration_hours || 1,
-          color: editingType.color || "#10b981"
-        });
-      } else {
-        setFormData(DEFAULT_FORM);
-      }
+      setFormData(buildFormData(editingType));
     }
-  }, [open, editingType?.id]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
 
-  const getStepConfig = (stepId) => formData.step_configs.find(sc => sc.step_id === stepId);
+  const getStepConfig = useCallback(
+    (stepId) => formData.step_configs.find(sc => sc.step_id === stepId),
+    [formData.step_configs]
+  );
 
   const toggleStep = (step) => {
     const existing = getStepConfig(step.id);
@@ -80,7 +74,7 @@ export default function MaintenanceTypeFormDialog({ open, onClose, onSubmit, edi
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => !o && onClose()}>
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle>{editingType ? "עריכת סוג תחזוקה" : "סוג תחזוקה חדש"}</DialogTitle>
