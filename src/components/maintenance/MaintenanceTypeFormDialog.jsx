@@ -142,8 +142,8 @@ export default function MaintenanceTypeFormDialog({ open, onClose, onSubmit, edi
                   const isEnabled = !!config;
                   return (
                     <div key={step.id} className={`border rounded-lg transition-colors ${isEnabled ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"}`}>
-                      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => toggleStep(step)}>
-                        <Checkbox checked={isEnabled} onCheckedChange={() => {}} onClick={e => e.stopPropagation()} />
+                      <label className="flex items-center gap-3 p-3 cursor-pointer select-none">
+                        <Checkbox checked={isEnabled} onCheckedChange={() => toggleStep(step)} />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-slate-800">{step.name}</p>
                           {step.description && <p className="text-xs text-slate-500 truncate">{step.description}</p>}
@@ -151,7 +151,7 @@ export default function MaintenanceTypeFormDialog({ open, onClose, onSubmit, edi
                         {step.parts_required?.length > 0 && (
                           <Badge variant="outline" className="text-xs shrink-0">{step.parts_required.length} חלקים</Badge>
                         )}
-                      </div>
+                      </label>
 
                       {isEnabled && config.custom_parts?.length > 0 && (
                         <div className="px-3 pb-3 border-t border-emerald-100 pt-2 space-y-1">
