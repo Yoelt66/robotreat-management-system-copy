@@ -27,21 +27,23 @@ export default function MaintenanceTypeFormDialog({ open, onClose, onSubmit, edi
     return DEFAULT_FORM;
   });
 
-  React.useEffect(() => {
-    if (editingType) {
-      setFormData({
-        name: editingType.name || "",
-        brand_id: editingType.brand_id || "",
-        unit_type: editingType.unit_type || "",
-        description: editingType.description || "",
-        step_configs: editingType.step_configs || [],
-        estimated_duration_hours: editingType.estimated_duration_hours || 1,
-        color: editingType.color || "#10b981"
-      });
-    } else {
-      setFormData(DEFAULT_FORM);
+  useEffect(() => {
+    if (open) {
+      if (editingType) {
+        setFormData({
+          name: editingType.name || "",
+          brand_id: editingType.brand_id || "",
+          unit_type: editingType.unit_type || "",
+          description: editingType.description || "",
+          step_configs: editingType.step_configs || [],
+          estimated_duration_hours: editingType.estimated_duration_hours || 1,
+          color: editingType.color || "#10b981"
+        });
+      } else {
+        setFormData(DEFAULT_FORM);
+      }
     }
-  }, [editingType, open]);
+  }, [open, editingType?.id]);
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
