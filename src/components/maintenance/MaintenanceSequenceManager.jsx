@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, GripVertical, Save, Info } from "lucide-react";
 import { toast } from "sonner";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
   const addStep = () => {
@@ -24,6 +25,14 @@ function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
     onChange(updated);
   };
 
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    const reordered = Array.from(sequence);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    onChange(reordered.map((s, i) => ({ ...s, step_number: i + 1 })));
+  };
+
   return (
     <div className="space-y-2">
       {sequence.length === 0 && (
@@ -31,50 +40,67 @@ function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
           אין שלבים ברצף. לחץ "הוסף שלב" להתחלה.
         </div>
       )}
-      {sequence.map((step, idx) => {
-        const typeName = maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name;
-        return (
-          <div key={idx} className="flex items-center gap-2 bg-white border rounded-lg p-3">
-            <div className="flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold shrink-0">
-              {step.step_number}
-            </div>
-            <Select
-              value={step.maintenance_type_id || "none"}
-              onValueChange={v => updateStep(idx, "maintenance_type_id", v === "none" ? "" : v)}
-            >
-              <SelectTrigger className="flex-1 h-9 text-sm">
-                <SelectValue placeholder="בחר סוג תחזוקה..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— בחר —</SelectItem>
-                {maintenanceTypes.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color || "#10b981" }} />
-                      {t.name}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="sequence-list">
+          {(provided) => (
+            <div className="space-y-2" ref={provided.innerRef} {...provided.droppableProps}>
+              {sequence.map((step, idx) => (
+                <Draggable key={idx} draggableId={`seq-step-${idx}`} index={idx}>
+                  {(drag, snapshot) => (
+                    <div
+                      ref={drag.innerRef}
+                      {...drag.draggableProps}
+                      className={`flex items-center gap-2 bg-white border rounded-lg p-3 ${snapshot.isDragging ? "shadow-lg ring-2 ring-emerald-300" : ""}`}
+                    >
+                      <div {...drag.dragHandleProps} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 shrink-0">
+                        <GripVertical className="h-5 w-5" />
+                      </div>
+                      <div className="flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold shrink-0">
+                        {step.step_number}
+                      </div>
+                      <Select
+                        value={step.maintenance_type_id || "none"}
+                        onValueChange={v => updateStep(idx, "maintenance_type_id", v === "none" ? "" : v)}
+                      >
+                        <SelectTrigger className="flex-1 h-9 text-sm">
+                          <SelectValue placeholder="בחר סוג תחזוקה..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— בחר —</SelectItem>
+                          {maintenanceTypes.map(t => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color || "#10b981" }} />
+                                {t.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-slate-500 whitespace-nowrap">מרווח:</span>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="120"
+                          value={step.interval_months}
+                          onChange={e => updateStep(idx, "interval_months", parseInt(e.target.value) || 1)}
+                          className="w-16 h-9 text-sm"
+                        />
+                        <span className="text-xs text-slate-500">חודשים</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeStep(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1 shrink-0">
-              <span className="text-xs text-slate-500 whitespace-nowrap">מרווח:</span>
-              <Input
-                type="number"
-                min="1"
-                max="120"
-                value={step.interval_months}
-                onChange={e => updateStep(idx, "interval_months", parseInt(e.target.value) || 1)}
-                className="w-16 h-9 text-sm"
-              />
-              <span className="text-xs text-slate-500">חודשים</span>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
             </div>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeStep(idx)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        );
-      })}
+          )}
+        </Droppable>
+      </DragDropContext>
       <Button type="button" variant="outline" size="sm" onClick={addStep} className="w-full gap-2 border-dashed">
         <Plus className="h-4 w-4" />
         הוסף שלב

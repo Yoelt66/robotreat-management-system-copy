@@ -96,31 +96,46 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       const errors = [];
 
       if (tabKey === "types") {
+        // Load existing types to detect duplicates
+        const existingTypes = await base44.entities.MaintenanceType.list();
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם סוג תחזוקה`); continue; }
           const brand = unitBrands.find(b => b.name === obj.brand_name);
           const brand_id = brand?.id || "";
+          const unit_type = obj.unit_type || "";
+          // Check for duplicate: same name + brand_id + unit_type
+          const existing = existingTypes.find(t =>
+            t.name === obj.name &&
+            (t.brand_id || "") === brand_id &&
+            (t.unit_type || "") === unit_type
+          );
           try {
-            await base44.entities.MaintenanceType.create({
+            const payload = {
               name: obj.name,
               description: obj.description || "",
               estimated_duration_hours: parseFloat(obj.estimated_duration_hours) || 1,
               color: obj.color || "#10b981",
               brand_id,
-              unit_type: obj.unit_type || "",
-            });
+              unit_type,
+            };
+            if (existing) {
+              await base44.entities.MaintenanceType.update(existing.id, payload);
+            } else {
+              await base44.entities.MaintenanceType.create(payload);
+            }
             successCount++;
           } catch (e) { errors.push(`שגיאה ב-"${obj.name}": ${e.message}`); }
         }
       }
 
       else if (tabKey === "steps") {
+        // Load existing steps to detect duplicates
+        const existingSteps = await base44.entities.MaintenanceStep.list();
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם פעולה`); continue; }
-          // resolve brand_id from name
           const brand = unitBrands.find(b => b.name === obj.brand_name);
           const brand_id = brand?.id || "";
-
+          const unit_type = obj.unit_type || "";
           // parse parts
           let parts_required = [];
           if (obj.parts_skus) {
@@ -129,15 +144,26 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
             const qtys = obj.parts_quantities.split(",").map(s => parseFloat(s.trim()) || 1);
             parts_required = skus.map((sku, i) => ({ part_sku: sku, part_name: names[i] || sku, quantity: qtys[i] || 1 }));
           }
+          // Check for duplicate: same name + brand_id + unit_type
+          const existing = existingSteps.find(s =>
+            s.name === obj.name &&
+            (s.brand_id || "") === brand_id &&
+            (s.unit_type || "") === unit_type
+          );
           try {
-            await base44.entities.MaintenanceStep.create({
+            const payload = {
               name: obj.name,
               description: obj.description || "",
               explanation: obj.explanation || "",
               brand_id,
-              unit_type: obj.unit_type || "",
+              unit_type,
               parts_required,
-            });
+            };
+            if (existing) {
+              await base44.entities.MaintenanceStep.update(existing.id, payload);
+            } else {
+              await base44.entities.MaintenanceStep.create(payload);
+            }
             successCount++;
           } catch (e) { errors.push(`שגיאה ב-"${obj.name}": ${e.message}`); }
         }

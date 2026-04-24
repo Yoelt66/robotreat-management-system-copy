@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Filter } from "lucide-react";
 
 export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSteps, unitBrands, onUpdateType }) {
-  const [filterBrand, setFilterBrand] = useState("all");
+  const [filterBrand, setFilterBrand] = useState("none");
   const [filterUnitType, setFilterUnitType] = useState("all");
 
   const selectedBrand = unitBrands.find(b => b.id === filterBrand);
   const unitTypes = selectedBrand?.unit_types || [];
 
   const filteredTypes = maintenanceTypes.filter(t => {
+    if (filterBrand === "none") return false;
     if (filterBrand !== "all" && t.brand_id !== filterBrand) return false;
     if (filterUnitType !== "all" && t.unit_type !== filterUnitType) return false;
     return true;
@@ -41,21 +42,35 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
     onUpdateType(type.id, { step_configs: newConfigs });
   };
 
-  if (maintenanceSteps.length === 0 || filteredTypes.length === 0) {
+  const BrandFilter = () => (
+    <div className="flex flex-wrap items-center gap-3">
+      <Filter className="h-4 w-4 text-slate-400 shrink-0" />
+      <Select value={filterBrand} onValueChange={v => { setFilterBrand(v); setFilterUnitType("all"); }}>
+        <SelectTrigger className="w-[180px]"><SelectValue placeholder="— בחר מותג —" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">— בחר מותג —</SelectItem>
+          <SelectItem value="all">כל המותגים</SelectItem>
+          {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {filterBrand !== "none" && filterBrand !== "all" && unitTypes.length > 0 && (
+        <Select value={filterUnitType} onValueChange={setFilterUnitType}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="כל סוגי היחידה" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">כל סוגי היחידה</SelectItem>
+            {unitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
+
+  if (filterBrand === "none" || maintenanceSteps.length === 0 || filteredTypes.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Filter className="h-4 w-4 text-slate-400 shrink-0" />
-          <Select value={filterBrand} onValueChange={v => { setFilterBrand(v); setFilterUnitType("all"); }}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="מותג" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">כל המותגים</SelectItem>
-              {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+        <BrandFilter />
         <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
-          {maintenanceSteps.length === 0 ? "אין פעולות תחזוקה מוגדרות" : "אין סוגי תחזוקה להצגה"}
+          {filterBrand === "none" ? "בחר מותג כדי להציג את המטריצה" : maintenanceSteps.length === 0 ? "אין פעולות תחזוקה מוגדרות" : "אין סוגי תחזוקה להצגה"}
         </div>
       </div>
     );
@@ -64,23 +79,7 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Filter className="h-4 w-4 text-slate-400 shrink-0" />
-        <Select value={filterBrand} onValueChange={v => { setFilterBrand(v); setFilterUnitType("all"); }}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="כל המותגים" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">כל המותגים</SelectItem>
-            {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {filterBrand !== "all" && unitTypes.length > 0 && (
-          <Select value={filterUnitType} onValueChange={setFilterUnitType}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="כל סוגי היחידה" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">כל סוגי היחידה</SelectItem>
-              {unitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
+        <BrandFilter />
         <span className="text-sm text-slate-400">{filteredTypes.length} טיפולים</span>
       </div>
 

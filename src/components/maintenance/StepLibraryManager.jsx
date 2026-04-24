@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { toast } from "sonner";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 const DEFAULT_STEP = { name: "", description: "", explanation: "", brand_id: "", unit_type: "", parts_required: [] };
 
@@ -67,8 +68,9 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [stepToDelete, setStepToDelete] = useState(null);
   const [formData, setFormData] = useState(DEFAULT_STEP);
   const [expandedId, setExpandedId] = useState(null);
-  const [filterBrandId, setFilterBrandId] = useState("all");
+  const [filterBrandId, setFilterBrandId] = useState("none");
   const [filterUnitType, setFilterUnitType] = useState("all");
+  const [orderedSteps, setOrderedSteps] = useState([]);
 
   useEffect(() => { loadSteps(); }, []);
 
@@ -94,10 +96,30 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const filterUnitTypes = filterBrand?.unit_types || [];
 
   const filteredSteps = steps.filter(step => {
+    if (filterBrandId === "none") return false;
     if (filterBrandId !== "all" && step.brand_id !== filterBrandId) return false;
     if (filterUnitType !== "all" && step.unit_type !== filterUnitType) return false;
     return true;
   });
+
+  // Keep ordered list in sync with filteredSteps (preserve drag order)
+  useEffect(() => {
+    setOrderedSteps(prev => {
+      const prevIds = prev.map(s => s.id);
+      const filteredIds = filteredSteps.map(s => s.id);
+      // If same set, keep order; otherwise reset
+      if (prevIds.length === filteredIds.length && prevIds.every(id => filteredIds.includes(id))) return prev;
+      return filteredSteps;
+    });
+  }, [filteredSteps.map(s => s.id).join(",")]);
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    const reordered = Array.from(orderedSteps);
+    const [moved] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, moved);
+    setOrderedSteps(reordered);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -146,8 +168,9 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       <div className="flex justify-between items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={filterBrandId} onValueChange={v => { setFilterBrandId(v); setFilterUnitType("all"); }}>
-            <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="כל המותגים" /></SelectTrigger>
+            <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="בחר מותג" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="none">— בחר מותג —</SelectItem>
               <SelectItem value="all">כל המותגים</SelectItem>
               {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
@@ -168,51 +191,67 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
         </Button>
       </div>
 
-      {filteredSteps.length === 0 ? (
+      {filterBrandId === "none" ? (
+        <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">בחר מותג כדי להציג פעולות תחזוקה</div>
+      ) : orderedSteps.length === 0 ? (
         <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
       ) : (
-        <div className="space-y-2">
-          {filteredSteps.map(step => (
-            <Card key={step.id} className="hover:shadow-sm transition-shadow">
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setExpandedId(expandedId === step.id ? null : step.id)} className="flex-1 flex items-center gap-2 text-right flex-wrap">
-                    {expandedId === step.id ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
-                    <span className="font-medium text-slate-800">{step.name}</span>
-                    {step.parts_required?.length > 0 && (
-                      <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{step.parts_required.length} חלקים</span>
-                    )}
-                    {step.brand_id && unitBrands.find(b => b.id === step.brand_id) && (
-                      <Badge className="text-xs bg-blue-100 text-blue-700 font-normal">{unitBrands.find(b => b.id === step.brand_id).name}</Badge>
-                    )}
-                    {step.unit_type && (
-                      <Badge variant="outline" className="text-xs font-normal">{step.unit_type}</Badge>
-                    )}
-                  </button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(step)}><Pencil className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setStepToDelete(step)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                </div>
-                {expandedId === step.id && (
-                  <div className="mt-3 pt-3 border-t space-y-2">
-                    {step.description && <p className="text-sm text-slate-600">{step.description}</p>}
-                    {step.explanation && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">{step.explanation}</p>}
-                    {step.parts_required?.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-slate-500">חלקים:</p>
-                        {step.parts_required.map(p => (
-                          <div key={p.part_sku} className="flex justify-between text-xs bg-slate-50 px-2 py-1 rounded">
-                            <span>{p.part_name} ({p.part_sku})</span>
-                            <span className="font-medium">× {p.quantity}</span>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="steps-list">
+            {(provided) => (
+              <div className="space-y-2" ref={provided.innerRef} {...provided.droppableProps}>
+                {orderedSteps.map((step, index) => (
+                  <Draggable key={step.id} draggableId={step.id} index={index}>
+                    {(drag, snapshot) => (
+                      <Card ref={drag.innerRef} {...drag.draggableProps} className={`hover:shadow-sm transition-shadow ${snapshot.isDragging ? "shadow-lg ring-2 ring-emerald-300" : ""}`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div {...drag.dragHandleProps} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
+                              <GripVertical className="h-5 w-5" />
+                            </div>
+                            <button type="button" onClick={() => setExpandedId(expandedId === step.id ? null : step.id)} className="flex-1 flex items-center gap-2 text-right flex-wrap">
+                              {expandedId === step.id ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
+                              <span className="font-medium text-slate-800">{step.name}</span>
+                              {step.parts_required?.length > 0 && (
+                                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{step.parts_required.length} חלקים</span>
+                              )}
+                              {step.brand_id && unitBrands.find(b => b.id === step.brand_id) && (
+                                <Badge className="text-xs bg-blue-100 text-blue-700 font-normal">{unitBrands.find(b => b.id === step.brand_id).name}</Badge>
+                              )}
+                              {step.unit_type && (
+                                <Badge variant="outline" className="text-xs font-normal">{step.unit_type}</Badge>
+                              )}
+                            </button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(step)}><Pencil className="h-3.5 w-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setStepToDelete(step)}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </div>
-                        ))}
-                      </div>
+                          {expandedId === step.id && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                              {step.description && <p className="text-sm text-slate-600">{step.description}</p>}
+                              {step.explanation && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">{step.explanation}</p>}
+                              {step.parts_required?.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium text-slate-500">חלקים:</p>
+                                  {step.parts_required.map(p => (
+                                    <div key={p.part_sku} className="flex justify-between text-xs bg-slate-50 px-2 py-1 rounded">
+                                      <span>{p.part_name} ({p.part_sku})</span>
+                                      <span className="font-medium">× {p.quantity}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
 
       <Dialog open={showForm} onOpenChange={open => !open && setShowForm(false)}>
