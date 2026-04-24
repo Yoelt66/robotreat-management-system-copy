@@ -155,7 +155,7 @@ export default function MaintenanceTypesPage() {
 
         {/* ─── לשונית 2: פעולות תחזוקה ─── */}
         <TabsContent value="steps">
-          <StepLibraryManager parts={parts} onStepsChanged={loadData} />
+          <StepLibraryManager parts={parts} unitBrands={unitBrands} onStepsChanged={loadData} />
         </TabsContent>
 
         {/* ─── לשונית 3: מטריצת טיפולים ─── */}

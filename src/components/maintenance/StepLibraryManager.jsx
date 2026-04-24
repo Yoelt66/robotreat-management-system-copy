@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
-const DEFAULT_STEP = { name: "", description: "", explanation: "", parts_required: [] };
+const DEFAULT_STEP = { name: "", description: "", explanation: "", brand_id: "", unit_type: "", parts_required: [] };
 
 function PartSearchInput({ parts, onAdd }) {
   const [query, setQuery] = useState("");
@@ -57,7 +59,7 @@ function PartSearchInput({ parts, onAdd }) {
   );
 }
 
-export default function StepLibraryManager({ parts, onStepsChanged }) {
+export default function StepLibraryManager({ parts, unitBrands = [], onStepsChanged }) {
   const [steps, setSteps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -81,7 +83,10 @@ export default function StepLibraryManager({ parts, onStepsChanged }) {
   };
 
   const openNew = () => { setEditingStep(null); setFormData(DEFAULT_STEP); setShowForm(true); };
-  const openEdit = (step) => { setEditingStep(step); setFormData({ name: step.name || "", description: step.description || "", explanation: step.explanation || "", parts_required: step.parts_required || [] }); setShowForm(true); };
+  const openEdit = (step) => { setEditingStep(step); setFormData({ name: step.name || "", description: step.description || "", explanation: step.explanation || "", brand_id: step.brand_id || "", unit_type: step.unit_type || "", parts_required: step.parts_required || [] }); setShowForm(true); };
+
+  const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
+  const unitTypes = selectedBrand?.unit_types || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -142,11 +147,17 @@ export default function StepLibraryManager({ parts, onStepsChanged }) {
             <Card key={step.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-3">
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setExpandedId(expandedId === step.id ? null : step.id)} className="flex-1 flex items-center gap-2 text-right">
+                  <button type="button" onClick={() => setExpandedId(expandedId === step.id ? null : step.id)} className="flex-1 flex items-center gap-2 text-right flex-wrap">
                     {expandedId === step.id ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
                     <span className="font-medium text-slate-800">{step.name}</span>
                     {step.parts_required?.length > 0 && (
                       <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{step.parts_required.length} חלקים</span>
+                    )}
+                    {step.brand_id && unitBrands.find(b => b.id === step.brand_id) && (
+                      <Badge className="text-xs bg-blue-100 text-blue-700 font-normal">{unitBrands.find(b => b.id === step.brand_id).name}</Badge>
+                    )}
+                    {step.unit_type && (
+                      <Badge variant="outline" className="text-xs font-normal">{step.unit_type}</Badge>
                     )}
                   </button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(step)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -184,6 +195,30 @@ export default function StepLibraryManager({ parts, onStepsChanged }) {
             <div className="space-y-2">
               <Label>שם הפעולה *</Label>
               <Input value={formData.name} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} required placeholder='לדוגמה: "החלפת חלקים מתכלים"' />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>שיוך למותג</Label>
+                <Select value={formData.brand_id || "none"} onValueChange={v => setFormData(p => ({ ...p, brand_id: v === "none" ? "" : v, unit_type: "" }))}>
+                  <SelectTrigger><SelectValue placeholder="ללא מותג (כללי)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">ללא מותג (כללי)</SelectItem>
+                    {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.brand_id && unitTypes.length > 0 && (
+                <div className="space-y-2">
+                  <Label>סוג יחידה</Label>
+                  <Select value={formData.unit_type || "all"} onValueChange={v => setFormData(p => ({ ...p, unit_type: v === "all" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="כל סוגי היחידה" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">כל סוגי היחידה</SelectItem>
+                      {unitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>תיאור קצר</Label>
