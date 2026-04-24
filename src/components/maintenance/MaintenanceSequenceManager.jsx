@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, GripVertical, Save, Info } from "lucide-react";
+import { Plus, Trash2, GripVertical, Save, Info, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 function SequenceEditor({ sequence, maintenanceTypes, onChange, selectedBrandName }) {
   const addStep = () => {
@@ -116,6 +118,9 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
   const [selectedUnitType, setSelectedUnitType] = useState("");
   const [sequence, setSequence] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneSourceBrandId, setCloneSourceBrandId] = useState("");
+  const [cloneSourceUnitType, setCloneSourceUnitType] = useState("");
 
   const selectedBrand = unitBrands.find(b => b.id === selectedBrandId);
 
@@ -161,6 +166,25 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
     }
   };
 
+  const handleClone = async () => {
+    if (!cloneSourceBrandId || !cloneSourceUnitType) return;
+    const sourceBrand = await base44.entities.UnitBrand.get(cloneSourceBrandId);
+    const seqs = sourceBrand?.default_sequences_by_unit_type || [];
+    const found = seqs.find(s => s.unit_type === cloneSourceUnitType);
+    if (!found || found.sequence.length === 0) {
+      toast.error("לא נמצא רצף במקור שנבחר");
+      return;
+    }
+    setSequence(found.sequence.map((s, i) => ({ ...s, step_number: i + 1 })));
+    setCloneDialogOpen(false);
+    setCloneSourceBrandId("");
+    setCloneSourceUnitType("");
+    toast.success("הרצף שוכפל — אל תשכח לשמור");
+  };
+
+  const cloneSourceBrand = unitBrands.find(b => b.id === cloneSourceBrandId);
+  const cloneSourceUnitTypes = cloneSourceBrand?.unit_types || [];
+
   // Filter maintenance types for selected brand/unit_type
   const relevantTypes = maintenanceTypes.filter(t => {
     if (!t.brand_id && !t.unit_type) return true; // generic
@@ -192,6 +216,10 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
         {selectedBrandId && selectedUnitType && (
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-xs">{sequence.length} שלבים</Badge>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setCloneDialogOpen(true)}>
+              <Copy className="h-4 w-4" />
+              שכפל רצף
+            </Button>
             <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
               <Save className="h-4 w-4" />
               {saving ? "שומר..." : "שמור רצף"}
@@ -229,6 +257,50 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
           />
         </div>
       )}
+
+      {/* Clone Dialog */}
+      <Dialog open={cloneDialogOpen} onOpenChange={setCloneDialogOpen}>
+        <DialogContent dir="rtl" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>שכפל רצף ממקור אחר</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>מותג מקור</Label>
+              <Select value={cloneSourceBrandId} onValueChange={v => { setCloneSourceBrandId(v); setCloneSourceUnitType(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="בחר מותג..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitBrands.map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>סוג יחידה מקור</Label>
+              <Select value={cloneSourceUnitType} onValueChange={setCloneSourceUnitType} disabled={!cloneSourceBrandId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="בחר סוג יחידה..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {cloneSourceUnitTypes.map(ut => (
+                    <SelectItem key={ut} value={ut}>{ut}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCloneDialogOpen(false)}>ביטול</Button>
+            <Button onClick={handleClone} disabled={!cloneSourceBrandId || !cloneSourceUnitType} className="gap-2">
+              <Copy className="h-4 w-4" />
+              שכפל
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
