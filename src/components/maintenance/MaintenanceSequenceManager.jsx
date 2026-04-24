@@ -111,32 +111,25 @@ function SequenceEditor({ sequence, maintenanceTypes, onChange, selectedBrandNam
   );
 }
 
-export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands: initialUnitBrands }) {
+export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands }) {
   const [selectedBrandId, setSelectedBrandId] = useState("");
   const [selectedUnitType, setSelectedUnitType] = useState("");
   const [sequence, setSequence] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [unitBrands, setUnitBrands] = useState(initialUnitBrands || []);
-
-  // Sync with parent prop changes
-  useEffect(() => {
-    setUnitBrands(initialUnitBrands || []);
-  }, [initialUnitBrands]);
 
   const selectedBrand = unitBrands.find(b => b.id === selectedBrandId);
 
-  // Load sequence when brand+unitType changes
-  useEffect(() => {
-    if (!selectedBrandId || !selectedUnitType) {
-      setSequence([]);
-      return;
-    }
-    const brand = unitBrands.find(b => b.id === selectedBrandId);
-    if (!brand) return;
-    const seqs = brand.default_sequences_by_unit_type || [];
-    const found = seqs.find(s => s.unit_type === selectedUnitType);
+  const loadSequence = async (brandId, unitType) => {
+    if (!brandId || !unitType) { setSequence([]); return; }
+    const freshBrand = await base44.entities.UnitBrand.get(brandId);
+    const seqs = freshBrand?.default_sequences_by_unit_type || [];
+    const found = seqs.find(s => s.unit_type === unitType);
     setSequence(found ? [...found.sequence] : []);
-  }, [selectedBrandId, selectedUnitType, unitBrands]);
+  };
+
+  useEffect(() => {
+    loadSequence(selectedBrandId, selectedUnitType);
+  }, [selectedBrandId, selectedUnitType]);
 
   const handleBrandChange = (brandId) => {
     setSelectedBrandId(brandId);
@@ -146,7 +139,6 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
 
   const handleSave = async () => {
     if (!selectedBrandId || !selectedUnitType) return;
-    // Validate all steps have a type selected
     const invalid = sequence.filter(s => !s.maintenance_type_id);
     if (invalid.length > 0) {
       toast.error("יש שלבים ללא סוג תחזוקה. אנא בחר סוג לכל שלב.");
@@ -155,18 +147,12 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
 
     setSaving(true);
     try {
-      const brand = unitBrands.find(b => b.id === selectedBrandId);
-      const existing = brand.default_sequences_by_unit_type || [];
+      const freshBrand = await base44.entities.UnitBrand.get(selectedBrandId);
+      const existing = freshBrand?.default_sequences_by_unit_type || [];
       const updated = existing.filter(s => s.unit_type !== selectedUnitType);
       updated.push({ unit_type: selectedUnitType, sequence });
       await base44.entities.UnitBrand.update(selectedBrandId, { default_sequences_by_unit_type: updated });
-      // Reload fresh data from server and refresh sequence display
-      const freshBrands = await base44.entities.UnitBrand.list();
-      setUnitBrands(freshBrands);
-      const freshBrand = freshBrands.find(b => b.id === selectedBrandId);
-      const freshSeqs = freshBrand?.default_sequences_by_unit_type || [];
-      const freshFound = freshSeqs.find(s => s.unit_type === selectedUnitType);
-      setSequence(freshFound ? [...freshFound.sequence] : []);
+      await loadSequence(selectedBrandId, selectedUnitType);
       toast.success("הרצף נשמר בהצלחה");
     } catch (e) {
       toast.error("שגיאה בשמירה: " + e.message);
