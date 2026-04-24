@@ -37,39 +37,39 @@ function downloadTemplate(tabKey, unitBrands = []) {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([tpl.headerLabels, tpl.example]);
 
-  // Add brand names and unit types as a helper sheet for reference
   if (unitBrands.length > 0 && (tabKey === "types" || tabKey === "steps")) {
-    const brandRows = [["מותגים קיימים", "סוגי יחידות לכל מותג"]];
     const brandNames = unitBrands.map(b => b.name);
     const allUnitTypes = [...new Set(unitBrands.flatMap(b => b.unit_types || []))];
 
-    unitBrands.forEach(b => {
-      (b.unit_types || []).forEach((ut, i) => {
-        brandRows.push([i === 0 ? b.name : "", ut]);
-      });
-      if (!b.unit_types || b.unit_types.length === 0) brandRows.push([b.name, ""]);
-    });
-
-    const refWs = XLSX.utils.aoa_to_sheet(brandRows);
+    // Build the reference sheet with brand names in col A and unit types in col B
+    const maxRows = Math.max(brandNames.length, allUnitTypes.length);
+    const refRows = [["מותגים קיימים", "סוגי יחידות"]];
+    for (let i = 0; i < maxRows; i++) {
+      refRows.push([brandNames[i] || "", allUnitTypes[i] || ""]);
+    }
+    const refWs = XLSX.utils.aoa_to_sheet(refRows);
     XLSX.utils.book_append_sheet(wb, refWs, "רשימות עזר");
 
-    // Add data validation for brand column (col E = index 4 for types, col D = index 3 for steps)
-    const brandColIndex = tabKey === "types" ? 4 : 3; // brand_name column
-    const unitColIndex = tabKey === "types" ? 5 : 4;  // unit_type column
+    // Column indices
+    const brandColIndex = tabKey === "types" ? 4 : 3;
+    const unitColIndex  = tabKey === "types" ? 5 : 4;
     const brandColLetter = String.fromCharCode(65 + brandColIndex);
-    const unitColLetter = String.fromCharCode(65 + unitColIndex);
+    const unitColLetter  = String.fromCharCode(65 + unitColIndex);
 
-    if (!ws["!dataValidation"]) ws["!dataValidation"] = [];
+    // Data validations using a reference to the helper sheet (works reliably in Excel)
+    ws["!dataValidation"] = [];
 
     if (brandNames.length > 0) {
       ws["!dataValidation"].push({
         sqref: `${brandColLetter}2:${brandColLetter}1000`,
         type: "list",
-        formula1: `"${brandNames.join(",")}"`,
+        // Reference to col A of the helper sheet (rows 2 onward = actual names)
+        formula1: `'רשימות עזר'!$A$2:$A$${1 + brandNames.length}`,
         showDropDown: false,
         showErrorMessage: true,
+        errorStyle: "stop",
         errorTitle: "מותג לא תקין",
-        error: `בחר מותג מהרשימה: ${brandNames.join(", ")}`,
+        error: `בחר מותג מהרשימה`,
       });
     }
 
@@ -77,17 +77,18 @@ function downloadTemplate(tabKey, unitBrands = []) {
       ws["!dataValidation"].push({
         sqref: `${unitColLetter}2:${unitColLetter}1000`,
         type: "list",
-        formula1: `"${allUnitTypes.join(",")}"`,
+        formula1: `'רשימות עזר'!$B$2:$B$${1 + allUnitTypes.length}`,
         showDropDown: false,
         showErrorMessage: true,
+        errorStyle: "stop",
         errorTitle: "סוג יחידה לא תקין",
-        error: `בחר סוג יחידה מהרשימה: ${allUnitTypes.join(", ")}`,
+        error: `בחר סוג יחידה מהרשימה`,
       });
     }
   }
 
   XLSX.utils.book_append_sheet(wb, ws, "נתונים");
-  // Move "נתונים" to be the first sheet
+  // Ensure "נתונים" is the first (active) sheet
   wb.SheetNames = ["נתונים", ...wb.SheetNames.filter(s => s !== "נתונים")];
 
   XLSX.writeFile(wb, tpl.filename);
