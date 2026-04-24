@@ -160,9 +160,13 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
       const updated = existing.filter(s => s.unit_type !== selectedUnitType);
       updated.push({ unit_type: selectedUnitType, sequence });
       await base44.entities.UnitBrand.update(selectedBrandId, { default_sequences_by_unit_type: updated });
-      // Reload fresh data from server
+      // Reload fresh data from server and refresh sequence display
       const freshBrands = await base44.entities.UnitBrand.list();
       setUnitBrands(freshBrands);
+      const freshBrand = freshBrands.find(b => b.id === selectedBrandId);
+      const freshSeqs = freshBrand?.default_sequences_by_unit_type || [];
+      const freshFound = freshSeqs.find(s => s.unit_type === selectedUnitType);
+      setSequence(freshFound ? [...freshFound.sequence] : []);
       toast.success("הרצף נשמר בהצלחה");
     } catch (e) {
       toast.error("שגיאה בשמירה: " + e.message);
