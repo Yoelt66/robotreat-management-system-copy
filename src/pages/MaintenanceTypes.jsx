@@ -40,8 +40,9 @@ export default function MaintenanceTypesPage() {
         base44.entities.MaintenanceStep.list(),
         base44.entities.PartCore.list(),
       ]);
-      setTypes(typesData || []);
-      setOrderedTypes(typesData || []);
+      const sorted = (typesData || []).slice().sort((a, b) => a.name.localeCompare(b.name, "he"));
+      setTypes(sorted);
+      setOrderedTypes(sorted);
       setUnitBrands(brandsData || []);
       setMaintenanceSteps(stepsData || []);
       setParts(partsData || []);
