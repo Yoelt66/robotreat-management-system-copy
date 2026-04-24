@@ -12,9 +12,9 @@ const TEMPLATES = {
   types: {
     label: "סוגי תחזוקה",
     filename: "template_maintenance_types.xlsx",
-    headers: ["name", "description", "estimated_duration_hours", "color"],
-    headerLabels: ["שם סוג תחזוקה *", "תיאור", "משך משוער (שעות)", "צבע (hex)"],
-    example: ["טיפול 6 חודשי", "טיפול תקופתי כל חצי שנה", "2", "#10b981"],
+    headers: ["name", "description", "estimated_duration_hours", "color", "brand_name", "unit_type"],
+    headerLabels: ["שם סוג תחזוקה *", "תיאור", "משך משוער (שעות)", "צבע (hex)", "שם מותג", "סוג יחידה"],
+    example: ["טיפול 6 חודשי", "טיפול תקופתי כל חצי שנה", "2", "#10b981", "DeLaval", "A3"],
   },
   steps: {
     label: "פעולות תחזוקה",
@@ -98,12 +98,16 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       if (tabKey === "types") {
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם סוג תחזוקה`); continue; }
+          const brand = unitBrands.find(b => b.name === obj.brand_name);
+          const brand_id = brand?.id || "";
           try {
             await base44.entities.MaintenanceType.create({
               name: obj.name,
               description: obj.description || "",
               estimated_duration_hours: parseFloat(obj.estimated_duration_hours) || 1,
               color: obj.color || "#10b981",
+              brand_id,
+              unit_type: obj.unit_type || "",
             });
             successCount++;
           } catch (e) { errors.push(`שגיאה ב-"${obj.name}": ${e.message}`); }
