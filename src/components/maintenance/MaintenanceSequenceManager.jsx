@@ -10,10 +10,11 @@ import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 
-function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
+function SequenceEditor({ sequence, maintenanceTypes, onChange, selectedBrandName }) {
   const addStep = () => {
     const nextNum = sequence.length + 1;
-    onChange([...sequence, { step_number: nextNum, maintenance_type_id: "", interval_months: 4 }]);
+    const isDelaval = selectedBrandName?.toLowerCase().includes("delaval");
+    onChange([...sequence, { step_number: nextNum, maintenance_type_id: "", interval_months: isDelaval ? 4 : 3 }]);
   };
 
   const removeStep = (idx) => {
@@ -234,6 +235,7 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
             sequence={sequence}
             maintenanceTypes={relevantTypes.length > 0 ? relevantTypes : maintenanceTypes.filter(t => !t.brand_id)}
             onChange={setSequence}
+            selectedBrandName={selectedBrand?.name}
           />
         </div>
       )}
