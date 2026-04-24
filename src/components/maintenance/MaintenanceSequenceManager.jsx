@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, GripVertical, Save, Info } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 
 function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
   const addStep = () => {
@@ -110,18 +111,16 @@ function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
 }
 
 export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands }) {
-  const [selectedBrandId, setSelectedBrandId] = useState("none");
-  const [selectedUnitType, setSelectedUnitType] = useState("none");
+  const [selectedBrandId, setSelectedBrandId] = useState("");
+  const [selectedUnitType, setSelectedUnitType] = useState("");
   const [sequence, setSequence] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const selectedBrand = unitBrands.find(b => b.id === selectedBrandId);
-  const unitTypes = selectedBrand?.unit_types || [];
 
   // Load sequence when brand+unitType changes
   useEffect(() => {
-    if (selectedBrandId === "none" || selectedUnitType === "none") {
+    if (!selectedBrandId || !selectedUnitType) {
       setSequence([]);
       return;
     }
@@ -132,14 +131,14 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
     setSequence(found ? [...found.sequence] : []);
   }, [selectedBrandId, selectedUnitType, unitBrands]);
 
-  const handleBrandChange = (v) => {
-    setSelectedBrandId(v);
-    setSelectedUnitType("none");
+  const handleBrandChange = (brandId) => {
+    setSelectedBrandId(brandId);
+    setSelectedUnitType("");
     setSequence([]);
   };
 
   const handleSave = async () => {
-    if (selectedBrandId === "none" || selectedUnitType === "none") return;
+    if (!selectedBrandId || !selectedUnitType) return;
     // Validate all steps have a type selected
     const invalid = sequence.filter(s => !s.maintenance_type_id);
     if (invalid.length > 0) {
@@ -165,7 +164,10 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
   // Filter maintenance types for selected brand/unit_type
   const relevantTypes = maintenanceTypes.filter(t => {
     if (!t.brand_id && !t.unit_type) return true; // generic
-    if (selectedBrandId !== "none" && t.brand_id === selectedBrandId) return true;
+    if (selectedBrandId && t.brand_id === selectedBrandId) {
+      if (!selectedUnitType) return true;
+      if (!t.unit_type || t.unit_type === selectedUnitType) return true;
+    }
     return false;
   });
 
@@ -179,59 +181,32 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
       </div>
 
       {/* Brand + Unit type selector */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">מותג</label>
-              <Select value={selectedBrandId} onValueChange={handleBrandChange}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="בחר מותג..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">— בחר מותג —</SelectItem>
-                  {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedBrandId !== "none" && unitTypes.length > 0 && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">סוג יחידה</label>
-                <Select value={selectedUnitType} onValueChange={setSelectedUnitType}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="בחר סוג יחידה..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">— בחר סוג יחידה —</SelectItem>
-                    {unitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {selectedBrandId !== "none" && selectedUnitType !== "none" && (
-              <div className="flex items-center gap-2 mr-auto">
-                <Badge variant="outline" className="text-xs">
-                  {sequence.length} שלבים
-                </Badge>
-                <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
-                  <Save className="h-4 w-4" />
-                  {saving ? "שומר..." : "שמור רצף"}
-                </Button>
-              </div>
-            )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <BrandUnitFilter
+          unitBrands={unitBrands}
+          filterBrandId={selectedBrandId}
+          filterUnitType={selectedUnitType}
+          onBrandChange={handleBrandChange}
+          onUnitTypeChange={setSelectedUnitType}
+        />
+        {selectedBrandId && selectedUnitType && (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">{sequence.length} שלבים</Badge>
+            <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
+              <Save className="h-4 w-4" />
+              {saving ? "שומר..." : "שמור רצף"}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       {/* Sequence editor */}
-      {selectedBrandId === "none" ? (
+      {!selectedBrandId ? (
         <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
           <Info className="h-10 w-10 mx-auto mb-2 text-slate-300" />
           בחר מותג וסוג יחידה כדי לערוך את רצף הטיפולים
         </div>
-      ) : selectedUnitType === "none" ? (
+      ) : !selectedUnitType ? (
         <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">
           בחר סוג יחידה כדי להמשיך
         </div>
@@ -248,7 +223,7 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
           </div>
           <SequenceEditor
             sequence={sequence}
-            maintenanceTypes={relevantTypes.length > 0 ? relevantTypes : maintenanceTypes}
+            maintenanceTypes={relevantTypes.length > 0 ? relevantTypes : maintenanceTypes.filter(t => !t.brand_id)}
             onChange={setSequence}
           />
         </div>
