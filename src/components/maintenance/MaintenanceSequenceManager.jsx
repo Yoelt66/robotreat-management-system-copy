@@ -166,19 +166,26 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
     }
   };
 
-  const handleClone = async () => {
-    if (!cloneSourceBrandId || !cloneSourceUnitType) return;
-    const sourceBrand = await base44.entities.UnitBrand.get(cloneSourceBrandId);
+  const [clonePreview, setClonePreview] = useState([]);
+
+  const loadClonePreview = async (brandId, unitType) => {
+    if (!brandId || !unitType) { setClonePreview([]); return; }
+    const sourceBrand = await base44.entities.UnitBrand.get(brandId);
     const seqs = sourceBrand?.default_sequences_by_unit_type || [];
-    const found = seqs.find(s => s.unit_type === cloneSourceUnitType);
-    if (!found || found.sequence.length === 0) {
+    const found = seqs.find(s => s.unit_type === unitType);
+    setClonePreview(found?.sequence || []);
+  };
+
+  const handleClone = () => {
+    if (clonePreview.length === 0) {
       toast.error("לא נמצא רצף במקור שנבחר");
       return;
     }
-    setSequence(found.sequence.map((s, i) => ({ ...s, step_number: i + 1 })));
+    setSequence(clonePreview.map((s, i) => ({ ...s, step_number: i + 1 })));
     setCloneDialogOpen(false);
     setCloneSourceBrandId("");
     setCloneSourceUnitType("");
+    setClonePreview([]);
     toast.success("הרצף שוכפל — אל תשכח לשמור");
   };
 
@@ -251,7 +258,7 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
           </div>
           <SequenceEditor
             sequence={sequence}
-            maintenanceTypes={relevantTypes.length > 0 ? relevantTypes : maintenanceTypes.filter(t => !t.brand_id)}
+            maintenanceTypes={maintenanceTypes}
             onChange={setSequence}
             selectedBrandName={selectedBrand?.name}
           />
@@ -280,7 +287,7 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
             </div>
             <div className="space-y-1.5">
               <Label>סוג יחידה מקור</Label>
-              <Select value={cloneSourceUnitType} onValueChange={setCloneSourceUnitType} disabled={!cloneSourceBrandId}>
+              <Select value={cloneSourceUnitType} onValueChange={v => { setCloneSourceUnitType(v); loadClonePreview(cloneSourceBrandId, v); }} disabled={!cloneSourceBrandId}>
                 <SelectTrigger>
                   <SelectValue placeholder="בחר סוג יחידה..." />
                 </SelectTrigger>
@@ -291,6 +298,27 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
                 </SelectContent>
               </Select>
             </div>
+            {clonePreview.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-slate-500">תצוגה מקדימה ({clonePreview.length} שלבים)</Label>
+                <div className="rounded-lg border bg-slate-50 divide-y max-h-52 overflow-y-auto">
+                  {clonePreview.map((step, i) => {
+                    const mt = maintenanceTypes.find(t => t.id === step.maintenance_type_id);
+                    return (
+                      <div key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                        <span className="w-5 h-5 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold shrink-0">{i + 1}</span>
+                        {mt?.color && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: mt.color }} />}
+                        <span className="flex-1 truncate">{mt?.name || <span className="text-slate-400 italic">לא ידוע</span>}</span>
+                        <span className="text-xs text-slate-400 shrink-0">{step.interval_months} חודשים</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {cloneSourceUnitType && clonePreview.length === 0 && (
+              <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2">לא נמצא רצף לשילוב זה</p>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCloneDialogOpen(false)}>ביטול</Button>
