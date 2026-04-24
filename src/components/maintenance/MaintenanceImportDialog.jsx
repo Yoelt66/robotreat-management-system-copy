@@ -177,15 +177,15 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם סוג תחזוקה`); continue; }
 
-          // Validate brand
+          // Validate brand (case-insensitive)
           let brand = null;
           if (obj.brand_name) {
-            brand = unitBrands.find(b => b.name === obj.brand_name);
+            brand = unitBrands.find(b => b.name.toLowerCase() === obj.brand_name.toLowerCase());
             if (!brand) { errors.push(`מותג לא קיים: "${obj.brand_name}" (שורה: ${obj.name})`); continue; }
           }
-          // Validate unit_type belongs to brand
+          // Validate unit_type belongs to brand (case-insensitive)
           const unit_type = obj.unit_type || "";
-          if (brand && unit_type && !(brand.unit_types || []).includes(unit_type)) {
+          if (brand && unit_type && !(brand.unit_types || []).some(ut => ut.toLowerCase() === unit_type.toLowerCase())) {
             errors.push(`סוג יחידה "${unit_type}" לא קיים במותג "${obj.brand_name}" (שורה: ${obj.name})`); continue;
           }
           const brand_id = brand?.id || "";
@@ -220,15 +220,15 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם פעולה`); continue; }
 
-          // Validate brand
+          // Validate brand (case-insensitive)
           let brand = null;
           if (obj.brand_name) {
-            brand = unitBrands.find(b => b.name === obj.brand_name);
+            brand = unitBrands.find(b => b.name.toLowerCase() === obj.brand_name.toLowerCase());
             if (!brand) { errors.push(`מותג לא קיים: "${obj.brand_name}" (שורה: ${obj.name})`); continue; }
           }
-          // Validate unit_type belongs to brand
+          // Validate unit_type belongs to brand (case-insensitive)
           const unit_type = obj.unit_type || "";
-          if (brand && unit_type && !(brand.unit_types || []).includes(unit_type)) {
+          if (brand && unit_type && !(brand.unit_types || []).some(ut => ut.toLowerCase() === unit_type.toLowerCase())) {
             errors.push(`סוג יחידה "${unit_type}" לא קיים במותג "${obj.brand_name}" (שורה: ${obj.name})`); continue;
           }
           const brand_id = brand?.id || "";
