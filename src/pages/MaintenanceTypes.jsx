@@ -5,11 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Pencil, Trash2, Wrench, Clock, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, Wrench, Clock, LayoutGrid, Upload, ListOrdered } from "lucide-react";
 import { toast } from "sonner";
 import StepLibraryManager from "@/components/maintenance/StepLibraryManager";
 import MaintenanceTypeFormDialog from "@/components/maintenance/MaintenanceTypeFormDialog";
 import MaintenanceMatrixView from "@/components/maintenance/MaintenanceMatrixView";
+import MaintenanceImportDialog from "@/components/maintenance/MaintenanceImportDialog";
+import MaintenanceSequenceManager from "@/components/maintenance/MaintenanceSequenceManager";
 
 export default function MaintenanceTypesPage() {
   const [types, setTypes] = useState([]);
@@ -20,6 +22,7 @@ export default function MaintenanceTypesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingType, setEditingType] = useState(null);
   const [typeToDelete, setTypeToDelete] = useState(null);
+  const [importDialogTab, setImportDialogTab] = useState(null); // "types" | "steps" | "matrix"
 
   useEffect(() => { loadData(); }, []);
 
@@ -101,11 +104,15 @@ export default function MaintenanceTypesPage() {
           <TabsTrigger value="types"><Wrench className="h-4 w-4 ml-1" />סוגי תחזוקה</TabsTrigger>
           <TabsTrigger value="steps"><LayoutGrid className="h-4 w-4 ml-1" />פעולות תחזוקה</TabsTrigger>
           <TabsTrigger value="matrix"><LayoutGrid className="h-4 w-4 ml-1" />מטריצת טיפולים</TabsTrigger>
+          <TabsTrigger value="sequences"><ListOrdered className="h-4 w-4 ml-1" />רצפי טיפולים</TabsTrigger>
         </TabsList>
 
         {/* ─── לשונית 1: סוגי תחזוקה ─── */}
         <TabsContent value="types" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setImportDialogTab("types")}>
+              <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
+            </Button>
             <Button onClick={openNew}>
               <Plus className="h-4 w-4 ml-2" /> סוג תחזוקה חדש
             </Button>
@@ -155,11 +162,21 @@ export default function MaintenanceTypesPage() {
 
         {/* ─── לשונית 2: פעולות תחזוקה ─── */}
         <TabsContent value="steps">
+          <div className="flex justify-end mb-3">
+            <Button variant="outline" size="sm" onClick={() => setImportDialogTab("steps")}>
+              <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
+            </Button>
+          </div>
           <StepLibraryManager parts={parts} unitBrands={unitBrands} onStepsChanged={loadData} />
         </TabsContent>
 
         {/* ─── לשונית 3: מטריצת טיפולים ─── */}
         <TabsContent value="matrix">
+          <div className="flex justify-end mb-3">
+            <Button variant="outline" size="sm" onClick={() => setImportDialogTab("matrix")}>
+              <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
+            </Button>
+          </div>
           <MaintenanceMatrixView
             maintenanceTypes={types}
             maintenanceSteps={maintenanceSteps}
@@ -167,7 +184,26 @@ export default function MaintenanceTypesPage() {
             onUpdateType={handleUpdateTypeFromMatrix}
           />
         </TabsContent>
+
+        {/* ─── לשונית 4: רצפי טיפולים ─── */}
+        <TabsContent value="sequences">
+          <MaintenanceSequenceManager
+            maintenanceTypes={types}
+            unitBrands={unitBrands}
+          />
+        </TabsContent>
       </Tabs>
+
+      {/* ─── Import Dialog ─── */}
+      {importDialogTab && (
+        <MaintenanceImportDialog
+          open={!!importDialogTab}
+          onClose={() => setImportDialogTab(null)}
+          tabKey={importDialogTab}
+          unitBrands={unitBrands}
+          onImported={() => { setImportDialogTab(null); loadData(); }}
+        />
+      )}
 
       <MaintenanceTypeFormDialog
         open={showForm}

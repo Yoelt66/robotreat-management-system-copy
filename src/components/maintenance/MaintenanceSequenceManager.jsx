@@ -1,0 +1,232 @@
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, GripVertical, Save, Info } from "lucide-react";
+import { toast } from "sonner";
+
+function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
+  const addStep = () => {
+    const nextNum = sequence.length + 1;
+    onChange([...sequence, { step_number: nextNum, maintenance_type_id: "", interval_months: 3 }]);
+  };
+
+  const removeStep = (idx) => {
+    const updated = sequence.filter((_, i) => i !== idx).map((s, i) => ({ ...s, step_number: i + 1 }));
+    onChange(updated);
+  };
+
+  const updateStep = (idx, field, value) => {
+    const updated = sequence.map((s, i) => i === idx ? { ...s, [field]: value } : s);
+    onChange(updated);
+  };
+
+  return (
+    <div className="space-y-2">
+      {sequence.length === 0 && (
+        <div className="text-center py-8 text-slate-400 border-2 border-dashed rounded-lg text-sm">
+          אין שלבים ברצף. לחץ "הוסף שלב" להתחלה.
+        </div>
+      )}
+      {sequence.map((step, idx) => {
+        const typeName = maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name;
+        return (
+          <div key={idx} className="flex items-center gap-2 bg-white border rounded-lg p-3">
+            <div className="flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-700 rounded-full text-sm font-bold shrink-0">
+              {step.step_number}
+            </div>
+            <Select
+              value={step.maintenance_type_id || "none"}
+              onValueChange={v => updateStep(idx, "maintenance_type_id", v === "none" ? "" : v)}
+            >
+              <SelectTrigger className="flex-1 h-9 text-sm">
+                <SelectValue placeholder="בחר סוג תחזוקה..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— בחר —</SelectItem>
+                {maintenanceTypes.map(t => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color || "#10b981" }} />
+                      {t.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="text-xs text-slate-500 whitespace-nowrap">מרווח:</span>
+              <Input
+                type="number"
+                min="1"
+                max="120"
+                value={step.interval_months}
+                onChange={e => updateStep(idx, "interval_months", parseInt(e.target.value) || 1)}
+                className="w-16 h-9 text-sm"
+              />
+              <span className="text-xs text-slate-500">חודשים</span>
+            </div>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeStep(idx)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      })}
+      <Button type="button" variant="outline" size="sm" onClick={addStep} className="w-full gap-2 border-dashed">
+        <Plus className="h-4 w-4" />
+        הוסף שלב
+      </Button>
+    </div>
+  );
+}
+
+export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands }) {
+  const [selectedBrandId, setSelectedBrandId] = useState("none");
+  const [selectedUnitType, setSelectedUnitType] = useState("none");
+  const [sequence, setSequence] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const selectedBrand = unitBrands.find(b => b.id === selectedBrandId);
+  const unitTypes = selectedBrand?.unit_types || [];
+
+  // Load sequence when brand+unitType changes
+  useEffect(() => {
+    if (selectedBrandId === "none" || selectedUnitType === "none") {
+      setSequence([]);
+      return;
+    }
+    const brand = unitBrands.find(b => b.id === selectedBrandId);
+    if (!brand) return;
+    const seqs = brand.default_sequences_by_unit_type || [];
+    const found = seqs.find(s => s.unit_type === selectedUnitType);
+    setSequence(found ? [...found.sequence] : []);
+  }, [selectedBrandId, selectedUnitType, unitBrands]);
+
+  const handleBrandChange = (v) => {
+    setSelectedBrandId(v);
+    setSelectedUnitType("none");
+    setSequence([]);
+  };
+
+  const handleSave = async () => {
+    if (selectedBrandId === "none" || selectedUnitType === "none") return;
+    // Validate all steps have a type selected
+    const invalid = sequence.filter(s => !s.maintenance_type_id);
+    if (invalid.length > 0) {
+      toast.error("יש שלבים ללא סוג תחזוקה. אנא בחר סוג לכל שלב.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const brand = unitBrands.find(b => b.id === selectedBrandId);
+      const existing = brand.default_sequences_by_unit_type || [];
+      const updated = existing.filter(s => s.unit_type !== selectedUnitType);
+      updated.push({ unit_type: selectedUnitType, sequence });
+      await base44.entities.UnitBrand.update(selectedBrandId, { default_sequences_by_unit_type: updated });
+      toast.success("הרצף נשמר בהצלחה");
+    } catch (e) {
+      toast.error("שגיאה בשמירה: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Filter maintenance types for selected brand/unit_type
+  const relevantTypes = maintenanceTypes.filter(t => {
+    if (!t.brand_id && !t.unit_type) return true; // generic
+    if (selectedBrandId !== "none" && t.brand_id === selectedBrandId) return true;
+    return false;
+  });
+
+  return (
+    <div className="space-y-5" dir="rtl">
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <p className="text-sm text-slate-500">
+          הגדר רצף ביקורים תקופתי לכל שילוב של מותג + סוג יחידה, כולל מרווחים בחודשים בין כל שלב.
+        </p>
+      </div>
+
+      {/* Brand + Unit type selector */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">מותג</label>
+              <Select value={selectedBrandId} onValueChange={handleBrandChange}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="בחר מותג..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— בחר מותג —</SelectItem>
+                  {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedBrandId !== "none" && unitTypes.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">סוג יחידה</label>
+                <Select value={selectedUnitType} onValueChange={setSelectedUnitType}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="בחר סוג יחידה..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— בחר סוג יחידה —</SelectItem>
+                    {unitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {selectedBrandId !== "none" && selectedUnitType !== "none" && (
+              <div className="flex items-center gap-2 mr-auto">
+                <Badge variant="outline" className="text-xs">
+                  {sequence.length} שלבים
+                </Badge>
+                <Button onClick={handleSave} disabled={saving} size="sm" className="gap-2">
+                  <Save className="h-4 w-4" />
+                  {saving ? "שומר..." : "שמור רצף"}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sequence editor */}
+      {selectedBrandId === "none" ? (
+        <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
+          <Info className="h-10 w-10 mx-auto mb-2 text-slate-300" />
+          בחר מותג וסוג יחידה כדי לערוך את רצף הטיפולים
+        </div>
+      ) : selectedUnitType === "none" ? (
+        <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">
+          בחר סוג יחידה כדי להמשיך
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-slate-700">
+              רצף טיפולים — {selectedBrand?.name} / {selectedUnitType}
+            </h3>
+            <div className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded-full border">
+              <Info className="h-3 w-3" />
+              המרווח הוא הזמן לפני שלב זה
+            </div>
+          </div>
+          <SequenceEditor
+            sequence={sequence}
+            maintenanceTypes={relevantTypes.length > 0 ? relevantTypes : maintenanceTypes}
+            onChange={setSequence}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
