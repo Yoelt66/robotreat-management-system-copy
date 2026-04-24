@@ -13,7 +13,7 @@ import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
   const addStep = () => {
     const nextNum = sequence.length + 1;
-    onChange([...sequence, { step_number: nextNum, maintenance_type_id: "", interval_months: 3 }]);
+    onChange([...sequence, { step_number: nextNum, maintenance_type_id: "", interval_months: 4 }]);
   };
 
   const removeStep = (idx) => {
@@ -110,11 +110,17 @@ function SequenceEditor({ sequence, maintenanceTypes, onChange }) {
   );
 }
 
-export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands }) {
+export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrands: initialUnitBrands }) {
   const [selectedBrandId, setSelectedBrandId] = useState("");
   const [selectedUnitType, setSelectedUnitType] = useState("");
   const [sequence, setSequence] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [unitBrands, setUnitBrands] = useState(initialUnitBrands || []);
+
+  // Sync with parent prop changes
+  useEffect(() => {
+    setUnitBrands(initialUnitBrands || []);
+  }, [initialUnitBrands]);
 
   const selectedBrand = unitBrands.find(b => b.id === selectedBrandId);
 
@@ -153,6 +159,9 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
       const updated = existing.filter(s => s.unit_type !== selectedUnitType);
       updated.push({ unit_type: selectedUnitType, sequence });
       await base44.entities.UnitBrand.update(selectedBrandId, { default_sequences_by_unit_type: updated });
+      // Reload fresh data from server
+      const freshBrands = await base44.entities.UnitBrand.list();
+      setUnitBrands(freshBrands);
       toast.success("הרצף נשמר בהצלחה");
     } catch (e) {
       toast.error("שגיאה בשמירה: " + e.message);
