@@ -32,11 +32,64 @@ const TEMPLATES = {
   },
 };
 
-function downloadTemplate(tabKey) {
+function downloadTemplate(tabKey, unitBrands = []) {
   const tpl = TEMPLATES[tabKey];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([tpl.headerLabels, tpl.example]);
+
+  // Add brand names and unit types as a helper sheet for reference
+  if (unitBrands.length > 0 && (tabKey === "types" || tabKey === "steps")) {
+    const brandRows = [["מותגים קיימים", "סוגי יחידות לכל מותג"]];
+    const brandNames = unitBrands.map(b => b.name);
+    const allUnitTypes = [...new Set(unitBrands.flatMap(b => b.unit_types || []))];
+
+    unitBrands.forEach(b => {
+      (b.unit_types || []).forEach((ut, i) => {
+        brandRows.push([i === 0 ? b.name : "", ut]);
+      });
+      if (!b.unit_types || b.unit_types.length === 0) brandRows.push([b.name, ""]);
+    });
+
+    const refWs = XLSX.utils.aoa_to_sheet(brandRows);
+    XLSX.utils.book_append_sheet(wb, refWs, "רשימות עזר");
+
+    // Add data validation for brand column (col E = index 4 for types, col D = index 3 for steps)
+    const brandColIndex = tabKey === "types" ? 4 : 3; // brand_name column
+    const unitColIndex = tabKey === "types" ? 5 : 4;  // unit_type column
+    const brandColLetter = String.fromCharCode(65 + brandColIndex);
+    const unitColLetter = String.fromCharCode(65 + unitColIndex);
+
+    if (!ws["!dataValidation"]) ws["!dataValidation"] = [];
+
+    if (brandNames.length > 0) {
+      ws["!dataValidation"].push({
+        sqref: `${brandColLetter}2:${brandColLetter}1000`,
+        type: "list",
+        formula1: `"${brandNames.join(",")}"`,
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: "מותג לא תקין",
+        error: `בחר מותג מהרשימה: ${brandNames.join(", ")}`,
+      });
+    }
+
+    if (allUnitTypes.length > 0) {
+      ws["!dataValidation"].push({
+        sqref: `${unitColLetter}2:${unitColLetter}1000`,
+        type: "list",
+        formula1: `"${allUnitTypes.join(",")}"`,
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: "סוג יחידה לא תקין",
+        error: `בחר סוג יחידה מהרשימה: ${allUnitTypes.join(", ")}`,
+      });
+    }
+  }
+
   XLSX.utils.book_append_sheet(wb, ws, "נתונים");
+  // Move "נתונים" to be the first sheet
+  wb.SheetNames = ["נתונים", ...wb.SheetNames.filter(s => s !== "נתונים")];
+
   XLSX.writeFile(wb, tpl.filename);
 }
 
@@ -100,9 +153,19 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
         const existingTypes = await base44.entities.MaintenanceType.list();
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם סוג תחזוקה`); continue; }
-          const brand = unitBrands.find(b => b.name === obj.brand_name);
-          const brand_id = brand?.id || "";
+
+          // Validate brand
+          let brand = null;
+          if (obj.brand_name) {
+            brand = unitBrands.find(b => b.name === obj.brand_name);
+            if (!brand) { errors.push(`מותג לא קיים: "${obj.brand_name}" (שורה: ${obj.name})`); continue; }
+          }
+          // Validate unit_type belongs to brand
           const unit_type = obj.unit_type || "";
+          if (brand && unit_type && !(brand.unit_types || []).includes(unit_type)) {
+            errors.push(`סוג יחידה "${unit_type}" לא קיים במותג "${obj.brand_name}" (שורה: ${obj.name})`); continue;
+          }
+          const brand_id = brand?.id || "";
           // Check for duplicate: same name + brand_id + unit_type
           const existing = existingTypes.find(t =>
             t.name === obj.name &&
@@ -133,9 +196,19 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
         const existingSteps = await base44.entities.MaintenanceStep.list();
         for (const obj of objects) {
           if (!obj.name) { errors.push(`שורה ללא שם פעולה`); continue; }
-          const brand = unitBrands.find(b => b.name === obj.brand_name);
-          const brand_id = brand?.id || "";
+
+          // Validate brand
+          let brand = null;
+          if (obj.brand_name) {
+            brand = unitBrands.find(b => b.name === obj.brand_name);
+            if (!brand) { errors.push(`מותג לא קיים: "${obj.brand_name}" (שורה: ${obj.name})`); continue; }
+          }
+          // Validate unit_type belongs to brand
           const unit_type = obj.unit_type || "";
+          if (brand && unit_type && !(brand.unit_types || []).includes(unit_type)) {
+            errors.push(`סוג יחידה "${unit_type}" לא קיים במותג "${obj.brand_name}" (שורה: ${obj.name})`); continue;
+          }
+          const brand_id = brand?.id || "";
           // parse parts
           let parts_required = [];
           if (obj.parts_skus) {
@@ -233,7 +306,7 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
           <div className="bg-slate-50 rounded-lg p-4 space-y-2">
             <p className="text-sm font-medium text-slate-700">שלב 1 — הורד תבנית</p>
             <p className="text-xs text-slate-500">הורד את קובץ האקסל לדוגמה, מלא את הנתונים ושמור.</p>
-            <Button variant="outline" size="sm" onClick={() => downloadTemplate(tabKey)} className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadTemplate(tabKey, unitBrands)} className="gap-2">
               <Download className="h-4 w-4" />
               הורד תבנית ({tpl.filename})
             </Button>

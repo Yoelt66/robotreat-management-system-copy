@@ -25,6 +25,8 @@ export default function MaintenanceTypesPage() {
   const [editingType, setEditingType] = useState(null);
   const [typeToDelete, setTypeToDelete] = useState(null);
   const [importDialogTab, setImportDialogTab] = useState(null); // "types" | "steps" | "matrix"
+  const [filterBrandId, setFilterBrandId] = useState("all");
+  const [filterUnitType, setFilterUnitType] = useState("all");
 
   useEffect(() => { loadData(); }, []);
 
@@ -91,6 +93,15 @@ export default function MaintenanceTypesPage() {
   const openNew = () => { setEditingType(null); setShowForm(true); };
   const getBrandName = (brandId) => unitBrands.find(b => b.id === brandId)?.name || null;
 
+  const selectedBrand = unitBrands.find(b => b.id === filterBrandId);
+  const availableUnitTypes = selectedBrand?.unit_types || [];
+
+  const filteredTypes = orderedTypes.filter(t => {
+    if (filterBrandId !== "all" && (t.brand_id || "") !== filterBrandId) return false;
+    if (filterUnitType !== "all" && (t.unit_type || "") !== filterUnitType) return false;
+    return true;
+  });
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div></div>;
   }
@@ -112,15 +123,42 @@ export default function MaintenanceTypesPage() {
 
         {/* ─── לשונית 1: סוגי תחזוקה ─── */}
         <TabsContent value="types" className="space-y-4">
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setImportDialogTab("types")}>
-              <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
-            </Button>
-            <Button onClick={openNew}>
-              <Plus className="h-4 w-4 ml-2" /> סוג תחזוקה חדש
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white text-slate-700"
+                value={filterBrandId}
+                onChange={e => { setFilterBrandId(e.target.value); setFilterUnitType("all"); }}
+              >
+                <option value="all">כל המותגים</option>
+                {unitBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+              <select
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white text-slate-700 disabled:opacity-40"
+                value={filterUnitType}
+                onChange={e => setFilterUnitType(e.target.value)}
+                disabled={filterBrandId === "all"}
+              >
+                <option value="all">כל סוגי היחידות</option>
+                {availableUnitTypes.map(ut => <option key={ut} value={ut}>{ut}</option>)}
+              </select>
+              {(filterBrandId !== "all" || filterUnitType !== "all") && (
+                <button className="text-xs text-slate-400 hover:text-slate-600 underline" onClick={() => { setFilterBrandId("all"); setFilterUnitType("all"); }}>
+                  נקה סינון
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setImportDialogTab("types")}>
+                <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
+              </Button>
+              <Button onClick={openNew}>
+                <Plus className="h-4 w-4 ml-2" /> סוג תחזוקה חדש
+              </Button>
+            </div>
           </div>
-          {orderedTypes.length === 0 ? (
+          {filteredTypes.length === 0 ? (
             <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
               <Wrench className="h-12 w-12 mx-auto mb-3 text-slate-200" />
               אין סוגי תחזוקה. לחץ על "סוג תחזוקה חדש" להתחלה.
@@ -129,14 +167,18 @@ export default function MaintenanceTypesPage() {
             <DragDropContext onDragEnd={(result) => {
               if (!result.destination) return;
               const reordered = Array.from(orderedTypes);
-              const [moved] = reordered.splice(result.source.index, 1);
-              reordered.splice(result.destination.index, 0, moved);
+              const srcItem = filteredTypes[result.source.index];
+              const dstItem = filteredTypes[result.destination.index];
+              const srcIdx = reordered.findIndex(t => t.id === srcItem.id);
+              const dstIdx = reordered.findIndex(t => t.id === dstItem.id);
+              const [moved] = reordered.splice(srcIdx, 1);
+              reordered.splice(dstIdx, 0, moved);
               setOrderedTypes(reordered);
             }}>
               <Droppable droppableId="types-grid" direction="horizontal">
                 {(provided) => (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" ref={provided.innerRef} {...provided.droppableProps}>
-                    {orderedTypes.map((type, index) => (
+                    {filteredTypes.map((type, index) => (
                       <Draggable key={type.id} draggableId={type.id} index={index}>
                         {(drag, snapshot) => (
                           <Card ref={drag.innerRef} {...drag.draggableProps} className={`hover:shadow-md transition-shadow ${snapshot.isDragging ? "shadow-xl ring-2 ring-emerald-300" : ""}`}>
