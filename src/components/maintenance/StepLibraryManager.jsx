@@ -67,6 +67,8 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [stepToDelete, setStepToDelete] = useState(null);
   const [formData, setFormData] = useState(DEFAULT_STEP);
   const [expandedId, setExpandedId] = useState(null);
+  const [filterBrandId, setFilterBrandId] = useState("all");
+  const [filterUnitType, setFilterUnitType] = useState("all");
 
   useEffect(() => { loadSteps(); }, []);
 
@@ -87,6 +89,15 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
+
+  const filterBrand = unitBrands.find(b => b.id === filterBrandId);
+  const filterUnitTypes = filterBrand?.unit_types || [];
+
+  const filteredSteps = steps.filter(step => {
+    if (filterBrandId !== "all" && step.brand_id !== filterBrandId) return false;
+    if (filterUnitType !== "all" && step.unit_type !== filterUnitType) return false;
+    return true;
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -132,18 +143,36 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-slate-500">{steps.length} פעולות מוגדרות</p>
+      <div className="flex justify-between items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={filterBrandId} onValueChange={v => { setFilterBrandId(v); setFilterUnitType("all"); }}>
+            <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="כל המותגים" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">כל המותגים</SelectItem>
+              {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {filterBrandId !== "all" && filterUnitTypes.length > 0 && (
+            <Select value={filterUnitType} onValueChange={setFilterUnitType}>
+              <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="כל הסוגים" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">כל הסוגים</SelectItem>
+                {filterUnitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          <p className="text-sm text-slate-500">{filteredSteps.length} פעולות</p>
+        </div>
         <Button onClick={openNew} size="sm">
           <Plus className="h-4 w-4 ml-1" /> פעולה חדשה
         </Button>
       </div>
 
-      {steps.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא הוגדרו פעולות תחזוקה עדיין</div>
+      {filteredSteps.length === 0 ? (
+        <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
       ) : (
         <div className="space-y-2">
-          {steps.map(step => (
+          {filteredSteps.map(step => (
             <Card key={step.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-3">
                 <div className="flex items-center gap-2">
