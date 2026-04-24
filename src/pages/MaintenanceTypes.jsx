@@ -13,6 +13,7 @@ import MaintenanceTypeFormDialog from "@/components/maintenance/MaintenanceTypeF
 import MaintenanceMatrixView from "@/components/maintenance/MaintenanceMatrixView";
 import MaintenanceImportDialog from "@/components/maintenance/MaintenanceImportDialog";
 import MaintenanceSequenceManager from "@/components/maintenance/MaintenanceSequenceManager";
+import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 
 export default function MaintenanceTypesPage() {
   const [types, setTypes] = useState([]);
@@ -25,8 +26,8 @@ export default function MaintenanceTypesPage() {
   const [editingType, setEditingType] = useState(null);
   const [typeToDelete, setTypeToDelete] = useState(null);
   const [importDialogTab, setImportDialogTab] = useState(null); // "types" | "steps" | "matrix"
-  const [filterBrandId, setFilterBrandId] = useState("all");
-  const [filterUnitType, setFilterUnitType] = useState("all");
+  const [filterBrandId, setFilterBrandId] = useState("");
+  const [filterUnitType, setFilterUnitType] = useState("");
 
   useEffect(() => { loadData(); }, []);
 
@@ -93,12 +94,9 @@ export default function MaintenanceTypesPage() {
   const openNew = () => { setEditingType(null); setShowForm(true); };
   const getBrandName = (brandId) => unitBrands.find(b => b.id === brandId)?.name || null;
 
-  const selectedBrand = unitBrands.find(b => b.id === filterBrandId);
-  const availableUnitTypes = selectedBrand?.unit_types || [];
-
   const filteredTypes = orderedTypes.filter(t => {
-    if (filterBrandId !== "all" && (t.brand_id || "") !== filterBrandId) return false;
-    if (filterUnitType !== "all" && (t.unit_type || "") !== filterUnitType) return false;
+    if (filterBrandId && (t.brand_id || "") !== filterBrandId) return false;
+    if (filterUnitType && (t.unit_type || "") !== filterUnitType) return false;
     return true;
   });
 
@@ -125,30 +123,13 @@ export default function MaintenanceTypesPage() {
         <TabsContent value="types" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white text-slate-700"
-                value={filterBrandId}
-                onChange={e => { setFilterBrandId(e.target.value); setFilterUnitType("all"); }}
-              >
-                <option value="all">כל המותגים</option>
-                {unitBrands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-              <select
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white text-slate-700 disabled:opacity-40"
-                value={filterUnitType}
-                onChange={e => setFilterUnitType(e.target.value)}
-                disabled={filterBrandId === "all"}
-              >
-                <option value="all">כל סוגי היחידות</option>
-                {availableUnitTypes.map(ut => <option key={ut} value={ut}>{ut}</option>)}
-              </select>
-              {(filterBrandId !== "all" || filterUnitType !== "all") && (
-                <button className="text-xs text-slate-400 hover:text-slate-600 underline" onClick={() => { setFilterBrandId("all"); setFilterUnitType("all"); }}>
-                  נקה סינון
-                </button>
-              )}
-            </div>
+            <BrandUnitFilter
+              unitBrands={unitBrands}
+              filterBrandId={filterBrandId}
+              filterUnitType={filterUnitType}
+              onBrandChange={setFilterBrandId}
+              onUnitTypeChange={setFilterUnitType}
+            />
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setImportDialogTab("types")}>
                 <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל

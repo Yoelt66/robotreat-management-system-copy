@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
@@ -68,8 +69,8 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [stepToDelete, setStepToDelete] = useState(null);
   const [formData, setFormData] = useState(DEFAULT_STEP);
   const [expandedId, setExpandedId] = useState(null);
-  const [filterBrandId, setFilterBrandId] = useState("none");
-  const [filterUnitType, setFilterUnitType] = useState("all");
+  const [filterBrandId, setFilterBrandId] = useState("");
+  const [filterUnitType, setFilterUnitType] = useState("");
   const [orderedSteps, setOrderedSteps] = useState([]);
 
   useEffect(() => { loadSteps(); }, []);
@@ -92,13 +93,10 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
 
-  const filterBrand = unitBrands.find(b => b.id === filterBrandId);
-  const filterUnitTypes = filterBrand?.unit_types || [];
-
   const filteredSteps = steps.filter(step => {
-    if (filterBrandId === "none") return false;
-    if (filterBrandId !== "all" && step.brand_id !== filterBrandId) return false;
-    if (filterUnitType !== "all" && step.unit_type !== filterUnitType) return false;
+    if (!filterBrandId) return false;
+    if (filterBrandId && step.brand_id !== filterBrandId) return false;
+    if (filterUnitType && step.unit_type !== filterUnitType) return false;
     return true;
   });
 
@@ -166,32 +164,21 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={filterBrandId} onValueChange={v => { setFilterBrandId(v); setFilterUnitType("all"); }}>
-            <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="בחר מותג" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">— בחר מותג —</SelectItem>
-              <SelectItem value="all">כל המותגים</SelectItem>
-              {unitBrands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {filterBrandId !== "all" && filterUnitTypes.length > 0 && (
-            <Select value={filterUnitType} onValueChange={setFilterUnitType}>
-              <SelectTrigger className="w-40 h-8 text-sm"><SelectValue placeholder="כל הסוגים" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">כל הסוגים</SelectItem>
-                {filterUnitTypes.map(ut => <SelectItem key={ut} value={ut}>{ut}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          <p className="text-sm text-slate-500">{filteredSteps.length} פעולות</p>
+        <div className="flex-1">
+          <BrandUnitFilter
+            unitBrands={unitBrands}
+            filterBrandId={filterBrandId}
+            filterUnitType={filterUnitType}
+            onBrandChange={v => { setFilterBrandId(v); setFilterUnitType(""); }}
+            onUnitTypeChange={setFilterUnitType}
+          />
         </div>
         <Button onClick={openNew} size="sm">
           <Plus className="h-4 w-4 ml-1" /> פעולה חדשה
         </Button>
       </div>
 
-      {filterBrandId === "none" ? (
+      {!filterBrandId ? (
         <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">בחר מותג כדי להציג פעולות תחזוקה</div>
       ) : orderedSteps.length === 0 ? (
         <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
