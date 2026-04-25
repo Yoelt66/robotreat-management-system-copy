@@ -50,13 +50,54 @@ const TEMPLATES = {
   matrix: {
     label: "מטריצת טיפולים",
     filename: "template_maintenance_matrix.xlsx",
-    headers: ["maintenance_type_name", "step_names"],
-    headerLabels: ['שם סוג תחזוקה *', 'שמות פעולות (מופרדות בפסיק) *'],
-    example: ["טיפול 6 חודשי", "החלפת סנן,ניקוי מחלב,בדיקת לחץ"],
+    headers: [], // dynamic — built at download time
+    headerLabels: [],
+    example: [],
   },
 };
 
+async function downloadMatrixTemplate(unitBrands = []) {
+  // Fetch live data for matrix template
+  const [allTypes, allSteps] = await Promise.all([
+    base44.entities.MaintenanceType.list(),
+    base44.entities.MaintenanceStep.list(),
+  ]);
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("נתונים");
+
+  if (allTypes.length === 0 || allSteps.length === 0) {
+    toast.error("יש ליצור סוגי תחזוקה ופעולות תחזוקה לפני הורדת התבנית");
+    return;
+  }
+
+  // Header row: "שם פעולה" + one column per maintenance type
+  const typeNames = allTypes.map(t => t.name);
+  const headerRow = ws.addRow(["שם פעולת תחזוקה", ...typeNames]);
+  headerRow.font = { bold: true };
+  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2EFDA" } };
+
+  // One row per step
+  allSteps.forEach(step => {
+    const row = [step.name, ...typeNames.map(() => "")];
+    ws.addRow(row);
+  });
+
+  // Auto-width
+  ws.columns = ["שם פעולת תחזוקה", ...typeNames].map((label) => ({
+    width: Math.max(label.length + 4, 12),
+  }));
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "template_maintenance_matrix.xlsx"; a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function downloadTemplate(tabKey, unitBrands = []) {
+  if (tabKey === "matrix") { await downloadMatrixTemplate(unitBrands); return; }
   const tpl = TEMPLATES[tabKey];
   const wb = new ExcelJS.Workbook();
 
@@ -301,7 +342,7 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       } else if (tabKey === "steps") {
         await prepareStepsImport(objects);
       } else if (tabKey === "matrix") {
-        await importMatrix(objects);
+        await importMatrix(); // parses raw rows internally
       }
     } catch (e) {
       toast.error("שגיאה בעיבוד הקובץ: " + e.message);
@@ -494,38 +535,74 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
     return { success: successCount, importErrors: errors };
   };
 
-  // ── Import: matrix (unchanged) ──────────────────────────────────────────
-  const importMatrix = async (objects) => {
+  // ── Import: matrix (pivoted format) ────────────────────────────────────
+  // Rows = steps, Columns = maintenance types, X = included
+  const importMatrix = async () => {
     const [allTypes, allSteps] = await Promise.all([
       base44.entities.MaintenanceType.list(),
       base44.entities.MaintenanceStep.list(),
     ]);
-    let successCount = 0;
+
+    // Parse raw rows (not rowsToObjects — we need the raw array format)
+    const rawRows = await parseXlsx(file);
+    if (rawRows.length < 2) { setResults({ success: 0, errors: ["הקובץ ריק"] }); return; }
+
+    const headerRow = rawRows[0].map(h => String(h).trim());
+    // headerRow[0] = "שם פעולת תחזוקה", headerRow[1..] = maintenance type names
+    const typeNamesInFile = headerRow.slice(1);
+
+    // Map type names → type objects
+    const typeMap = {};
     const errors = [];
-    for (const obj of objects) {
-      if (!obj.maintenance_type_name || !obj.step_names) { errors.push("שורה חסרה"); continue; }
-      const mType = allTypes.find(t => t.name === obj.maintenance_type_name);
-      if (!mType) { errors.push(`סוג תחזוקה לא נמצא: "${obj.maintenance_type_name}"`); continue; }
-      const stepNames = obj.step_names.split(",").map(s => s.trim()).filter(Boolean);
-      const newConfigs = [];
-      for (const sName of stepNames) {
-        const step = allSteps.find(s => s.name === sName);
-        if (!step) { errors.push(`פעולה לא נמצאה: "${sName}" (סוג: ${obj.maintenance_type_name})`); continue; }
-        const defaultParts = (step.parts_required || []).map(p => ({ ...p }));
-        newConfigs.push({ step_id: step.id, step_name: step.name, enabled: true, custom_parts: defaultParts });
-      }
+    typeNamesInFile.forEach(name => {
+      const found = allTypes.find(t => t.name === name);
+      if (!found) errors.push(`סוג תחזוקה לא נמצא: "${name}"`);
+      else typeMap[name] = found;
+    });
+
+    // Build a map: typeId → list of step configs to add
+    const typeStepConfigs = {}; // typeId → Set of step ids to include
+    allTypes.forEach(t => { typeStepConfigs[t.id] = new Set(); });
+
+    for (let i = 1; i < rawRows.length; i++) {
+      const row = rawRows[i];
+      const stepName = String(row[0] || "").trim();
+      if (!stepName) continue;
+      const step = allSteps.find(s => s.name === stepName);
+      if (!step) { errors.push(`פעולת תחזוקה לא נמצאה: "${stepName}"`); continue; }
+
+      typeNamesInFile.forEach((typeName, colIdx) => {
+        const cell = String(row[colIdx + 1] || "").trim().toLowerCase();
+        if (cell === "x" || cell === "✓" || cell === "v") {
+          const mType = typeMap[typeName];
+          if (mType) typeStepConfigs[mType.id].add(step.id);
+        }
+      });
+    }
+
+    // Update each type with its new step configs
+    let successCount = 0;
+    for (const mType of allTypes) {
+      const stepIdsToAdd = typeStepConfigs[mType.id];
+      if (stepIdsToAdd.size === 0) continue;
+
       const existingConfigs = mType.step_configs || [];
       const mergedConfigs = [...existingConfigs];
-      for (const nc of newConfigs) {
-        if (!mergedConfigs.find(c => c.step_id === nc.step_id)) mergedConfigs.push(nc);
+      for (const stepId of stepIdsToAdd) {
+        if (mergedConfigs.find(c => c.step_id === stepId)) continue;
+        const step = allSteps.find(s => s.id === stepId);
+        if (!step) continue;
+        const defaultParts = (step.parts_required || []).map(p => ({ ...p }));
+        mergedConfigs.push({ step_id: step.id, step_name: step.name, enabled: true, custom_parts: defaultParts });
       }
       try {
         await base44.entities.MaintenanceType.update(mType.id, { step_configs: mergedConfigs });
         successCount++;
-      } catch (e) { errors.push(`שגיאה ב-"${obj.maintenance_type_name}": ${e.message}`); }
+      } catch (e) { errors.push(`שגיאה ב-"${mType.name}": ${e.message}`); }
     }
+
     setResults({ success: successCount, errors });
-    if (successCount > 0) { toast.success(`יובאו בהצלחה ${successCount} רשומות`); if (onImported) onImported(); }
+    if (successCount > 0) { toast.success(`עודכנו ${successCount} סוגי תחזוקה`); if (onImported) onImported(); }
   };
 
   const handleClose = () => {
