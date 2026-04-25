@@ -15,12 +15,19 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
     return true;
   });
 
-  const filteredSteps = maintenanceSteps.filter(s => {
-    if (!filterBrand) return true;
-    const brandMatch = !s.brand_id || s.brand_id === filterBrand;
-    const unitMatch = !filterUnitType || !s.unit_type || s.unit_type === filterUnitType;
-    return brandMatch && unitMatch;
-  });
+  const filteredSteps = maintenanceSteps
+    .filter(s => {
+      if (!filterBrand) return true;
+      const brandMatch = !s.brand_id || s.brand_id === filterBrand;
+      const unitMatch = !filterUnitType || !s.unit_type || s.unit_type === filterUnitType;
+      return brandMatch && unitMatch;
+    })
+    .sort((a, b) => {
+      const aOrder = a.sort_order ?? 9999;
+      const bOrder = b.sort_order ?? 9999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
+    });
 
   const getStepConfig = (type, stepId) => type.step_configs?.find(sc => sc.step_id === stepId);
 

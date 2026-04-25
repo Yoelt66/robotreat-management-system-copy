@@ -123,10 +123,13 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const handleSaveOrder = async () => {
     try {
       await Promise.all(
-        orderedSteps.map((step, index) =>
+        displayedSteps.map((step, index) =>
           base44.entities.MaintenanceStep.update(step.id, { sort_order: index })
         )
       );
+      // Update orderedSteps to reflect the saved order
+      setOrderedSteps(displayedSteps);
+      setSortAsc(null);
       setHasUnsavedOrder(false);
       toast.success("סדר הפעולות נשמר");
     } catch {
@@ -144,7 +147,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
   const toggleSort = () => {
     setSortAsc(prev => prev === null ? true : prev === true ? false : null);
-    setHasUnsavedOrder(false);
+    setHasUnsavedOrder(true);
   };
 
   const handleSubmit = async (e) => {
