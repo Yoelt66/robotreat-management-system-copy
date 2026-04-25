@@ -96,8 +96,9 @@ export default function MaintenanceTypesPage() {
   const getBrandName = (brandId) => unitBrands.find(b => b.id === brandId)?.name || null;
 
   const filteredTypes = orderedTypes.filter(t => {
-    if (filterBrandId && (t.brand_id || "") !== filterBrandId) return false;
-    if (filterUnitType && (t.unit_type || "") !== filterUnitType) return false;
+    if (!filterBrandId || !filterUnitType) return false;
+    if ((t.brand_id || "") !== filterBrandId) return false;
+    if ((t.unit_type || "") !== filterUnitType) return false;
     return true;
   });
 
@@ -140,10 +141,20 @@ export default function MaintenanceTypesPage() {
               </Button>
             </div>
           </div>
-          {filteredTypes.length === 0 ? (
+          {!filterBrandId ? (
             <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
               <Wrench className="h-12 w-12 mx-auto mb-3 text-slate-200" />
-              אין סוגי תחזוקה. לחץ על "סוג תחזוקה חדש" להתחלה.
+              בחר מותג כדי להציג סוגי תחזוקה
+            </div>
+          ) : !filterUnitType ? (
+            <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
+              <Wrench className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+              בחר סוג יחידה כדי להציג סוגי תחזוקה
+            </div>
+          ) : filteredTypes.length === 0 ? (
+            <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
+              <Wrench className="h-12 w-12 mx-auto mb-3 text-slate-200" />
+              אין סוגי תחזוקה למותג וסוג יחידה זה. לחץ על "סוג תחזוקה חדש" להתחלה.
             </div>
           ) : (
             <DragDropContext onDragEnd={(result) => {

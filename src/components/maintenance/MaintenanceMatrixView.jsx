@@ -9,18 +9,18 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
   const [filterUnitType, setFilterUnitType] = useState("");
 
   const filteredTypes = maintenanceTypes.filter(t => {
-    if (!filterBrand) return false;
-    if (filterBrand && t.brand_id !== filterBrand) return false;
-    if (filterUnitType && t.unit_type !== filterUnitType) return false;
+    if (!filterBrand || !filterUnitType) return false;
+    if (t.brand_id !== filterBrand) return false;
+    if (t.unit_type !== filterUnitType) return false;
     return true;
   });
 
   const filteredSteps = maintenanceSteps
     .filter(s => {
-      if (!filterBrand) return true;
-      const brandMatch = !s.brand_id || s.brand_id === filterBrand;
-      const unitMatch = !filterUnitType || !s.unit_type || s.unit_type === filterUnitType;
-      return brandMatch && unitMatch;
+      if (!filterBrand || !filterUnitType) return false;
+      if (s.brand_id !== filterBrand) return false;
+      if (s.unit_type !== filterUnitType) return false;
+      return true;
     })
     .sort((a, b) => {
       const aOrder = a.sort_order ?? 9999;
@@ -62,13 +62,15 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
     />
   );
 
-  if (!filterBrand || filteredSteps.length === 0 || filteredTypes.length === 0) {
+  if (!filterBrand || !filterUnitType || filteredSteps.length === 0 || filteredTypes.length === 0) {
+    let msg = "בחר מותג כדי להציג את המטריצה";
+    if (filterBrand && !filterUnitType) msg = "בחר סוג יחידה כדי להציג את המטריצה";
+    else if (filterBrand && filterUnitType && filteredSteps.length === 0) msg = "אין פעולות תחזוקה מוגדרות למותג וסוג יחידה זו";
+    else if (filterBrand && filterUnitType && filteredTypes.length === 0) msg = "אין סוגי תחזוקה להצגה עבור מותג וסוג יחידה זו";
     return (
       <div className="space-y-4">
         {filterUI}
-        <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
-          {!filterBrand ? "בחר מותג כדי להציג את המטריצה" : filteredSteps.length === 0 ? "אין פעולות תחזוקה מוגדרות למותג/יחידה זו" : "אין סוגי תחזוקה להצגה"}
-        </div>
+        <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">{msg}</div>
       </div>
     );
   }

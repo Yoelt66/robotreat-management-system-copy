@@ -96,12 +96,12 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
 
-  // Compute the filtered set (sorted by sort_order from DB) — used only to detect set changes
+  // Compute the filtered set — requires BOTH brand AND unit type
   const filteredSteps = steps
     .filter(step => {
-      if (!filterBrandId) return false;
+      if (!filterBrandId || !filterUnitType) return false;
       if (step.brand_id !== filterBrandId) return false;
-      if (filterUnitType && step.unit_type !== filterUnitType) return false;
+      if (step.unit_type !== filterUnitType) return false;
       return true;
     });
 
@@ -271,8 +271,10 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
       {!filterBrandId ? (
         <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">בחר מותג כדי להציג פעולות תחזוקה</div>
+      ) : !filterUnitType ? (
+        <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">בחר סוג יחידה כדי להציג פעולות תחזוקה</div>
       ) : orderedSteps.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
+        <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה למותג וסוג יחידה זה</div>
       ) : (
         <>
           <div className="flex items-center gap-2 justify-between flex-wrap">
