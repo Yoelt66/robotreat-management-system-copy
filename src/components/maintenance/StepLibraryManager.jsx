@@ -130,8 +130,10 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   };
 
   const handleSaveOrder = async () => {
-    const stepsToSave = displayedSteps; // capture current order
-    // Optimistic update: apply new sort_order locally immediately
+    const stepsToSave = [...displayedSteps]; // capture snapshot of current order
+    const totalSteps = stepsToSave.length;
+
+    // 1. Optimistic UI update — show the new order immediately
     const withNewOrder = stepsToSave.map((s, i) => ({ ...s, sort_order: i }));
     setOrderedSteps(withNewOrder);
     setSteps(prev => prev.map(s => {
@@ -140,24 +142,46 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     }));
     setSortAsc(null);
     setHasUnsavedOrder(false);
+    toast.info("שומר סדר...");
 
-    // Save in batches of 5 to avoid rate limiting — fire and verify
-    const BATCH = 5;
+    // 2. Save sequentially one-by-one — safest against rate limiting
     const failed = [];
-    for (let i = 0; i < stepsToSave.length; i += BATCH) {
-      const batch = stepsToSave.slice(i, i + BATCH);
-      const results = await Promise.allSettled(
-        batch.map((s, bi) => base44.entities.MaintenanceStep.update(s.id, { sort_order: i + bi }))
-      );
-      results.forEach((r, bi) => { if (r.status === "rejected") failed.push(stepsToSave[i + bi]); });
-      if (i + BATCH < stepsToSave.length) await new Promise(r => setTimeout(r, 150));
+    for (let i = 0; i < totalSteps; i++) {
+      try {
+        await base44.entities.MaintenanceStep.update(stepsToSave[i].id, { sort_order: i });
+      } catch {
+        failed.push(stepsToSave[i]);
+      }
+      // Small delay between each call to avoid rate limiting
+      if (i < totalSteps - 1) await new Promise(r => setTimeout(r, 120));
+    }
+
+    // 3. Self-verify: reload from DB and confirm sort_order matches
+    let verifyOk = true;
+    if (failed.length === 0) {
+      try {
+        const freshSteps = await base44.entities.MaintenanceStep.list();
+        const freshMap = Object.fromEntries(freshSteps.map(s => [s.id, s.sort_order]));
+        for (let i = 0; i < stepsToSave.length; i++) {
+          if (freshMap[stepsToSave[i].id] !== i) { verifyOk = false; break; }
+        }
+        // Update local state with verified data
+        setSteps(freshSteps);
+        // Update orderedSteps to use verified data objects (same order)
+        setOrderedSteps(stepsToSave.map(s => freshSteps.find(f => f.id === s.id) || s));
+      } catch {
+        verifyOk = false;
+      }
     }
 
     if (failed.length > 0) {
-      toast.warning(`הסדר נשמר חלקית — ${failed.length} פריטים נכשלו`);
+      toast.error(`שגיאה בשמירת ${failed.length} פריטים — נסה שוב`);
+      setHasUnsavedOrder(true);
+    } else if (!verifyOk) {
+      toast.warning("הסדר נשמר אך אימות חלקי — הסדר יתאפס בטעינה הבאה");
     } else {
-      toast.success("סדר הפעולות נשמר");
-      if (onStepsChanged) onStepsChanged(); // refresh matrix
+      toast.success("סדר הפעולות נשמר ואומת בהצלחה");
+      if (onStepsChanged) onStepsChanged(); // refresh matrix with updated sort_order
     }
   };
 
