@@ -92,12 +92,19 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
 
-  const filteredSteps = steps.filter(step => {
-    if (!filterBrandId) return false;
-    if (filterBrandId && step.brand_id !== filterBrandId) return false;
-    if (filterUnitType && step.unit_type !== filterUnitType) return false;
-    return true;
-  });
+  const filteredSteps = steps
+    .filter(step => {
+      if (!filterBrandId) return false;
+      if (step.brand_id !== filterBrandId) return false;
+      if (filterUnitType && step.unit_type !== filterUnitType) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aOrder = a.sort_order ?? 9999;
+      const bOrder = b.sort_order ?? 9999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
+    });
 
   // Keep ordered list in sync with filteredSteps (preserve drag order)
   useEffect(() => {
