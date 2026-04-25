@@ -15,6 +15,13 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
     return true;
   });
 
+  const filteredSteps = maintenanceSteps.filter(s => {
+    if (!filterBrand) return true;
+    const brandMatch = !s.brand_id || s.brand_id === filterBrand;
+    const unitMatch = !filterUnitType || !s.unit_type || s.unit_type === filterUnitType;
+    return brandMatch && unitMatch;
+  });
+
   const getStepConfig = (type, stepId) => type.step_configs?.find(sc => sc.step_id === stepId);
 
   const toggleStep = (type, step) => {
@@ -48,12 +55,12 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
     />
   );
 
-  if (!filterBrand || maintenanceSteps.length === 0 || filteredTypes.length === 0) {
+  if (!filterBrand || filteredSteps.length === 0 || filteredTypes.length === 0) {
     return (
       <div className="space-y-4">
         {filterUI}
         <div className="text-center py-16 text-slate-400 border-2 border-dashed rounded-lg">
-          {!filterBrand ? "בחר מותג כדי להציג את המטריצה" : maintenanceSteps.length === 0 ? "אין פעולות תחזוקה מוגדרות" : "אין סוגי תחזוקה להצגה"}
+          {!filterBrand ? "בחר מותג כדי להציג את המטריצה" : filteredSteps.length === 0 ? "אין פעולות תחזוקה מוגדרות למותג/יחידה זו" : "אין סוגי תחזוקה להצגה"}
         </div>
       </div>
     );
@@ -85,7 +92,7 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
             </tr>
           </thead>
           <tbody>
-            {maintenanceSteps.map((step, si) => (
+            {filteredSteps.map((step, si) => (
               <tr key={step.id} className={si % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
                 <td className="sticky right-0 z-10 border-b border-l border-slate-200 p-3 font-medium text-slate-700" style={{ backgroundColor: si % 2 === 0 ? "white" : "rgb(248 250 252 / 0.5)" }}>
                   <div>

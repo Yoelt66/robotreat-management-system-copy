@@ -56,29 +56,44 @@ const TEMPLATES = {
   },
 };
 
-async function downloadMatrixTemplate(unitBrands = []) {
+async function downloadMatrixTemplate(brandId = "", unitType = "", unitBrands = []) {
   // Fetch live data for matrix template
   const [allTypes, allSteps] = await Promise.all([
     base44.entities.MaintenanceType.list(),
     base44.entities.MaintenanceStep.list(),
   ]);
 
+  // Filter by brand and unit type
+  const filteredTypes = allTypes.filter(t => {
+    if (brandId && t.brand_id !== brandId) return false;
+    if (unitType && t.unit_type !== unitType) return false;
+    return true;
+  });
+
+  const filteredSteps = allSteps.filter(s => {
+    const brandMatch = !s.brand_id || s.brand_id === brandId;
+    const unitMatch = !unitType || !s.unit_type || s.unit_type === unitType;
+    return brandMatch && unitMatch;
+  });
+
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("נתונים");
 
-  if (allTypes.length === 0 || allSteps.length === 0) {
-    toast.error("יש ליצור סוגי תחזוקה ופעולות תחזוקה לפני הורדת התבנית");
+  if (filteredTypes.length === 0 || filteredSteps.length === 0) {
+    toast.error("אין סוגי תחזוקה או פעולות תחזוקה למותג/יחידה הנבחרים");
     return;
   }
 
+  const brandName = unitBrands.find(b => b.id === brandId)?.name || "";
+
   // Header row: "שם פעולה" + one column per maintenance type
-  const typeNames = allTypes.map(t => t.name);
+  const typeNames = filteredTypes.map(t => t.name);
   const headerRow = ws.addRow(["שם פעולת תחזוקה", ...typeNames]);
   headerRow.font = { bold: true };
   headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2EFDA" } };
 
   // One row per step
-  allSteps.forEach(step => {
+  filteredSteps.forEach(step => {
     const row = [step.name, ...typeNames.map(() => "")];
     ws.addRow(row);
   });
@@ -88,16 +103,17 @@ async function downloadMatrixTemplate(unitBrands = []) {
     width: Math.max(label.length + 4, 12),
   }));
 
+  const filename = `template_matrix_${brandName}${unitType ? "_" + unitType : ""}.xlsx`;
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = "template_maintenance_matrix.xlsx"; a.click();
+  a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
 
-async function downloadTemplate(tabKey, unitBrands = []) {
-  if (tabKey === "matrix") { await downloadMatrixTemplate(unitBrands); return; }
+async function downloadTemplate(tabKey, unitBrands = [], brandId = "", unitType = "") {
+  if (tabKey === "matrix") { await downloadMatrixTemplate(brandId, unitType, unitBrands); return; }
   const tpl = TEMPLATES[tabKey];
   const wb = new ExcelJS.Workbook();
 
@@ -310,8 +326,14 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
   const [pendingData, setPendingData] = useState(null); // { objects, existingSteps }
   const [missingSKUs, setMissingSKUs] = useState(null); // array of sku strings
   const [allParts, setAllParts] = useState([]);
+  // Matrix-specific brand/unit selection
+  const [matrixBrandId, setMatrixBrandId] = useState("");
+  const [matrixUnitType, setMatrixUnitType] = useState("");
 
   const tpl = TEMPLATES[tabKey] || TEMPLATES.types;
+
+  const selectedMatrixBrand = unitBrands.find(b => b.id === matrixBrandId);
+  const matrixUnitTypes = selectedMatrixBrand?.unit_types || [];
 
   const handleFile = (e) => {
     setFile(e.target.files[0] || null);
@@ -342,6 +364,7 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       } else if (tabKey === "steps") {
         await prepareStepsImport(objects);
       } else if (tabKey === "matrix") {
+        if (!matrixBrandId) { toast.error("יש לבחור מותג לפני ייבוא מטריצה"); setImporting(false); return; }
         await importMatrix(); // parses raw rows internally
       }
     } catch (e) {
@@ -543,6 +566,13 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       base44.entities.MaintenanceStep.list(),
     ]);
 
+    // Filter by selected brand/unit type
+    const relevantTypes = allTypes.filter(t => {
+      if (matrixBrandId && t.brand_id !== matrixBrandId) return false;
+      if (matrixUnitType && t.unit_type !== matrixUnitType) return false;
+      return true;
+    });
+
     // Parse raw rows (not rowsToObjects — we need the raw array format)
     const rawRows = await parseXlsx(file);
     if (rawRows.length < 2) { setResults({ success: 0, errors: ["הקובץ ריק"] }); return; }
@@ -551,18 +581,18 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
     // headerRow[0] = "שם פעולת תחזוקה", headerRow[1..] = maintenance type names
     const typeNamesInFile = headerRow.slice(1);
 
-    // Map type names → type objects
+    // Map type names → type objects (only from relevant filtered types)
     const typeMap = {};
     const errors = [];
     typeNamesInFile.forEach(name => {
-      const found = allTypes.find(t => t.name === name);
+      const found = relevantTypes.find(t => t.name === name);
       if (!found) errors.push(`סוג תחזוקה לא נמצא: "${name}"`);
       else typeMap[name] = found;
     });
 
     // Build a map: typeId → list of step configs to add
     const typeStepConfigs = {}; // typeId → Set of step ids to include
-    allTypes.forEach(t => { typeStepConfigs[t.id] = new Set(); });
+    relevantTypes.forEach(t => { typeStepConfigs[t.id] = new Set(); });
 
     for (let i = 1; i < rawRows.length; i++) {
       const row = rawRows[i];
@@ -582,7 +612,7 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
 
     // Update each type with its new step configs
     let successCount = 0;
-    for (const mType of allTypes) {
+    for (const mType of relevantTypes) {
       const stepIdsToAdd = typeStepConfigs[mType.id];
       if (stepIdsToAdd.size === 0) continue;
 
@@ -610,6 +640,8 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
     setResults(null);
     setMissingSKUs(null);
     setPendingData(null);
+    setMatrixBrandId("");
+    setMatrixUnitType("");
     onClose();
   };
 
@@ -632,6 +664,38 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
           />
         ) : (
           <div className="space-y-4">
+            {/* Matrix brand/unit selection */}
+            {tabKey === "matrix" && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-sm font-medium text-blue-800">בחר מותג וסוג יחידה לייבוא</p>
+                <div className="flex flex-col gap-2">
+                  <Select value={matrixBrandId} onValueChange={v => { setMatrixBrandId(v); setMatrixUnitType(""); }}>
+                    <SelectTrigger className="h-8 text-sm bg-white">
+                      <SelectValue placeholder="בחר מותג..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitBrands.map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {matrixUnitTypes.length > 0 && (
+                    <Select value={matrixUnitType} onValueChange={setMatrixUnitType}>
+                      <SelectTrigger className="h-8 text-sm bg-white">
+                        <SelectValue placeholder="בחר סוג יחידה (אופציונלי)..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={null}>כל סוגי היחידות</SelectItem>
+                        {matrixUnitTypes.map(ut => (
+                          <SelectItem key={ut} value={ut}>{ut}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Step 1: Download template */}
             <div className="bg-slate-50 rounded-lg p-4 space-y-2">
               <p className="text-sm font-medium text-slate-700">שלב 1 — הורד תבנית</p>
@@ -640,10 +704,18 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
                   הטמפלט כולל {MAX_PARTS} זוגות עמודות מק"ט/כמות. שם החלק יאוכלס אוטומטית מניהול פריטים.
                 </p>
               )}
+              {tabKey === "matrix" && !matrixBrandId && (
+                <p className="text-xs text-amber-600">יש לבחור מותג כדי להוריד תבנית מותאמת.</p>
+              )}
               <p className="text-xs text-slate-500">הורד את קובץ האקסל לדוגמה, מלא את הנתונים ושמור.</p>
-              <Button variant="outline" size="sm" onClick={() => downloadTemplate(tabKey, unitBrands)} className="gap-2">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => downloadTemplate(tabKey, unitBrands, matrixBrandId, matrixUnitType)}
+                disabled={tabKey === "matrix" && !matrixBrandId}
+                className="gap-2"
+              >
                 <Download className="h-4 w-4" />
-                הורד תבנית ({tpl.filename})
+                הורד תבנית {tabKey === "matrix" ? "" : `(${tpl.filename})`}
               </Button>
             </div>
 
@@ -680,7 +752,7 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" onClick={handleClose}>סגור</Button>
-              <Button onClick={handleImport} disabled={!file || importing} className="gap-2">
+              <Button onClick={handleImport} disabled={!file || importing || (tabKey === "matrix" && !matrixBrandId)} className="gap-2">
                 {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 {importing ? "מייבא..." : "ייבא"}
               </Button>
