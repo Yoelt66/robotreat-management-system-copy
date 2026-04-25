@@ -92,31 +92,32 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const unitTypes = selectedBrand?.unit_types || [];
 
+  // Compute the filtered set (sorted by sort_order from DB) — used only to detect set changes
   const filteredSteps = steps
     .filter(step => {
       if (!filterBrandId) return false;
       if (step.brand_id !== filterBrandId) return false;
       if (filterUnitType && step.unit_type !== filterUnitType) return false;
       return true;
-    })
-    .sort((a, b) => {
-      const aOrder = a.sort_order ?? 9999;
-      const bOrder = b.sort_order ?? 9999;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
     });
 
-  // Keep ordered list in sync with filteredSteps (preserve drag order, reset only when filter/set changes)
+  // Stable set key: sorted IDs (order-independent) so drag/save doesn't retrigger reset
+  const filteredSetKey = [...filteredSteps].map(s => s.id).sort().join(",");
+
+  // Reset orderedSteps ONLY when the set of IDs changes (filter change, add/delete)
+  // NOT when sort_order values change (after save) — use sort-order for initial ordering
   useEffect(() => {
-    const filteredIds = filteredSteps.map(s => s.id).join(",");
-    setOrderedSteps(prev => {
-      const prevIds = prev.map(s => s.id).join(",");
-      // Same set of IDs — keep current order (user may have dragged/sorted)
-      if (prevIds === filteredIds) return prev;
-      // Different set — reset to sort_order from DB
-      return filteredSteps;
-    });
-  }, [filteredSteps.map(s => s.id).join(",")]);
+    setOrderedSteps(
+      [...filteredSteps].sort((a, b) => {
+        const aOrder = a.sort_order ?? 9999;
+        const bOrder = b.sort_order ?? 9999;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
+      })
+    );
+    setHasUnsavedOrder(false);
+    setSortAsc(null);
+  }, [filteredSetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -129,24 +130,34 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   };
 
   const handleSaveOrder = async () => {
-    try {
-      // Save sequentially with delay to avoid rate limiting
-      for (let i = 0; i < displayedSteps.length; i++) {
-        await base44.entities.MaintenanceStep.update(displayedSteps[i].id, { sort_order: i });
-        if (i < displayedSteps.length - 1) await new Promise(r => setTimeout(r, 80));
-      }
-      // Update local steps state with new sort_order so useEffect doesn't reset the order
-      const updatedSteps = steps.map(s => {
-        const idx = displayedSteps.findIndex(d => d.id === s.id);
-        return idx !== -1 ? { ...s, sort_order: idx } : s;
-      });
-      setSteps(updatedSteps);
-      setOrderedSteps(displayedSteps.map((s, i) => ({ ...s, sort_order: i })));
-      setSortAsc(null);
-      setHasUnsavedOrder(false);
+    const stepsToSave = displayedSteps; // capture current order
+    // Optimistic update: apply new sort_order locally immediately
+    const withNewOrder = stepsToSave.map((s, i) => ({ ...s, sort_order: i }));
+    setOrderedSteps(withNewOrder);
+    setSteps(prev => prev.map(s => {
+      const idx = stepsToSave.findIndex(d => d.id === s.id);
+      return idx !== -1 ? { ...s, sort_order: idx } : s;
+    }));
+    setSortAsc(null);
+    setHasUnsavedOrder(false);
+
+    // Save in batches of 5 to avoid rate limiting — fire and verify
+    const BATCH = 5;
+    const failed = [];
+    for (let i = 0; i < stepsToSave.length; i += BATCH) {
+      const batch = stepsToSave.slice(i, i + BATCH);
+      const results = await Promise.allSettled(
+        batch.map((s, bi) => base44.entities.MaintenanceStep.update(s.id, { sort_order: i + bi }))
+      );
+      results.forEach((r, bi) => { if (r.status === "rejected") failed.push(stepsToSave[i + bi]); });
+      if (i + BATCH < stepsToSave.length) await new Promise(r => setTimeout(r, 150));
+    }
+
+    if (failed.length > 0) {
+      toast.warning(`הסדר נשמר חלקית — ${failed.length} פריטים נכשלו`);
+    } else {
       toast.success("סדר הפעולות נשמר");
-    } catch {
-      toast.error("שגיאה בשמירת הסדר");
+      if (onStepsChanged) onStepsChanged(); // refresh matrix
     }
   };
 
