@@ -214,7 +214,17 @@ export default function MaintenanceTypesPage() {
               <Upload className="h-4 w-4 ml-2" /> ייבוא מאקסל
             </Button>
           </div>
-          <StepLibraryManager parts={parts} unitBrands={unitBrands} onStepsChanged={loadData} />
+          <StepLibraryManager
+          parts={parts}
+          unitBrands={unitBrands}
+          onStepsChanged={async () => {
+            // Refresh only steps (for matrix view) without reloading entire page state
+            try {
+              const stepsData = await base44.entities.MaintenanceStep.list();
+              setMaintenanceSteps(stepsData || []);
+            } catch {}
+          }}
+        />
         </TabsContent>
 
         {/* ─── לשונית 3: מטריצת טיפולים ─── */}

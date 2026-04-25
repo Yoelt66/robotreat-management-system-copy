@@ -123,6 +123,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   }, [filteredSetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Core save logic — runs all updates in parallel, retries failed ones up to 2 times
+  // Does NOT call onStepsChanged (no reload of parent) — only updates local state
   const executeSave = useCallback(async (stepsToSave) => {
     setAutoSaveStatus('saving');
     setAutoSaveProgress(0);
@@ -139,7 +140,6 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       return { ok: false, step };
     };
 
-    // Run all in parallel with progress tracking
     let completed = 0;
     const results = await Promise.all(
       stepsToSave.map((step, i) =>
@@ -159,7 +159,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       return false;
     }
 
-    // Update local steps state with new sort_order
+    // Update local steps state only — no parent reload to avoid resetting orderedSteps
     setSteps(prev => prev.map(s => {
       const idx = stepsToSave.findIndex(d => d.id === s.id);
       return idx !== -1 ? { ...s, sort_order: idx } : s;
@@ -167,9 +167,8 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
     setAutoSaveStatus('saved');
     setTimeout(() => setAutoSaveStatus(null), 3000);
-    if (onStepsChanged) onStepsChanged();
     return true;
-  }, [onStepsChanged]);
+  }, []);
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -211,15 +210,18 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     e.preventDefault();
     try {
       if (editingStep) {
-        await base44.entities.MaintenanceStep.update(editingStep.id, formData);
+        const updated = await base44.entities.MaintenanceStep.update(editingStep.id, formData);
+        // Update in-place without full reload
+        setSteps(prev => prev.map(s => s.id === editingStep.id ? { ...s, ...formData } : s));
         toast.success("הפעולה עודכנה");
       } else {
-        await base44.entities.MaintenanceStep.create(formData);
+        const created = await base44.entities.MaintenanceStep.create(formData);
+        // Append new step — filteredSetKey changes → orderedSteps resets correctly
+        setSteps(prev => [...prev, created]);
         toast.success("הפעולה נוצרה");
       }
       setShowForm(false);
-      loadSteps();
-      if (onStepsChanged) onStepsChanged();
+      if (onStepsChanged) onStepsChanged(); // notify parent (matrix etc.) but parent should NOT reload steps
     } catch {
       toast.error("שגיאה בשמירה");
     }
@@ -229,9 +231,10 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     if (!stepToDelete) return;
     try {
       await base44.entities.MaintenanceStep.delete(stepToDelete.id);
+      // Remove locally — filteredSetKey changes → orderedSteps resets correctly
+      setSteps(prev => prev.filter(s => s.id !== stepToDelete.id));
       toast.success("נמחק");
       setStepToDelete(null);
-      loadSteps();
       if (onStepsChanged) onStepsChanged();
     } catch {
       toast.error("שגיאה במחיקה");
