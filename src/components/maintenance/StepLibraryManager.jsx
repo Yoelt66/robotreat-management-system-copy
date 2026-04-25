@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
 import { Progress } from "@/components/ui/progress";
-import { Plus, Pencil, Trash2, Search, X, GripVertical, ArrowUpDown, Save, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, GripVertical, ArrowUpDown, Save, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -71,8 +71,10 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [filterUnitType, setFilterUnitType] = useState("");
   const [orderedSteps, setOrderedSteps] = useState([]);
   const [sortAsc, setSortAsc] = useState(null); // null = drag order, true = A-Z, false = Z-A
-  const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false);
-  const [savingProgress, setSavingProgress] = useState(null); // null | { current, total, startTime }
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
+  const [autoSaveProgress, setAutoSaveProgress] = useState(0); // 0-100
+  const debounceRef = useRef(null);
+  const pendingOrderRef = useRef(null);
 
   useEffect(() => { loadSteps(); }, []);
 
@@ -107,7 +109,6 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const filteredSetKey = [...filteredSteps].map(s => s.id).sort().join(",");
 
   // Reset orderedSteps ONLY when the set of IDs changes (filter change, add/delete)
-  // NOT when sort_order values change (after save) — use sort-order for initial ordering
   useEffect(() => {
     setOrderedSteps(
       [...filteredSteps].sort((a, b) => {
@@ -117,9 +118,58 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
         return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
       })
     );
-    setHasUnsavedOrder(false);
+    setAutoSaveStatus(null);
     setSortAsc(null);
   }, [filteredSetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Core save logic — runs all updates in parallel, retries failed ones up to 2 times
+  const executeSave = useCallback(async (stepsToSave) => {
+    setAutoSaveStatus('saving');
+    setAutoSaveProgress(0);
+
+    const saveWithRetry = async (step, index, maxRetries = 2) => {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          await base44.entities.MaintenanceStep.update(step.id, { sort_order: index });
+          return { ok: true, step };
+        } catch {
+          if (attempt < maxRetries) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
+        }
+      }
+      return { ok: false, step };
+    };
+
+    // Run all in parallel with progress tracking
+    let completed = 0;
+    const results = await Promise.all(
+      stepsToSave.map((step, i) =>
+        saveWithRetry(step, i).then(res => {
+          completed++;
+          setAutoSaveProgress(Math.round((completed / stepsToSave.length) * 100));
+          return res;
+        })
+      )
+    );
+
+    const failed = results.filter(r => !r.ok).map(r => r.step);
+
+    if (failed.length > 0) {
+      setAutoSaveStatus('error');
+      toast.error(`שגיאה בשמירת ${failed.length} פריטים — לחץ "שמור סדר" לניסיון חוזר`);
+      return false;
+    }
+
+    // Update local steps state with new sort_order
+    setSteps(prev => prev.map(s => {
+      const idx = stepsToSave.findIndex(d => d.id === s.id);
+      return idx !== -1 ? { ...s, sort_order: idx } : s;
+    }));
+
+    setAutoSaveStatus('saved');
+    setTimeout(() => setAutoSaveStatus(null), 3000);
+    if (onStepsChanged) onStepsChanged();
+    return true;
+  }, [onStepsChanged]);
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -127,68 +177,22 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     const [moved] = reordered.splice(result.source.index, 1);
     reordered.splice(result.destination.index, 0, moved);
     setOrderedSteps(reordered);
-    setSortAsc(null); // back to manual order
-    setHasUnsavedOrder(true);
-  };
-
-  const handleSaveOrder = async () => {
-    const stepsToSave = [...displayedSteps]; // capture snapshot of current order
-    const totalSteps = stepsToSave.length;
-    const DELAY_MS = 120;
-    const estimatedTotalMs = totalSteps * DELAY_MS;
-
-    // 1. Lock UI and show progress dialog
-    setSavingProgress({ current: 0, total: totalSteps, startTime: Date.now(), estimatedMs: estimatedTotalMs });
-    setHasUnsavedOrder(false);
     setSortAsc(null);
 
-    // 2. Optimistic UI update — apply new sort_order locally
-    const withNewOrder = stepsToSave.map((s, i) => ({ ...s, sort_order: i }));
-    setOrderedSteps(withNewOrder);
-    setSteps(prev => prev.map(s => {
-      const idx = stepsToSave.findIndex(d => d.id === s.id);
-      return idx !== -1 ? { ...s, sort_order: idx } : s;
-    }));
+    // Store latest order for debounce
+    pendingOrderRef.current = reordered;
 
-    // 3. Save sequentially one-by-one with progress updates
-    const failed = [];
-    for (let i = 0; i < totalSteps; i++) {
-      try {
-        await base44.entities.MaintenanceStep.update(stepsToSave[i].id, { sort_order: i });
-      } catch {
-        failed.push(stepsToSave[i]);
-      }
-      setSavingProgress({ current: i + 1, total: totalSteps, startTime: Date.now(), estimatedMs: (totalSteps - i - 1) * DELAY_MS });
-      if (i < totalSteps - 1) await new Promise(r => setTimeout(r, DELAY_MS));
-    }
+    // Debounce: wait 800ms after last drag before auto-saving
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (pendingOrderRef.current) executeSave(pendingOrderRef.current);
+    }, 800);
+  };
 
-    // 4. Self-verify: reload from DB
-    let verifyOk = true;
-    if (failed.length === 0) {
-      try {
-        const freshSteps = await base44.entities.MaintenanceStep.list();
-        const freshMap = Object.fromEntries(freshSteps.map(s => [s.id, s.sort_order]));
-        for (let i = 0; i < stepsToSave.length; i++) {
-          if (freshMap[stepsToSave[i].id] !== i) { verifyOk = false; break; }
-        }
-        setSteps(freshSteps);
-        setOrderedSteps(stepsToSave.map(s => freshSteps.find(f => f.id === s.id) || s));
-      } catch {
-        verifyOk = false;
-      }
-    }
-
-    setSavingProgress(null); // close dialog
-
-    if (failed.length > 0) {
-      toast.error(`שגיאה בשמירת ${failed.length} פריטים — נסה שוב`);
-      setHasUnsavedOrder(true);
-    } else if (!verifyOk) {
-      toast.warning("הסדר נשמר אך אימות חלקי");
-    } else {
-      toast.success("סדר הפעולות נשמר בהצלחה");
-      if (onStepsChanged) onStepsChanged();
-    }
+  // Manual save — immediate, no debounce
+  const handleSaveOrder = async () => {
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
+    await executeSave([...displayedSteps]);
   };
 
   const displayedSteps = sortAsc === null
@@ -201,7 +205,6 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
   const toggleSort = () => {
     setSortAsc(prev => prev === null ? true : prev === true ? false : null);
-    setHasUnsavedOrder(true);
   };
 
   const handleSubmit = async (e) => {
@@ -269,17 +272,42 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
         <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
       ) : (
         <>
-          <div className="flex items-center gap-2 justify-between">
+          <div className="flex items-center gap-2 justify-between flex-wrap">
             <Button variant="outline" size="sm" onClick={toggleSort} className="gap-1.5">
               <ArrowUpDown className="h-3.5 w-3.5" />
               {sortAsc === null ? "מיין לפי שם" : sortAsc ? "א→ת" : "ת→א"}
             </Button>
-            {hasUnsavedOrder && (
-              <Button size="sm" onClick={handleSaveOrder} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                <Save className="h-3.5 w-3.5" />
-                שמור סדר
-              </Button>
-            )}
+
+            <div className="flex items-center gap-3">
+              {/* Auto-save status indicator */}
+              {autoSaveStatus === 'saving' && (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" />
+                  <span>שומר...</span>
+                  <div className="w-24">
+                    <Progress value={autoSaveProgress} className="h-1.5" />
+                  </div>
+                </div>
+              )}
+              {autoSaveStatus === 'saved' && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>נשמר</span>
+                </div>
+              )}
+              {autoSaveStatus === 'error' && (
+                <Button size="sm" onClick={handleSaveOrder} className="gap-1.5 bg-red-600 hover:bg-red-700 text-xs h-7">
+                  <Save className="h-3 w-3" />
+                  שמור סדר (ניסיון חוזר)
+                </Button>
+              )}
+              {autoSaveStatus === null && (
+                <Button size="sm" variant="outline" onClick={handleSaveOrder} className="gap-1.5 h-7 text-xs">
+                  <Save className="h-3 w-3" />
+                  שמור סדר
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="rounded-lg border overflow-hidden">
@@ -345,32 +373,6 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
           </div>
         </>
       )}
-
-      {/* ─── Progress Dialog (blocks UI during save) ─── */}
-      <Dialog open={!!savingProgress} onOpenChange={() => {}}>
-        <DialogContent className="max-w-sm" dir="rtl" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
-              שומר סדר פעולות...
-            </DialogTitle>
-          </DialogHeader>
-          {savingProgress && (
-            <div className="space-y-3 pt-1">
-              <Progress value={(savingProgress.current / savingProgress.total) * 100} className="h-3" />
-              <div className="flex justify-between text-sm text-slate-500">
-                <span>{savingProgress.current} / {savingProgress.total} פעולות</span>
-                <span>
-                  {savingProgress.current < savingProgress.total
-                    ? `~${Math.ceil(savingProgress.estimatedMs / 1000)} שניות נותרו`
-                    : "מאמת..."}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 text-center">אנא המתן — אין לבצע פעולות אחרות</p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showForm} onOpenChange={open => !open && setShowForm(false)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
