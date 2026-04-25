@@ -37,7 +37,7 @@ export default function MaintenanceTypesPage() {
       const [typesData, brandsData, stepsData, partsData] = await Promise.all([
         base44.entities.MaintenanceType.list(),
         base44.entities.UnitBrand.list(),
-        base44.entities.MaintenanceStep.list(),
+        base44.entities.MaintenanceStep.list('sort_order'),
         base44.entities.PartCore.list(),
       ]);
       const sorted = (typesData || []).slice().sort((a, b) => a.name.localeCompare(b.name, "he", { numeric: true }));
@@ -231,7 +231,7 @@ export default function MaintenanceTypesPage() {
           onStepsChanged={async () => {
             // Refresh only steps (for matrix view) without reloading entire page state
             try {
-              const stepsData = await base44.entities.MaintenanceStep.list();
+              const stepsData = await base44.entities.MaintenanceStep.list('sort_order');
               setMaintenanceSteps(stepsData || []);
             } catch {}
           }}

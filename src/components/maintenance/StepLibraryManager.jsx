@@ -81,7 +81,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const loadSteps = async () => {
     setLoading(true);
     try {
-      const data = await base44.entities.MaintenanceStep.list();
+      const data = await base44.entities.MaintenanceStep.list('sort_order');
       setSteps(data || []);
     } catch (err) {
       console.error(err);
@@ -122,22 +122,23 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     setSortAsc(null);
   }, [filteredSetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Core save logic — runs all updates in parallel, retries failed ones up to 2 times
-  // Does NOT call onStepsChanged (no reload of parent) — only updates local state
+  // Core save logic — stores sort_order as sequential integers (0,1,2,...)
+  // The sort is scoped to brand+unit_type — different groups use the same index range,
+  // which is fine since filtering always narrows to a single brand+unit_type.
   const executeSave = useCallback(async (stepsToSave) => {
     setAutoSaveStatus('saving');
     setAutoSaveProgress(0);
 
-    const saveWithRetry = async (step, index, maxRetries = 2) => {
+    const saveWithRetry = async (step, newSortOrder, maxRetries = 2) => {
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          await base44.entities.MaintenanceStep.update(step.id, { sort_order: index });
-          return { ok: true, step };
+          await base44.entities.MaintenanceStep.update(step.id, { sort_order: newSortOrder });
+          return { ok: true, step, newSortOrder };
         } catch {
           if (attempt < maxRetries) await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
         }
       }
-      return { ok: false, step };
+      return { ok: false, step, newSortOrder };
     };
 
     let completed = 0;
@@ -151,7 +152,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       )
     );
 
-    const failed = results.filter(r => !r.ok).map(r => r.step);
+    const failed = results.filter(r => !r.ok);
 
     if (failed.length > 0) {
       setAutoSaveStatus('error');
@@ -159,11 +160,16 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       return false;
     }
 
-    // Update local steps state only — no parent reload to avoid resetting orderedSteps
-    setSteps(prev => prev.map(s => {
-      const idx = stepsToSave.findIndex(d => d.id === s.id);
-      return idx !== -1 ? { ...s, sort_order: idx } : s;
-    }));
+    // Update local steps state with new sort_order values — keyed by id
+    const orderMap = {};
+    stepsToSave.forEach((s, i) => { orderMap[s.id] = i; });
+
+    setSteps(prev => prev.map(s =>
+      s.id in orderMap ? { ...s, sort_order: orderMap[s.id] } : s
+    ));
+
+    // Also update orderedSteps directly so UI doesn't flicker
+    setOrderedSteps(stepsToSave.map((s, i) => ({ ...s, sort_order: i })));
 
     setAutoSaveStatus('saved');
     setTimeout(() => setAutoSaveStatus(null), 3000);
