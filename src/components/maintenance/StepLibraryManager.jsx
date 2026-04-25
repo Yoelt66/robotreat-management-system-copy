@@ -4,13 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
-import { Plus, Pencil, Trash2, Search, X, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X, GripVertical, ArrowUpDown, Save } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -68,10 +66,11 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [editingStep, setEditingStep] = useState(null);
   const [stepToDelete, setStepToDelete] = useState(null);
   const [formData, setFormData] = useState(DEFAULT_STEP);
-  const [expandedId, setExpandedId] = useState(null);
   const [filterBrandId, setFilterBrandId] = useState("");
   const [filterUnitType, setFilterUnitType] = useState("");
   const [orderedSteps, setOrderedSteps] = useState([]);
+  const [sortAsc, setSortAsc] = useState(null); // null = drag order, true = A-Z, false = Z-A
+  const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false);
 
   useEffect(() => { loadSteps(); }, []);
 
@@ -117,6 +116,35 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
     const [moved] = reordered.splice(result.source.index, 1);
     reordered.splice(result.destination.index, 0, moved);
     setOrderedSteps(reordered);
+    setSortAsc(null); // back to manual order
+    setHasUnsavedOrder(true);
+  };
+
+  const handleSaveOrder = async () => {
+    try {
+      await Promise.all(
+        orderedSteps.map((step, index) =>
+          base44.entities.MaintenanceStep.update(step.id, { sort_order: index })
+        )
+      );
+      setHasUnsavedOrder(false);
+      toast.success("סדר הפעולות נשמר");
+    } catch {
+      toast.error("שגיאה בשמירת הסדר");
+    }
+  };
+
+  const displayedSteps = sortAsc === null
+    ? orderedSteps
+    : [...orderedSteps].sort((a, b) =>
+        sortAsc
+          ? a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' })
+          : b.name.localeCompare(a.name, 'he', { numeric: true, sensitivity: 'base' })
+      );
+
+  const toggleSort = () => {
+    setSortAsc(prev => prev === null ? true : prev === true ? false : null);
+    setHasUnsavedOrder(false);
   };
 
   const handleSubmit = async (e) => {
@@ -183,62 +211,82 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       ) : orderedSteps.length === 0 ? (
         <div className="text-center py-12 text-slate-400 border-2 border-dashed rounded-lg">לא נמצאו פעולות תחזוקה</div>
       ) : (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="steps-list">
-            {(provided) => (
-              <div className="space-y-2" ref={provided.innerRef} {...provided.droppableProps}>
-                {orderedSteps.map((step, index) => (
-                  <Draggable key={step.id} draggableId={step.id} index={index}>
-                    {(drag, snapshot) => (
-                      <Card ref={drag.innerRef} {...drag.draggableProps} className={`hover:shadow-sm transition-shadow ${snapshot.isDragging ? "shadow-lg ring-2 ring-emerald-300" : ""}`}>
-                        <CardContent className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div {...drag.dragHandleProps} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
-                              <GripVertical className="h-5 w-5" />
-                            </div>
-                            <button type="button" onClick={() => setExpandedId(expandedId === step.id ? null : step.id)} className="flex-1 flex items-center gap-2 text-right flex-wrap">
-                              {expandedId === step.id ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
-                              <span className="font-medium text-slate-800">{step.name}</span>
-                              {step.parts_required?.length > 0 && (
-                                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{step.parts_required.length} חלקים</span>
-                              )}
-                              {step.brand_id && unitBrands.find(b => b.id === step.brand_id) && (
-                                <Badge className="text-xs bg-blue-100 text-blue-700 font-normal">{unitBrands.find(b => b.id === step.brand_id).name}</Badge>
-                              )}
-                              {step.unit_type && (
-                                <Badge variant="outline" className="text-xs font-normal">{step.unit_type}</Badge>
-                              )}
-                            </button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(step)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setStepToDelete(step)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                          </div>
-                          {expandedId === step.id && (
-                            <div className="mt-3 pt-3 border-t space-y-2">
-                              {step.description && <p className="text-sm text-slate-600">{step.description}</p>}
-                              {step.explanation && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">{step.explanation}</p>}
-                              {step.parts_required?.length > 0 && (
-                                <div className="space-y-1">
-                                  <p className="text-xs font-medium text-slate-500">חלקים:</p>
-                                  {step.parts_required.map(p => (
-                                    <div key={p.part_sku} className="flex justify-between text-xs bg-slate-50 px-2 py-1 rounded">
-                                      <span>{p.part_name} ({p.part_sku})</span>
-                                      <span className="font-medium">× {p.quantity}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
+        <>
+          <div className="flex items-center gap-2 justify-between">
+            <Button variant="outline" size="sm" onClick={toggleSort} className="gap-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {sortAsc === null ? "מיין לפי שם" : sortAsc ? "א→ת" : "ת→א"}
+            </Button>
+            {hasUnsavedOrder && (
+              <Button size="sm" onClick={handleSaveOrder} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                <Save className="h-3.5 w-3.5" />
+                שמור סדר
+              </Button>
             )}
-          </Droppable>
-        </DragDropContext>
+          </div>
+
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="w-8 p-2"></th>
+                  <th className="text-right p-3 font-medium text-slate-600 w-48">שם הפעולה</th>
+                  <th className="text-right p-3 font-medium text-slate-600">תיאור קצר</th>
+                  <th className="text-right p-3 font-medium text-slate-600">הסבר מפורט</th>
+                  <th className="text-right p-3 font-medium text-slate-600 w-52">חלקים נדרשים</th>
+                  <th className="w-20 p-2"></th>
+                </tr>
+              </thead>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="steps-list">
+                  {(provided) => (
+                    <tbody ref={provided.innerRef} {...provided.droppableProps}>
+                      {displayedSteps.map((step, index) => (
+                        <Draggable key={step.id} draggableId={step.id} index={index}>
+                          {(drag, snapshot) => (
+                            <tr
+                              ref={drag.innerRef}
+                              {...drag.draggableProps}
+                              className={`border-b last:border-b-0 align-top ${snapshot.isDragging ? "bg-emerald-50 shadow-lg" : "hover:bg-slate-50"}`}
+                            >
+                              <td className="p-2 pt-3">
+                                <div {...drag.dragHandleProps} className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 flex justify-center">
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
+                              </td>
+                              <td className="p-3 font-medium text-slate-800">{step.name}</td>
+                              <td className="p-3 text-slate-600 text-xs">{step.description || <span className="text-slate-300">—</span>}</td>
+                              <td className="p-3 text-slate-500 text-xs whitespace-pre-wrap">{step.explanation || <span className="text-slate-300">—</span>}</td>
+                              <td className="p-3">
+                                {step.parts_required?.length > 0 ? (
+                                  <div className="space-y-0.5">
+                                    {step.parts_required.map(p => (
+                                      <div key={p.part_sku} className="text-xs bg-slate-100 rounded px-2 py-0.5 flex justify-between gap-2">
+                                        <span className="text-slate-600 truncate">{p.part_name || p.part_sku}</span>
+                                        <span className="font-medium text-slate-700 shrink-0">×{p.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : <span className="text-slate-300 text-xs">—</span>}
+                              </td>
+                              <td className="p-2 pt-3">
+                                <div className="flex gap-1 justify-end">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(step)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setStepToDelete(step)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </tbody>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </table>
+          </div>
+        </>
       )}
 
       <Dialog open={showForm} onOpenChange={open => !open && setShowForm(false)}>
