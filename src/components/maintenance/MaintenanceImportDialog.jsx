@@ -68,13 +68,13 @@ async function downloadMatrixTemplate(brandId = "", unitType = "", unitBrands = 
     if (brandId && t.brand_id !== brandId) return false;
     if (unitType && t.unit_type !== unitType) return false;
     return true;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
   const filteredSteps = allSteps.filter(s => {
     const brandMatch = !s.brand_id || s.brand_id === brandId;
     const unitMatch = !unitType || !s.unit_type || s.unit_type === unitType;
     return brandMatch && unitMatch;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("נתונים");
