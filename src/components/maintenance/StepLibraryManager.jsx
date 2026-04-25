@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import BrandUnitFilter from "@/components/maintenance/BrandUnitFilter";
-import { Plus, Pencil, Trash2, Search, X, GripVertical, ArrowUpDown, Save } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Plus, Pencil, Trash2, Search, X, GripVertical, ArrowUpDown, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
@@ -71,6 +72,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const [orderedSteps, setOrderedSteps] = useState([]);
   const [sortAsc, setSortAsc] = useState(null); // null = drag order, true = A-Z, false = Z-A
   const [hasUnsavedOrder, setHasUnsavedOrder] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(null); // null | { current, total, startTime }
 
   useEffect(() => { loadSteps(); }, []);
 
@@ -132,19 +134,23 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   const handleSaveOrder = async () => {
     const stepsToSave = [...displayedSteps]; // capture snapshot of current order
     const totalSteps = stepsToSave.length;
+    const DELAY_MS = 120;
+    const estimatedTotalMs = totalSteps * DELAY_MS;
 
-    // 1. Optimistic UI update — show the new order immediately
+    // 1. Lock UI and show progress dialog
+    setSavingProgress({ current: 0, total: totalSteps, startTime: Date.now(), estimatedMs: estimatedTotalMs });
+    setHasUnsavedOrder(false);
+    setSortAsc(null);
+
+    // 2. Optimistic UI update — apply new sort_order locally
     const withNewOrder = stepsToSave.map((s, i) => ({ ...s, sort_order: i }));
     setOrderedSteps(withNewOrder);
     setSteps(prev => prev.map(s => {
       const idx = stepsToSave.findIndex(d => d.id === s.id);
       return idx !== -1 ? { ...s, sort_order: idx } : s;
     }));
-    setSortAsc(null);
-    setHasUnsavedOrder(false);
-    toast.info("שומר סדר...");
 
-    // 2. Save sequentially one-by-one — safest against rate limiting
+    // 3. Save sequentially one-by-one with progress updates
     const failed = [];
     for (let i = 0; i < totalSteps; i++) {
       try {
@@ -152,11 +158,11 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       } catch {
         failed.push(stepsToSave[i]);
       }
-      // Small delay between each call to avoid rate limiting
-      if (i < totalSteps - 1) await new Promise(r => setTimeout(r, 120));
+      setSavingProgress({ current: i + 1, total: totalSteps, startTime: Date.now(), estimatedMs: (totalSteps - i - 1) * DELAY_MS });
+      if (i < totalSteps - 1) await new Promise(r => setTimeout(r, DELAY_MS));
     }
 
-    // 3. Self-verify: reload from DB and confirm sort_order matches
+    // 4. Self-verify: reload from DB
     let verifyOk = true;
     if (failed.length === 0) {
       try {
@@ -165,23 +171,23 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
         for (let i = 0; i < stepsToSave.length; i++) {
           if (freshMap[stepsToSave[i].id] !== i) { verifyOk = false; break; }
         }
-        // Update local state with verified data
         setSteps(freshSteps);
-        // Update orderedSteps to use verified data objects (same order)
         setOrderedSteps(stepsToSave.map(s => freshSteps.find(f => f.id === s.id) || s));
       } catch {
         verifyOk = false;
       }
     }
 
+    setSavingProgress(null); // close dialog
+
     if (failed.length > 0) {
       toast.error(`שגיאה בשמירת ${failed.length} פריטים — נסה שוב`);
       setHasUnsavedOrder(true);
     } else if (!verifyOk) {
-      toast.warning("הסדר נשמר אך אימות חלקי — הסדר יתאפס בטעינה הבאה");
+      toast.warning("הסדר נשמר אך אימות חלקי");
     } else {
-      toast.success("סדר הפעולות נשמר ואומת בהצלחה");
-      if (onStepsChanged) onStepsChanged(); // refresh matrix with updated sort_order
+      toast.success("סדר הפעולות נשמר בהצלחה");
+      if (onStepsChanged) onStepsChanged();
     }
   };
 
@@ -339,6 +345,32 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
           </div>
         </>
       )}
+
+      {/* ─── Progress Dialog (blocks UI during save) ─── */}
+      <Dialog open={!!savingProgress} onOpenChange={() => {}}>
+        <DialogContent className="max-w-sm" dir="rtl" onPointerDownOutside={e => e.preventDefault()} onEscapeKeyDown={e => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+              שומר סדר פעולות...
+            </DialogTitle>
+          </DialogHeader>
+          {savingProgress && (
+            <div className="space-y-3 pt-1">
+              <Progress value={(savingProgress.current / savingProgress.total) * 100} className="h-3" />
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>{savingProgress.current} / {savingProgress.total} פעולות</span>
+                <span>
+                  {savingProgress.current < savingProgress.total
+                    ? `~${Math.ceil(savingProgress.estimatedMs / 1000)} שניות נותרו`
+                    : "מאמת..."}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 text-center">אנא המתן — אין לבצע פעולות אחרות</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showForm} onOpenChange={open => !open && setShowForm(false)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" dir="rtl">
