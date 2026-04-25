@@ -125,7 +125,7 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
   // Core save logic — stores sort_order as sequential integers (0,1,2,...)
   // The sort is scoped to brand+unit_type — different groups use the same index range,
   // which is fine since filtering always narrows to a single brand+unit_type.
-  const executeSave = useCallback(async (stepsToSave) => {
+  const executeSave = useCallback(async (stepsToSave, notifyParent = true) => {
     setAutoSaveStatus('saving');
     setAutoSaveProgress(0);
 
@@ -173,8 +173,12 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
     setAutoSaveStatus('saved');
     setTimeout(() => setAutoSaveStatus(null), 3000);
+
+    // Notify parent so matrix view gets updated sort order
+    if (notifyParent && onStepsChanged) onStepsChanged();
+
     return true;
-  }, []);
+  }, [onStepsChanged]);
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
