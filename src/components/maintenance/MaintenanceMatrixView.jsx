@@ -22,12 +22,7 @@ export default function MaintenanceMatrixView({ maintenanceTypes, maintenanceSte
       if (s.unit_type !== filterUnitType) return false;
       return true;
     })
-    .sort((a, b) => {
-      const aOrder = a.sort_order ?? 9999;
-      const bOrder = b.sort_order ?? 9999;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
-    });
+    .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
 
   const getStepConfig = (type, stepId) => type.step_configs?.find(sc => sc.step_id === stepId);
 
