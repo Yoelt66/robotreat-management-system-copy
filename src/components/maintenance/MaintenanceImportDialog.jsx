@@ -590,9 +590,9 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
       else typeMap[name] = found;
     });
 
-    // Build a map: typeId → list of step configs to add
-    const typeStepConfigs = {}; // typeId → Set of step ids to include
-    relevantTypes.forEach(t => { typeStepConfigs[t.id] = new Set(); });
+    // Build a map: typeId → Set of step ids that should be included (X = yes, empty = no)
+    const typeStepInclusion = {}; // typeId → Set of step ids marked with X
+    relevantTypes.forEach(t => { typeStepInclusion[t.id] = new Set(); });
 
     for (let i = 1; i < rawRows.length; i++) {
       const row = rawRows[i];
@@ -603,30 +603,37 @@ export default function MaintenanceImportDialog({ open, onClose, tabKey, unitBra
 
       typeNamesInFile.forEach((typeName, colIdx) => {
         const cell = String(row[colIdx + 1] || "").trim().toLowerCase();
+        const mType = typeMap[typeName];
+        if (!mType) return;
         if (cell === "x" || cell === "✓" || cell === "v") {
-          const mType = typeMap[typeName];
-          if (mType) typeStepConfigs[mType.id].add(step.id);
+          typeStepInclusion[mType.id].add(step.id);
         }
+        // empty cell = explicitly excluded (handled below by rebuilding from scratch)
       });
     }
 
-    // Update each type with its new step configs
+    // Rebuild step_configs for each type based on the file (X = include, empty = exclude)
     let successCount = 0;
     for (const mType of relevantTypes) {
-      const stepIdsToAdd = typeStepConfigs[mType.id];
-      if (stepIdsToAdd.size === 0) continue;
+      const includedStepIds = typeStepInclusion[mType.id];
 
-      const existingConfigs = mType.step_configs || [];
-      const mergedConfigs = [...existingConfigs];
-      for (const stepId of stepIdsToAdd) {
-        if (mergedConfigs.find(c => c.step_id === stepId)) continue;
+      // Build new configs only for steps marked with X
+      const newConfigs = [];
+      for (const stepId of includedStepIds) {
         const step = allSteps.find(s => s.id === stepId);
         if (!step) continue;
-        const defaultParts = (step.parts_required || []).map(p => ({ ...p }));
-        mergedConfigs.push({ step_id: step.id, step_name: step.name, enabled: true, custom_parts: defaultParts });
+        // Preserve existing config if it exists (to keep custom_parts etc.), otherwise create default
+        const existingConfig = (mType.step_configs || []).find(c => c.step_id === stepId);
+        if (existingConfig) {
+          newConfigs.push(existingConfig);
+        } else {
+          const defaultParts = (step.parts_required || []).map(p => ({ ...p }));
+          newConfigs.push({ step_id: step.id, step_name: step.name, enabled: true, custom_parts: defaultParts });
+        }
       }
+
       try {
-        await base44.entities.MaintenanceType.update(mType.id, { step_configs: mergedConfigs });
+        await base44.entities.MaintenanceType.update(mType.id, { step_configs: newConfigs });
         successCount++;
       } catch (e) { errors.push(`שגיאה ב-"${mType.name}": ${e.message}`); }
     }
