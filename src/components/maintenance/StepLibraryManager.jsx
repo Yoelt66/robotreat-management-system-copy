@@ -106,13 +106,14 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
       return a.name.localeCompare(b.name, 'he', { numeric: true, sensitivity: 'base' });
     });
 
-  // Keep ordered list in sync with filteredSteps (preserve drag order)
+  // Keep ordered list in sync with filteredSteps (preserve drag order, reset only when filter/set changes)
   useEffect(() => {
+    const filteredIds = filteredSteps.map(s => s.id).join(",");
     setOrderedSteps(prev => {
-      const prevIds = prev.map(s => s.id);
-      const filteredIds = filteredSteps.map(s => s.id);
-      // If same set, keep order; otherwise reset
-      if (prevIds.length === filteredIds.length && prevIds.every(id => filteredIds.includes(id))) return prev;
+      const prevIds = prev.map(s => s.id).join(",");
+      // Same set of IDs — keep current order (user may have dragged/sorted)
+      if (prevIds === filteredIds) return prev;
+      // Different set — reset to sort_order from DB
       return filteredSteps;
     });
   }, [filteredSteps.map(s => s.id).join(",")]);
@@ -129,13 +130,18 @@ export default function StepLibraryManager({ parts, unitBrands = [], onStepsChan
 
   const handleSaveOrder = async () => {
     try {
-      await Promise.all(
-        displayedSteps.map((step, index) =>
-          base44.entities.MaintenanceStep.update(step.id, { sort_order: index })
-        )
-      );
-      // Update orderedSteps to reflect the saved order
-      setOrderedSteps(displayedSteps);
+      // Save sequentially with delay to avoid rate limiting
+      for (let i = 0; i < displayedSteps.length; i++) {
+        await base44.entities.MaintenanceStep.update(displayedSteps[i].id, { sort_order: i });
+        if (i < displayedSteps.length - 1) await new Promise(r => setTimeout(r, 80));
+      }
+      // Update local steps state with new sort_order so useEffect doesn't reset the order
+      const updatedSteps = steps.map(s => {
+        const idx = displayedSteps.findIndex(d => d.id === s.id);
+        return idx !== -1 ? { ...s, sort_order: idx } : s;
+      });
+      setSteps(updatedSteps);
+      setOrderedSteps(displayedSteps.map((s, i) => ({ ...s, sort_order: i })));
       setSortAsc(null);
       setHasUnsavedOrder(false);
       toast.success("סדר הפעולות נשמר");
