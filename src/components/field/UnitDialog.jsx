@@ -44,31 +44,32 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
   const [calcLoading, setCalcLoading] = useState(false);
   const [calcDone, setCalcDone] = useState(false);
 
+  // טעינת maintenanceSteps לפי brand — רץ פעם אחת בפתיחה ובכל שינוי מותג
   useEffect(() => {
     if (!formData.brand_id) { setMaintenanceSteps([]); return; }
     base44.entities.MaintenanceStep.filter({ brand_id: formData.brand_id })
       .then(steps => setMaintenanceSteps(steps || []))
       .catch(() => setMaintenanceSteps([]));
+  // formData.brand_id נשמר כ-ref כדי שיפעל גם בפתיחה ראשונית
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.brand_id]);
 
-  // אם הרצף ריק ויש ברירת מחדל למותג+סוג, טען אותה אוטומטית (כולל בפתיחה ראשונית)
+  // אם הרצף ריק ויש ברירת מחדל — טען אותה. רץ אחרי שגם maintenanceTypes וגם maintenanceSteps נטענו
   useEffect(() => {
     if (!formData.brand_id || !formData.type) return;
-    // בדיקה על הערך ה"טרי" ישירות — לא דרך formData שעלול להיות stale
-    setFormData(prev => {
-      if (prev.visit_sequence.length > 0) return prev;
-      const brand = unitBrands.find(b => b.id === prev.brand_id);
-      const rawSeq = getBrandDefaultSequenceStatic(brand, prev.type);
-      if (!rawSeq.length) return prev;
-      const seq = rawSeq.map(step => ({
-        ...step,
-        maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
-        step_configs: step.step_configs || [],
-      }));
-      return { ...prev, visit_sequence: seq };
-    });
+    if (formData.visit_sequence.length > 0) return;
+    const brand = unitBrands.find(b => b.id === formData.brand_id);
+    if (!brand) return;
+    const rawSeq = getBrandDefaultSequenceStatic(brand, formData.type);
+    if (!rawSeq.length) return;
+    const seq = rawSeq.map(step => ({
+      ...step,
+      maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+      step_configs: step.step_configs || [],
+    }));
+    setFormData(prev => prev.visit_sequence.length > 0 ? prev : { ...prev, visit_sequence: seq });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.brand_id, formData.type, unitBrands.length]);
+  }, [maintenanceTypes.length, maintenanceSteps.length, formData.brand_id, formData.type]);
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const availableTypes = selectedBrand?.unit_types || [];

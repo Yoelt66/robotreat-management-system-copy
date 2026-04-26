@@ -58,9 +58,14 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
           <div key={cfg.step_id} className={`rounded border text-xs ${cfg.enabled ? "border-slate-200 bg-white" : "border-slate-100 bg-slate-50 opacity-60"}`}>
             <div className="flex items-center gap-2 px-3 py-2">
               <Switch checked={cfg.enabled} onCheckedChange={v => updateConfig(cfg.step_id, { enabled: v })} className="scale-75" />
-              <span className={`flex-1 font-medium ${!cfg.enabled ? "line-through text-slate-400" : "text-slate-700"}`}>
-                {cfg.step_name || def?.name}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className={`font-medium text-xs ${!cfg.enabled ? "line-through text-slate-400" : "text-slate-700"}`}>
+                  {cfg.step_name || def?.name}
+                </span>
+                {def?.description && (
+                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{def.description}</p>
+                )}
+              </div>
               {cfg.manual_override && (
                 <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-600 py-0 px-1.5">
                   <AlertTriangle className="h-2.5 w-2.5 ml-0.5" />ידני
