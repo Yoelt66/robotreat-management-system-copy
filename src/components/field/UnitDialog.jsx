@@ -24,6 +24,21 @@ function getBrandDefaultSequenceStatic(brand, unitType) {
 }
 
 export default function UnitDialog({ unit, customerId, customers = [], unitBrands, maintenanceTypes, onSave, onClose }) {
+  // בנה רצף ברירת מחדל מיד בפתיחה אם הרצף ריק ויש תבנית
+  const buildInitialSequence = () => {
+    const existing = unit?.visit_sequence || [];
+    if (existing.length > 0) return existing;
+    if (!unit?.brand_id || !unit?.type) return [];
+    const brand = unitBrands.find(b => b.id === unit.brand_id);
+    const rawSeq = getBrandDefaultSequenceStatic(brand, unit.type);
+    if (!rawSeq.length) return [];
+    return rawSeq.map(step => ({
+      ...step,
+      maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+      step_configs: step.step_configs || [],
+    }));
+  };
+
   const [formData, setFormData] = useState({
     customer_id: customerId || unit?.customer_id || "",
     active: unit?.active !== false,
@@ -35,7 +50,7 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
     installation_date: unit?.installation_date || "",
     visit_interval_months: unit?.visit_interval_months || 3,
     current_visit_step: unit?.current_visit_step || 1,
-    visit_sequence: unit?.visit_sequence || [],
+    visit_sequence: buildInitialSequence(),
     notes: unit?.notes || "",
   });
 
@@ -44,32 +59,31 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
   const [calcLoading, setCalcLoading] = useState(false);
   const [calcDone, setCalcDone] = useState(false);
 
-  // טעינת maintenanceSteps לפי brand — רץ פעם אחת בפתיחה ובכל שינוי מותג
+  // טעינת maintenanceSteps לפי brand
   useEffect(() => {
     if (!formData.brand_id) { setMaintenanceSteps([]); return; }
     base44.entities.MaintenanceStep.filter({ brand_id: formData.brand_id })
       .then(steps => setMaintenanceSteps(steps || []))
       .catch(() => setMaintenanceSteps([]));
-  // formData.brand_id נשמר כ-ref כדי שיפעל גם בפתיחה ראשונית
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.brand_id]);
+  }, [formData.brand_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // אם הרצף ריק ויש ברירת מחדל — טען אותה. רץ אחרי שגם maintenanceTypes וגם maintenanceSteps נטענו
+  // אם הרצף עדיין ריק אחרי mount (maintenanceTypes לא היה זמין בהתחלה), נסה שוב
   useEffect(() => {
-    if (!formData.brand_id || !formData.type) return;
-    if (formData.visit_sequence.length > 0) return;
-    const brand = unitBrands.find(b => b.id === formData.brand_id);
-    if (!brand) return;
-    const rawSeq = getBrandDefaultSequenceStatic(brand, formData.type);
-    if (!rawSeq.length) return;
-    const seq = rawSeq.map(step => ({
-      ...step,
-      maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
-      step_configs: step.step_configs || [],
-    }));
-    setFormData(prev => prev.visit_sequence.length > 0 ? prev : { ...prev, visit_sequence: seq });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [maintenanceTypes.length, maintenanceSteps.length, formData.brand_id, formData.type]);
+    if (!maintenanceTypes.length) return;
+    setFormData(prev => {
+      if (prev.visit_sequence.length > 0) return prev;
+      if (!prev.brand_id || !prev.type) return prev;
+      const brand = unitBrands.find(b => b.id === prev.brand_id);
+      const rawSeq = getBrandDefaultSequenceStatic(brand, prev.type);
+      if (!rawSeq.length) return prev;
+      const seq = rawSeq.map(step => ({
+        ...step,
+        maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+        step_configs: step.step_configs || [],
+      }));
+      return { ...prev, visit_sequence: seq };
+    });
+  }, [maintenanceTypes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const availableTypes = selectedBrand?.unit_types || [];
