@@ -181,12 +181,40 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
       toast.error("לא נמצא רצף במקור שנבחר");
       return;
     }
-    setSequence(clonePreview.map((s, i) => ({ ...s, step_number: i + 1 })));
+
+    // Map each step's maintenance_type_id to the matching type (by name) for the TARGET brand/unit_type
+    const targetTypes = maintenanceTypes.filter(t => {
+      if (!t.brand_id && !t.unit_type) return true;
+      if (t.brand_id === selectedBrandId) {
+        if (!t.unit_type || t.unit_type === selectedUnitType) return true;
+      }
+      return false;
+    });
+
+    const mappedSequence = clonePreview.map((s, i) => {
+      const sourceName = maintenanceTypes.find(t => t.id === s.maintenance_type_id)?.name;
+      const matchedTarget = sourceName
+        ? targetTypes.find(t => t.name === sourceName)
+        : null;
+      return {
+        ...s,
+        step_number: i + 1,
+        maintenance_type_id: matchedTarget?.id || "",
+      };
+    });
+
+    const unmapped = mappedSequence.filter(s => !s.maintenance_type_id).length;
+    if (unmapped > 0) {
+      toast.warning(`שוכפל — ${unmapped} שלבים לא נמצאה להם התאמה לסוג יחידה זה ויש לבחור ידנית`);
+    } else {
+      toast.success("הרצף שוכפל — אל תשכח לשמור");
+    }
+
+    setSequence(mappedSequence);
     setCloneDialogOpen(false);
     setCloneSourceBrandId("");
     setCloneSourceUnitType("");
     setClonePreview([]);
-    toast.success("הרצף שוכפל — אל תשכח לשמור");
   };
 
   const cloneSourceBrand = unitBrands.find(b => b.id === cloneSourceBrandId);
