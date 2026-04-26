@@ -4,15 +4,27 @@
   "properties": {
     "part_sku": {
       "type": "string",
-      "description": "\u05de\u05e4\u05ea\u05d7 \u05d6\u05e8 \u05dc\u05de\u05e7\u05f4\u05d8 \u05d4\u05e4\u05e8\u05d9\u05d8 \u05d1-PartCore"
+      "description": "\u05de\u05e4\u05ea\u05d7 \u05d6\u05e8 \u05dc\u05de\u05e7\u05f4\u05d8 \u05d4\u05e4\u05e8\u05d9\u05d8 \u05d1-PartCore",
+      "indexed": true
     },
     "supplier_number": {
       "type": "string",
-      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7 \u05e9\u05dc \u05d4\u05e4\u05e8\u05d9\u05d8"
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7 \u05e9\u05dc \u05d4\u05e4\u05e8\u05d9\u05d8",
+      "indexed": true
     },
     "supplier_part_number": {
       "type": "string",
       "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e4\u05e8\u05d9\u05d8 \u05d0\u05e6\u05dc \u05d4\u05e1\u05e4\u05e7"
+    },
+    "lead_time_days": {
+      "type": "number",
+      "default": 30,
+      "description": "\u05d6\u05de\u05df \u05d0\u05e1\u05e4\u05e7\u05d4 \u05de\u05e9\u05d5\u05e2\u05e8 \u05d1\u05d9\u05de\u05d9\u05dd \u05de\u05d4\u05e1\u05e4\u05e7 \u05d4\u05d6\u05d4 \u05e2\u05d1\u05d5\u05e8 \u05e4\u05e8\u05d9\u05d8 \u05d6\u05d4"
+    },
+    "is_preferred": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u05d4\u05d0\u05dd \u05d6\u05d4 \u05d4\u05e1\u05e4\u05e7 \u05d4\u05de\u05d5\u05e2\u05d3\u05e3 \u05dc\u05e4\u05e8\u05d9\u05d8 \u05d6\u05d4"
     }
   },
   "required": [

@@ -1,0 +1,94 @@
+{
+  "name": "PredictedMaintenanceEvent",
+  "type": "object",
+  "properties": {
+    "service_unit_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d9\u05d7\u05d9\u05d3\u05ea \u05d4\u05e9\u05d9\u05e8\u05d5\u05ea",
+      "indexed": true
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d4\u05dc\u05e7\u05d5\u05d7",
+      "indexed": true
+    },
+    "maintenance_type_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05e1\u05d5\u05d2 \u05d4\u05ea\u05d7\u05d6\u05d5\u05e7\u05d4",
+      "indexed": true
+    },
+    "maintenance_type_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05e1\u05d5\u05d2 \u05d4\u05ea\u05d7\u05d6\u05d5\u05e7\u05d4 (display-cache)"
+    },
+    "visit_step_number": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05e9\u05dc\u05d1 \u05d4\u05d1\u05d9\u05e7\u05d5\u05e8 \u05d1\u05e8\u05e6\u05e3 (1, 2, 3...)"
+    },
+    "predicted_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05d4\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05d7\u05d6\u05d5\u05d9 \u05dc\u05d1\u05d9\u05e6\u05d5\u05e2 \u05d4\u05d8\u05d9\u05e4\u05d5\u05dc"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "completed",
+        "cancelled",
+        "manual"
+      ],
+      "default": "planned",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05d4\u05d0\u05d9\u05e8\u05d5\u05e2 \u05d4\u05d7\u05d6\u05d5\u05d9"
+    },
+    "is_manual_override": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u05d4\u05d0\u05dd \u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05d8\u05d9\u05e4\u05d5\u05dc \u05e9\u05d5\u05e0\u05d4 \u05d9\u05d3\u05e0\u05d9\u05ea \u2014 \u05dc\u05d0 \u05d9\u05d9\u05d3\u05e8\u05e1 \u05d1\u05d7\u05d9\u05e9\u05d5\u05d1\u05d9\u05dd \u05d0\u05d5\u05d8\u05d5\u05de\u05d8\u05d9\u05d9\u05dd"
+    },
+    "original_predicted_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05d4\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05de\u05e7\u05d5\u05e8\u05d9 \u05dc\u05e4\u05e0\u05d9 \u05e9\u05d9\u05e0\u05d5\u05d9 \u05d9\u05d3\u05e0\u05d9"
+    },
+    "service_call_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05e7\u05e8\u05d9\u05d0\u05ea \u05d4\u05e9\u05d9\u05e8\u05d5\u05ea \u05e9\u05e1\u05d2\u05e8\u05d4 \u05d0\u05d9\u05e8\u05d5\u05e2 \u05d6\u05d4 (\u05db\u05e9\u05e1\u05d8\u05d8\u05d5\u05e1 = completed)"
+    },
+    "parts_snapshot": {
+      "type": "array",
+      "description": "\u05e8\u05e9\u05d9\u05de\u05ea \u05d7\u05dc\u05e4\u05d9\u05dd \u05e0\u05d3\u05e8\u05e9\u05d9\u05dd \u2014 \u05e6\u05d9\u05dc\u05d5\u05dd \u05de\u05e6\u05d1 \u05d1\u05d6\u05de\u05df \u05d4\u05d7\u05d9\u05d6\u05d5\u05d9",
+      "default": [],
+      "items": {
+        "type": "object",
+        "properties": {
+          "part_sku": {
+            "type": "string"
+          },
+          "part_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number",
+            "default": 1
+          }
+        }
+      }
+    },
+    "service_unit_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived",
+        "deleted"
+      ],
+      "default": "active",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05d9\u05d7\u05d9\u05d3\u05ea \u05d4\u05e9\u05d9\u05e8\u05d5\u05ea \u2014 \u05dc\u05e9\u05de\u05d9\u05e8\u05ea \u05d4\u05d9\u05e1\u05d8\u05d5\u05e8\u05d9\u05d4 \u05d2\u05dd \u05d0\u05d7\u05e8\u05d9 \u05de\u05d7\u05d9\u05e7\u05d4/\u05d4\u05e9\u05d1\u05ea\u05d4"
+    }
+  },
+  "required": [
+    "service_unit_id",
+    "maintenance_type_id",
+    "predicted_date"
+  ]
+}
