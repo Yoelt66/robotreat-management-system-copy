@@ -14,6 +14,15 @@ import { RefreshCw, PlayCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import UnitSequenceEditor from "./UnitSequenceEditor";
 
+// פונקציה סטטית לשימוש בתוך useEffect
+function getBrandDefaultSequenceStatic(brand, unitType) {
+  if (!brand) return [];
+  const byType = brand.default_sequences_by_unit_type || [];
+  const match = byType.find(s => s.unit_type === unitType);
+  if (match?.sequence?.length) return match.sequence;
+  return brand.default_visit_sequence || [];
+}
+
 export default function UnitDialog({ unit, customerId, customers = [], unitBrands, maintenanceTypes, onSave, onClose }) {
   const [formData, setFormData] = useState({
     customer_id: customerId || unit?.customer_id || "",
@@ -42,10 +51,29 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
       .catch(() => setMaintenanceSteps([]));
   }, [formData.brand_id]);
 
+  // אם הרצף ריק ויש ברירת מחדל למותג+סוג, טען אותה אוטומטית
+  useEffect(() => {
+    if (formData.visit_sequence.length > 0) return;
+    if (!formData.brand_id || !formData.type) return;
+    const brand = unitBrands.find(b => b.id === formData.brand_id);
+    const rawSeq = getBrandDefaultSequenceStatic(brand, formData.type);
+    if (!rawSeq.length) return;
+    const seq = rawSeq.map(step => ({
+      ...step,
+      maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+      step_configs: [],
+    }));
+    setFormData(prev => ({ ...prev, visit_sequence: seq }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.brand_id, formData.type]);
+
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const availableTypes = selectedBrand?.unit_types || [];
   const relevantMaintenanceTypes = maintenanceTypes.filter(t => !t.brand_id || t.brand_id === formData.brand_id);
   const hasManualOverrides = formData.visit_sequence.some(step => step.step_configs?.some(c => c.manual_override));
+
+  // wrapper סביב הפונקציה הסטטית לשימוש ב-render
+  const getBrandDefaultSequence = getBrandDefaultSequenceStatic;
 
   const handleBrandChange = (brandId) => {
     const brand = unitBrands.find(b => b.id === brandId);
@@ -53,13 +81,14 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
   };
 
   const doLoadBrandDefaults = () => {
-    if (!selectedBrand?.default_visit_sequence?.length) return;
-    const seq = selectedBrand.default_visit_sequence.map(step => ({
+    const rawSeq = getBrandDefaultSequence(selectedBrand, formData.type);
+    if (!rawSeq.length) return;
+    const seq = rawSeq.map(step => ({
       ...step,
       maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
       step_configs: [],
     }));
-    setFormData({ ...formData, visit_sequence: seq, visit_interval_months: selectedBrand.default_visit_interval_months || 3 });
+    setFormData({ ...formData, visit_sequence: seq, visit_interval_months: selectedBrand?.default_visit_interval_months || 3 });
   };
 
   const handleLoadBrandDefaults = () => {
@@ -184,7 +213,7 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
                     <p className="text-xs text-slate-500 mt-0.5">הגדר סדר סוגי התחזוקה עם אינטרוול בין כל ביקור</p>
                   </div>
                   <div className="flex gap-2">
-                    {selectedBrand?.default_visit_sequence?.length > 0 && (
+                    {getBrandDefaultSequence(selectedBrand, formData.type).length > 0 && (
                       <Button type="button" variant="outline" size="sm" onClick={handleLoadBrandDefaults}>
                         <RefreshCw className="h-4 w-4 ml-2" />טען ברירת מחדל ({selectedBrand.name})
                       </Button>
