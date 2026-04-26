@@ -103,14 +103,21 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
   };
 
   const doLoadBrandDefaults = () => {
-    const rawSeq = getBrandDefaultSequence(selectedBrand, formData.type);
-    if (!rawSeq.length) return;
-    const seq = rawSeq.map(step => ({
-      ...step,
+    const brand = unitBrands.find(b => b.id === formData.brand_id);
+    if (!brand) return;
+    const rawSeq = getBrandDefaultSequenceStatic(brand, formData.type);
+    if (!rawSeq.length) {
+      toast.error("לא נמצא רצף ברירת מחדל לסוג יחידה זה");
+      return;
+    }
+    const seq = rawSeq.map((step, i) => ({
+      step_number: i + 1,
+      maintenance_type_id: step.maintenance_type_id || "",
       maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+      interval_months: step.interval_months || brand.default_visit_interval_months || 3,
       step_configs: [],
     }));
-    setFormData({ ...formData, visit_sequence: seq, visit_interval_months: selectedBrand?.default_visit_interval_months || 3 });
+    setFormData(prev => ({ ...prev, visit_sequence: seq, visit_interval_months: brand.default_visit_interval_months || 3 }));
   };
 
   const handleLoadBrandDefaults = () => {

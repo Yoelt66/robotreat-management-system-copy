@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, Settings2, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronUp, Settings2, AlertTriangle, Plus } from "lucide-react";
+import PartSearchPopover from "./PartSearchPopover";
 
 export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [], onChange }) {
   const [expanded, setExpanded] = useState(null);
+  const [showPartSearch, setShowPartSearch] = useState(null); // stepId שבו פתוח החיפוש
 
   if (allStepDefs.length === 0) {
     return <div className="text-xs text-slate-400 italic px-2 py-1">אין פעולות תחזוקה מוגדרות לסוג זה</div>;
@@ -31,16 +33,10 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
     onChange(updated);
   };
 
-  const addCustomPart = (stepId) => {
-    const cfg = configs.find(c => c.step_id === stepId);
-    updateConfig(stepId, { custom_parts: [...(cfg?.custom_parts || []), { part_sku: "", part_name: "", quantity: 1 }], use_custom_parts: true });
-  };
-
   const enableCustomParts = (stepId) => {
     const cfg = configs.find(c => c.step_id === stepId);
     const def = allStepDefs.find(d => d.id === stepId);
     const defaultParts = def?.parts_required || [];
-    // אתחל עם החלקים המקוריים אם ה-custom_parts ריק
     const initialParts = (cfg?.custom_parts?.length > 0) ? cfg.custom_parts : defaultParts.map(p => ({ ...p }));
     updateConfig(stepId, { use_custom_parts: true, custom_parts: initialParts });
   };
@@ -54,6 +50,14 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
     const cfg = configs.find(c => c.step_id === stepId);
     const newParts = (cfg?.custom_parts || []).filter((_, i) => i !== partIdx);
     updateConfig(stepId, { custom_parts: newParts, use_custom_parts: newParts.length > 0 });
+  };
+
+  const addPartFromSearch = (stepId, part) => {
+    const cfg = configs.find(c => c.step_id === stepId);
+    updateConfig(stepId, {
+      custom_parts: [...(cfg?.custom_parts || []), part],
+      use_custom_parts: true,
+    });
   };
 
   return (
@@ -105,6 +109,8 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
                     className="scale-75" />
                   <Label className="text-xs text-slate-600">השתמש בחלקים מותאמים אישית במקום ברירת המחדל</Label>
                 </div>
+
+                {/* חלקי ברירת מחדל (read-only) */}
                 {!cfg.use_custom_parts && defaultParts.length > 0 && (
                   <div className="space-y-1">
                     <p className="text-[10px] text-slate-400 font-medium">חלקים מברירת מחדל:</p>
@@ -116,25 +122,48 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
                     ))}
                   </div>
                 )}
+
+                {/* חלקים מותאמים */}
                 {cfg.use_custom_parts && (
                   <div className="space-y-1.5">
                     {(cfg.custom_parts || []).map((part, partIdx) => (
                       <div key={partIdx} className="flex items-center gap-2">
-                        <Input placeholder="מק״ט" value={part.part_sku}
-                          onChange={e => updateCustomPart(cfg.step_id, partIdx, "part_sku", e.target.value)}
-                          className="h-7 text-xs w-24" />
-                        <Input placeholder="שם חלק" value={part.part_name}
-                          onChange={e => updateCustomPart(cfg.step_id, partIdx, "part_name", e.target.value)}
-                          className="h-7 text-xs flex-1" />
-                        <Input type="number" min="1" value={part.quantity}
+                        <span className="text-[10px] text-slate-500 truncate flex-1 min-w-0">
+                          {part.part_name || part.part_sku}
+                          {part.part_sku && part.part_name && (
+                            <span className="text-slate-400 mr-1">({part.part_sku})</span>
+                          )}
+                        </span>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={part.quantity}
                           onChange={e => updateCustomPart(cfg.step_id, partIdx, "quantity", parseInt(e.target.value) || 1)}
-                          className="h-7 text-xs w-14 text-center" />
+                          className="h-7 text-xs w-14 text-center shrink-0"
+                        />
                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-red-400 shrink-0"
                           onClick={() => removeCustomPart(cfg.step_id, partIdx)}>×</Button>
-                      </div>
+      </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs w-full"
-                      onClick={() => addCustomPart(cfg.step_id)}>+ הוסף חלק</Button>
+
+                    {/* כפתור הוסף חלק + פופאובר חיפוש */}
+                    <div className="relative">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs w-full"
+                        onClick={() => setShowPartSearch(showPartSearch === cfg.step_id ? null : cfg.step_id)}
+                      >
+                        <Plus className="h-3 w-3 ml-1" />הוסף חלק
+                      </Button>
+                      {showPartSearch === cfg.step_id && (
+                        <PartSearchPopover
+                          onSelect={part => addPartFromSearch(cfg.step_id, part)}
+                          onClose={() => setShowPartSearch(null)}
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
