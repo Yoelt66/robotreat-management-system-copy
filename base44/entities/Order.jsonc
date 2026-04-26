@@ -1,0 +1,98 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Unique order number, can be auto-generated"
+    },
+    "supplier_number": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e1\u05e4\u05e7"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Legacy supplier field - for backward compatibility"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "\u05d4\u05d5\u05e7\u05dd",
+        "ordered",
+        "partially_received",
+        "completed",
+        "cancelled"
+      ],
+      "default": "draft",
+      "description": "Current status of the order"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "part_sku": {
+            "type": "string"
+          },
+          "part_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "received_quantity": {
+            "type": "number",
+            "default": 0,
+            "description": "Quantity of the item that has been received"
+          },
+          "cost_price": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "supplier_part_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_sku",
+          "part_name",
+          "quantity"
+        ]
+      },
+      "description": "List of items in the order"
+    },
+    "delivery_note_numbers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of delivery note numbers associated with this order"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes for the order"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the order was placed"
+    },
+    "expected_delivery_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expected delivery date for the order"
+    }
+  },
+  "required": [
+    "order_number",
+    "status",
+    "items"
+  ]
+}

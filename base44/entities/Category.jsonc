@@ -1,0 +1,61 @@
+{
+  "name": "Category",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "\u05e7\u05d5\u05d3 \u05d4\u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4",
+      "indexed": true,
+      "unique": true
+    },
+    "name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4",
+      "indexed": true
+    },
+    "color": {
+      "type": "string",
+      "description": "\u05e6\u05d1\u05e2 \u05dc\u05ea\u05e6\u05d5\u05d2\u05d4 (\u05d8\u05d9\u05d9\u05dc\u05d5\u05d5\u05d9\u05e0\u05d3)"
+    },
+    "supplier_number": {
+      "type": "string",
+      "description": "\u05e1\u05e4\u05e7 \u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc \u05dc\u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4"
+    },
+    "cost_currency": {
+      "type": "string",
+      "enum": [
+        "ILS",
+        "USD",
+        "EUR",
+        "GBP"
+      ],
+      "default": "ILS",
+      "description": "\u05de\u05d8\u05d1\u05e2 \u05e2\u05dc\u05d5\u05ea \u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc"
+    },
+    "sale_currency": {
+      "type": "string",
+      "enum": [
+        "ILS",
+        "USD",
+        "EUR",
+        "GBP"
+      ],
+      "default": "ILS",
+      "description": "\u05de\u05d8\u05d1\u05e2 \u05de\u05db\u05d9\u05e8\u05d4 \u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc"
+    },
+    "import_percentage": {
+      "type": "number",
+      "default": 10,
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05d9\u05d9\u05d1\u05d5\u05d0 \u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc"
+    },
+    "margin_percentage": {
+      "type": "number",
+      "default": 45,
+      "description": "\u05d0\u05d7\u05d5\u05d6 \u05e8\u05d5\u05d5\u05d7 \u05d1\u05e8\u05d9\u05e8\u05ea \u05de\u05d7\u05d3\u05dc"
+    }
+  },
+  "required": [
+    "code",
+    "name"
+  ]
+}

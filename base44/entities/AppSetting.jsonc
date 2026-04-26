@@ -1,0 +1,18 @@
+{
+  "name": "AppSetting",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "The unique key for the setting (e.g., 'user_permissions')."
+    },
+    "value": {
+      "type": "object",
+      "description": "A JSON object containing the setting's value."
+    }
+  },
+  "required": [
+    "key",
+    "value"
+  ]
+}

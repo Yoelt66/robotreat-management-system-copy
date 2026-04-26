@@ -1,0 +1,167 @@
+{
+  "name": "ExpenseReturn",
+  "type": "object",
+  "properties": {
+    "return_number": {
+      "type": "string",
+      "description": "Auto-generated unique number for the expense return"
+    },
+    "employee_name": {
+      "type": "string",
+      "description": "Name of the employee claiming the expenses"
+    },
+    "employee_email": {
+      "type": "string",
+      "description": "Email of the employee"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "paid"
+      ],
+      "default": "pending",
+      "description": "Current status of the expense return"
+    },
+    "expenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "invoice_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "invoice_number": {
+            "type": "string"
+          },
+          "business_name": {
+            "type": "string"
+          },
+          "purchase_type": {
+            "type": "string",
+            "enum": [
+              "tools",
+              "fuel",
+              "software",
+              "vehicle",
+              "parts",
+              "office_supplies",
+              "travel",
+              "meals",
+              "accommodation",
+              "maintenance",
+              "other"
+            ]
+          },
+          "amount": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string",
+            "default": "ILS"
+          },
+          "original_amount": {
+            "type": "number",
+            "description": "Original invoice amount before currency conversion"
+          },
+          "original_currency": {
+            "type": "string",
+            "description": "Original invoice currency (USD, EUR, etc.)"
+          },
+          "exchange_rate": {
+            "type": "number",
+            "description": "Exchange rate used for conversion to ILS"
+          },
+          "receipt_uploaded": {
+            "type": "boolean",
+            "default": false
+          },
+          "receipt_url": {
+            "type": "string",
+            "description": "URL of the receipt file"
+          },
+          "receipt_file_name": {
+            "type": "string",
+            "description": "Original name of the receipt file"
+          }
+        },
+        "required": [
+          "invoice_date",
+          "business_name",
+          "purchase_type",
+          "amount"
+        ]
+      }
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total amount to be reimbursed"
+    },
+    "currency": {
+      "type": "string",
+      "default": "ILS",
+      "description": "Currency of the total amount"
+    },
+    "submission_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the expense return was submitted"
+    },
+    "return_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the money was returned to employee"
+    },
+    "bank_reference": {
+      "type": "string",
+      "description": "Bank transfer reference number"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Manager who approved the return"
+    },
+    "approval_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the return was approved"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the expense return"
+    },
+    "receipt_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs of uploaded receipt images/documents"
+    },
+    "receipt_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Receipt files with original names"
+    }
+  },
+  "required": [
+    "return_number",
+    "employee_name",
+    "employee_email",
+    "status",
+    "expenses",
+    "total_amount",
+    "submission_date"
+  ]
+}

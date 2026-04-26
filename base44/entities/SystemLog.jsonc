@@ -1,0 +1,40 @@
+{
+  "name": "SystemLog",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user who performed the action."
+    },
+    "user_nickname": {
+      "type": "string",
+      "description": "Nickname of the user for easy display."
+    },
+    "action_type": {
+      "type": "string",
+      "description": "The type of action performed (e.g., CREATE, UPDATE, DELETE, TRANSFER)."
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "The type of entity that was affected (e.g., Part, Order, Transfer)."
+    },
+    "entity_identifier": {
+      "type": "string",
+      "description": "A unique identifier for the entity (e.g., Part SKU, Order Number)."
+    },
+    "description": {
+      "type": "string",
+      "description": "A human-readable summary of the action."
+    },
+    "details": {
+      "type": "object",
+      "description": "A JSON object containing specific details of the change (e.g., from/to values)."
+    }
+  },
+  "required": [
+    "user_email",
+    "action_type",
+    "entity_type",
+    "description"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "Warehouse",
+  "type": "object",
+  "properties": {
+    "warehouse_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9 \u05dc\u05de\u05d7\u05e1\u05df - \u05de\u05e4\u05ea\u05d7 \u05e8\u05d0\u05e9\u05d9"
+    },
+    "number": {
+      "type": "integer",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05de\u05d6\u05d4\u05d4 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9 \u05dc\u05de\u05d7\u05e1\u05df"
+    },
+    "name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05de\u05d7\u05e1\u05df"
+    }
+  },
+  "required": [
+    "warehouse_id",
+    "name",
+    "number"
+  ]
+}

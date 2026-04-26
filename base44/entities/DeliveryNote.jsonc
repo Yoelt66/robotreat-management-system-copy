@@ -1,0 +1,79 @@
+{
+  "name": "DeliveryNote",
+  "type": "object",
+  "properties": {
+    "note_number": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05ea\u05e2\u05d5\u05d3\u05ea \u05de\u05e9\u05dc\u05d5\u05d7"
+    },
+    "supplier_number": {
+      "type": "string",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e1\u05e4\u05e7"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Legacy supplier field - for backward compatibility"
+    },
+    "delivery_date": {
+      "type": "string",
+      "format": "date",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05e7\u05d1\u05dc\u05d4"
+    },
+    "warehouse_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d4\u05de\u05d7\u05e1\u05df \u05e9\u05e7\u05d9\u05d1\u05dc \u05d0\u05ea \u05d4\u05e1\u05d7\u05d5\u05e8\u05d4"
+    },
+    "warehouse_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05de\u05d7\u05e1\u05df \u05e9\u05e7\u05d9\u05d1\u05dc \u05d0\u05ea \u05d4\u05e1\u05d7\u05d5\u05e8\u05d4"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "part_sku": {
+            "type": "string"
+          },
+          "part_name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "supplier_part_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "part_sku",
+          "quantity"
+        ]
+      },
+      "description": "\u05e8\u05e9\u05d9\u05de\u05ea \u05e4\u05e8\u05d9\u05d8\u05d9\u05dd \u05e9\u05d4\u05ea\u05e7\u05d1\u05dc\u05d5"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "processing",
+        "completed"
+      ],
+      "default": "completed",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e7\u05dc\u05d9\u05d8\u05ea \u05d4\u05e1\u05d7\u05d5\u05e8\u05d4"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    }
+  },
+  "required": [
+    "note_number",
+    "delivery_date",
+    "warehouse_id",
+    "items"
+  ]
+}

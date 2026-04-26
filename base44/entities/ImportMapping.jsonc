@@ -1,0 +1,26 @@
+{
+  "name": "ImportMapping",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "A unique name for the import mapping configuration."
+    },
+    "mapping": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "The array of field mapping objects that defines the column order and status."
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, this mapping will be loaded by default on the import page."
+    }
+  },
+  "required": [
+    "name",
+    "mapping"
+  ]
+}
