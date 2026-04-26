@@ -87,7 +87,11 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const availableTypes = selectedBrand?.unit_types || [];
-  const relevantMaintenanceTypes = maintenanceTypes.filter(t => !t.brand_id || t.brand_id === formData.brand_id);
+  // סנן סוגי תחזוקה לפי מותג וסוג יחידה
+  const relevantMaintenanceTypes = maintenanceTypes.filter(t =>
+    (!t.brand_id || t.brand_id === formData.brand_id) &&
+    (!t.unit_type || !formData.type || t.unit_type === formData.type)
+  );
   const hasManualOverrides = formData.visit_sequence.some(step => step.step_configs?.some(c => c.manual_override));
 
   // wrapper סביב הפונקציה הסטטית לשימוש ב-render

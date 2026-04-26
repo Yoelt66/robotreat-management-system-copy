@@ -36,6 +36,15 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
     updateConfig(stepId, { custom_parts: [...(cfg?.custom_parts || []), { part_sku: "", part_name: "", quantity: 1 }], use_custom_parts: true });
   };
 
+  const enableCustomParts = (stepId) => {
+    const cfg = configs.find(c => c.step_id === stepId);
+    const def = allStepDefs.find(d => d.id === stepId);
+    const defaultParts = def?.parts_required || [];
+    // אתחל עם החלקים המקוריים אם ה-custom_parts ריק
+    const initialParts = (cfg?.custom_parts?.length > 0) ? cfg.custom_parts : defaultParts.map(p => ({ ...p }));
+    updateConfig(stepId, { use_custom_parts: true, custom_parts: initialParts });
+  };
+
   const updateCustomPart = (stepId, partIdx, field, value) => {
     const cfg = configs.find(c => c.step_id === stepId);
     updateConfig(stepId, { custom_parts: (cfg?.custom_parts || []).map((p, i) => i === partIdx ? { ...p, [field]: value } : p) });
@@ -91,7 +100,9 @@ export default function UnitStepConfigEditor({ stepConfigs = [], allStepDefs = [
             {isExpanded && (
               <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Switch checked={cfg.use_custom_parts} onCheckedChange={v => updateConfig(cfg.step_id, { use_custom_parts: v })} className="scale-75" />
+                  <Switch checked={cfg.use_custom_parts}
+                    onCheckedChange={v => v ? enableCustomParts(cfg.step_id) : updateConfig(cfg.step_id, { use_custom_parts: false })}
+                    className="scale-75" />
                   <Label className="text-xs text-slate-600">השתמש בחלקים מותאמים אישית במקום ברירת המחדל</Label>
                 </div>
                 {!cfg.use_custom_parts && defaultParts.length > 0 && (
