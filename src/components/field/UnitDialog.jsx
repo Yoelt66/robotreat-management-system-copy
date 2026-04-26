@@ -51,21 +51,24 @@ export default function UnitDialog({ unit, customerId, customers = [], unitBrand
       .catch(() => setMaintenanceSteps([]));
   }, [formData.brand_id]);
 
-  // אם הרצף ריק ויש ברירת מחדל למותג+סוג, טען אותה אוטומטית
+  // אם הרצף ריק ויש ברירת מחדל למותג+סוג, טען אותה אוטומטית (כולל בפתיחה ראשונית)
   useEffect(() => {
-    if (formData.visit_sequence.length > 0) return;
     if (!formData.brand_id || !formData.type) return;
-    const brand = unitBrands.find(b => b.id === formData.brand_id);
-    const rawSeq = getBrandDefaultSequenceStatic(brand, formData.type);
-    if (!rawSeq.length) return;
-    const seq = rawSeq.map(step => ({
-      ...step,
-      maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
-      step_configs: [],
-    }));
-    setFormData(prev => ({ ...prev, visit_sequence: seq }));
+    // בדיקה על הערך ה"טרי" ישירות — לא דרך formData שעלול להיות stale
+    setFormData(prev => {
+      if (prev.visit_sequence.length > 0) return prev;
+      const brand = unitBrands.find(b => b.id === prev.brand_id);
+      const rawSeq = getBrandDefaultSequenceStatic(brand, prev.type);
+      if (!rawSeq.length) return prev;
+      const seq = rawSeq.map(step => ({
+        ...step,
+        maintenance_type_name: maintenanceTypes.find(t => t.id === step.maintenance_type_id)?.name || "",
+        step_configs: step.step_configs || [],
+      }));
+      return { ...prev, visit_sequence: seq };
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.brand_id, formData.type]);
+  }, [formData.brand_id, formData.type, unitBrands.length]);
 
   const selectedBrand = unitBrands.find(b => b.id === formData.brand_id);
   const availableTypes = selectedBrand?.unit_types || [];
