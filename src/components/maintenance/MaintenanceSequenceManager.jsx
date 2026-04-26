@@ -182,19 +182,12 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
       return;
     }
 
-    // Map each step's maintenance_type_id to the matching type (by name) for the TARGET brand/unit_type
-    const targetTypes = maintenanceTypes.filter(t => {
-      if (!t.brand_id && !t.unit_type) return true;
-      if (t.brand_id === selectedBrandId) {
-        if (!t.unit_type || t.unit_type === selectedUnitType) return true;
-      }
-      return false;
-    });
-
+    // relevantTypes already = types matching TARGET brand+unit_type exactly
     const mappedSequence = clonePreview.map((s, i) => {
+      // Look up source name from ALL types (source may belong to a different brand)
       const sourceName = maintenanceTypes.find(t => t.id === s.maintenance_type_id)?.name;
       const matchedTarget = sourceName
-        ? targetTypes.find(t => t.name === sourceName)
+        ? relevantTypes.find(t => t.name === sourceName)
         : null;
       return {
         ...s,
@@ -220,14 +213,10 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
   const cloneSourceBrand = unitBrands.find(b => b.id === cloneSourceBrandId);
   const cloneSourceUnitTypes = cloneSourceBrand?.unit_types || [];
 
-  // Filter maintenance types for selected brand/unit_type
+  // Filter maintenance types for selected (TARGET) brand/unit_type only — strict match
   const relevantTypes = maintenanceTypes.filter(t => {
-    if (!t.brand_id && !t.unit_type) return true; // generic
-    if (selectedBrandId && t.brand_id === selectedBrandId) {
-      if (!selectedUnitType) return true;
-      if (!t.unit_type || t.unit_type === selectedUnitType) return true;
-    }
-    return false;
+    if (!selectedBrandId || !selectedUnitType) return false;
+    return t.brand_id === selectedBrandId && t.unit_type === selectedUnitType;
   });
 
   return (
@@ -286,7 +275,7 @@ export default function MaintenanceSequenceManager({ maintenanceTypes, unitBrand
           </div>
           <SequenceEditor
             sequence={sequence}
-            maintenanceTypes={maintenanceTypes}
+            maintenanceTypes={relevantTypes}
             onChange={setSequence}
             selectedBrandName={selectedBrand?.name}
           />
