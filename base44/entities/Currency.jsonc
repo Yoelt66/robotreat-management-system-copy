@@ -17,7 +17,7 @@
     "rate_to_ils": {
       "type": "number",
       "description": "\u05e9\u05e2\u05e8 \u05d7\u05dc\u05d9\u05e4\u05d9\u05df \u05dc\u05e9\u05e7\u05dc",
-      "default": 1.0
+      "default": 1
     },
     "last_update": {
       "type": "string",
@@ -30,5 +30,23 @@
     "name",
     "symbol",
     "rate_to_ils"
-  ]
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
