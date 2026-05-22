@@ -38,21 +38,13 @@
     "description"
   ],
   "rls": {
-    "create": {},
+    "create": null,
     "read": {
       "user_condition": {
         "role": "admin"
       }
     },
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
+    "update": null,
+    "delete": null
   }
 }
