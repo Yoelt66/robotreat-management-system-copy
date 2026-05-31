@@ -710,11 +710,11 @@ export default function NewOrderForm({
                       }
                         </div>
                       </TableCell>
-                      <TableCell className="py-2 px-2 opacity-95">
+                      <TableCell className="py-2 px-2 opacity-100">
                         <div className="text-xs space-y-1">
                           {allWarehouses.map((warehouse) =>
                       <div key={warehouse.id} className="flex justify-between">
-                              <span>{warehouse.name}:</span>
+                              <span className="px-1">{warehouse.name}:</span>
                               <span className="font-mono">{getWarehouseStock(item, warehouse.warehouse_id)}</span>
                             </div>
                       )}
