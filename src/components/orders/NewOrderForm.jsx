@@ -710,7 +710,7 @@ export default function NewOrderForm({
                       }
                         </div>
                       </TableCell>
-                      <TableCell className="px-3 py-2">
+                      <TableCell className="py-2 px-2 opacity-95">
                         <div className="text-xs space-y-1">
                           {allWarehouses.map((warehouse) =>
                       <div key={warehouse.id} className="flex justify-between">
