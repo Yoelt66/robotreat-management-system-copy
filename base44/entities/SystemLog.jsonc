@@ -36,15 +36,5 @@
     "action_type",
     "entity_type",
     "description"
-  ],
-  "rls": {
-    "create": null,
-    "read": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "update": null,
-    "delete": null
-  }
+  ]
 }

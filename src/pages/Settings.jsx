@@ -16,6 +16,7 @@ import PermissionSettings from "../components/settings/PermissionSettings";
 import DatabaseSettings from "../components/settings/DatabaseSettings";
 import ImportSettings from "../components/settings/ImportSettings";
 import UnitBrandSettings from "../components/settings/UnitBrandSettings";
+import SupplierAliasManager from "../components/settings/SupplierAliasManager";
 
 export default function Settings() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -78,6 +79,7 @@ export default function Settings() {
             <TabsTrigger value="general">הגדרות כלליות</TabsTrigger>
             <TabsTrigger value="warehouses">מחסנים</TabsTrigger>
             <TabsTrigger value="suppliers">ספקים</TabsTrigger>
+            <TabsTrigger value="supplier-aliases">כינויי ספקים</TabsTrigger>
             <TabsTrigger value="users">ניהול משתמשים</TabsTrigger>
             <TabsTrigger value="permissions">הרשאות משתמשים</TabsTrigger>
             <TabsTrigger value="categories">קטגוריות</TabsTrigger>
@@ -98,6 +100,10 @@ export default function Settings() {
 
           <TabsContent value="suppliers" className="space-y-4">
             <SupplierSettings />
+          </TabsContent>
+
+          <TabsContent value="supplier-aliases" className="space-y-4">
+            <SupplierAliasManager />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-4">

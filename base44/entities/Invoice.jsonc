@@ -8,7 +8,8 @@
     },
     "supplier_number": {
       "type": "string",
-      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7"
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05d4\u05e1\u05e4\u05e7",
+      "indexed": true
     },
     "supplier_name": {
       "type": "string",
@@ -17,7 +18,8 @@
     "invoice_date": {
       "type": "string",
       "format": "date",
-      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea"
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d4\u05d7\u05e9\u05d1\u05d5\u05e0\u05d9\u05ea",
+      "indexed": true
     },
     "amount": {
       "type": "number",
@@ -41,7 +43,8 @@
         "paid"
       ],
       "default": "open",
-      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05d4\u05ea\u05e9\u05dc\u05d5\u05dd"
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05d4\u05ea\u05e9\u05dc\u05d5\u05dd",
+      "indexed": true
     },
     "payment_date": {
       "type": "string",
@@ -72,23 +75,5 @@
     "invoice_date",
     "amount",
     "status"
-  ],
-  "rls": {
-    "create": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "read": {},
-    "update": {
-      "user_condition": {
-        "role": "admin"
-      }
-    },
-    "delete": {
-      "user_condition": {
-        "role": "admin"
-      }
-    }
-  }
+  ]
 }
