@@ -193,6 +193,38 @@ export default function InvoicesPage() {
     }
   };
 
+  // Sort suppliers smartly: open invoices first → count of invoices → alphabetical
+  // Computed from already-loaded invoices — no extra API call needed
+  const sortedSuppliers = useMemo(() => {
+    if (!invoices.length || !suppliers.length) {
+      return [...suppliers].sort((a, b) => (a.name || "").localeCompare(b.name || "", "he"));
+    }
+
+    const openCountMap = {};   // supplier_number → count of open invoices
+    const totalCountMap = {};  // supplier_number → total invoice count
+
+    for (const inv of invoices) {
+      const snum = inv.supplier_number;
+      if (!snum) continue;
+      totalCountMap[snum] = (totalCountMap[snum] || 0) + 1;
+      if (inv.status === "open") {
+        openCountMap[snum] = (openCountMap[snum] || 0) + 1;
+      }
+    }
+
+    return [...suppliers].sort((a, b) => {
+      const aOpen = openCountMap[a.supplier_number] || 0;
+      const bOpen = openCountMap[b.supplier_number] || 0;
+      if (aOpen !== bOpen) return bOpen - aOpen; // open invoices first
+
+      const aTotal = totalCountMap[a.supplier_number] || 0;
+      const bTotal = totalCountMap[b.supplier_number] || 0;
+      if (aTotal !== bTotal) return bTotal - aTotal; // more invoices first
+
+      return (a.name || "").localeCompare(b.name || "", "he"); // alphabetical
+    });
+  }, [suppliers, invoices]);
+
   // Build alias map from loaded suppliers for client-side alias-aware filtering
   const supplierAliasMap = useMemo(() => {
     const map = {}; // normalized name → supplier_number
@@ -465,7 +497,7 @@ export default function InvoicesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">כל הספקים</SelectItem>
-                {suppliers.map((s) => (
+                {sortedSuppliers.map((s) => (
                   <SelectItem key={s.id} value={s.supplier_number}>
                     {s.name}
                   </SelectItem>
