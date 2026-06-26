@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Invoice } from "@/entities/Invoice";
 import { Supplier } from "@/entities/Supplier";
 import { Currency } from "@/entities/Currency";
@@ -12,11 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, FileText, Pencil, Trash2, Loader2, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { Upload, FileText, Pencil, Trash2, Loader2, CheckCircle, AlertCircle, ExternalLink, BarChart2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import UnmatchedSuppliersPanel from "@/components/invoices/UnmatchedSuppliersPanel";
+import SupplierStatsDashboard from "@/components/dashboard/SupplierStatsDashboard";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
@@ -29,7 +30,10 @@ export default function InvoicesPage() {
   const [deletingInvoice, setDeletingInvoice] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
+  const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
   const [selectedInvoices, setSelectedInvoices] = useState([]);
+  const [showStats, setShowStats] = useState(false);
+  const [runningMigration, setRunningMigration] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -189,12 +193,68 @@ export default function InvoicesPage() {
     }
   };
 
+  // Build alias map from loaded suppliers for client-side alias-aware filtering
+  const supplierAliasMap = useMemo(() => {
+    const map = {}; // normalized name → supplier_number
+    const normalize = (n) => n?.toLowerCase().trim()
+      .replace(/בע"מ|בעמ|בע מ|ltd\.?|inc\.?|gmbh|co\.|s\.a\.|llc\.?/gi, '')
+      .replace(/\s+/g, ' ').trim() || '';
+    for (const s of suppliers) {
+      if (!s.supplier_number) continue;
+      const ownNorm = normalize(s.name);
+      if (ownNorm) map[ownNorm] = s.supplier_number;
+      for (const alias of (s.aliases || [])) {
+        const norm = normalize(alias);
+        if (norm) map[norm] = s.supplier_number;
+      }
+    }
+    return map;
+  }, [suppliers]);
+
+  const normalize = (n) => n?.toLowerCase().trim()
+    .replace(/בע"מ|בעמ|בע מ|ltd\.?|inc\.?|gmbh|co\.|s\.a\.|llc\.?/gi, '')
+    .replace(/\s+/g, ' ').trim() || '';
+
   const filteredInvoices = invoices.filter((inv) => {
     const statusMatch = filterStatus === "all" || inv.status === filterStatus;
-    const supplierMatch =
-      filterSupplier === "all" || inv.supplier_number === filterSupplier;
-    return statusMatch && supplierMatch;
+
+    // Alias-aware supplier match: resolve invoice's supplier via number or alias map
+    let resolvedSupplierNumber = inv.supplier_number;
+    if (!resolvedSupplierNumber && inv.supplier_name) {
+      resolvedSupplierNumber = supplierAliasMap[normalize(inv.supplier_name)] || null;
+    }
+    const supplierMatch = filterSupplier === "all" || resolvedSupplierNumber === filterSupplier;
+
+    const yearMatch = filterYear === "all" ||
+      (inv.invoice_date && new Date(inv.invoice_date).getFullYear().toString() === filterYear);
+
+    return statusMatch && supplierMatch && yearMatch;
   });
+
+  const handleRunMigration = async () => {
+    setRunningMigration(true);
+    try {
+      const result = await base44.functions.invoke('matchInvoicesToSuppliers', {});
+      toast.success(`שיוך הושלם: ${result.data?.updated_count || 0} חשבוניות עודכנו`);
+      if (result.data?.unmatched_count > 0) {
+        toast.warning(`${result.data.unmatched_count} שמות ספק לא זוהו — ניתן לשייכם בלוח ניהול הספקים`);
+      }
+      await loadData();
+    } catch (err) {
+      toast.error("שגיאה בהרצת השיוך");
+    } finally {
+      setRunningMigration(false);
+    }
+  };
+
+  // Derive available years from loaded invoices
+  const availableYears = useMemo(() => {
+    const years = new Set();
+    for (const inv of invoices) {
+      if (inv.invoice_date) years.add(new Date(inv.invoice_date).getFullYear());
+    }
+    return [...years].sort((a, b) => b - a);
+  }, [invoices]);
 
   const calculateDays = (invoiceDate, paymentDate) => {
     if (!invoiceDate) return 0;
@@ -285,7 +345,24 @@ export default function InvoicesPage() {
 
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">ניהול חשבוניות</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={handleRunMigration}
+            disabled={runningMigration}
+            title="שייך אוטומטית חשבוניות לספקים לפי רשימת הכינויים"
+          >
+            {runningMigration ? (
+              <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+            ) : (
+              <CheckCircle className="h-4 w-4 ml-2" />
+            )}
+            שייך חשבוניות לספקים
+          </Button>
+          <Button variant="outline" onClick={() => setShowStats(true)}>
+            <BarChart2 className="h-4 w-4 ml-2" />
+            דוח ספקים
+          </Button>
           <input
             type="file"
             accept="image/*,.pdf"
@@ -351,9 +428,20 @@ export default function InvoicesPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-wrap gap-3">
+            <Select value={filterYear} onValueChange={setFilterYear}>
+              <SelectTrigger className="w-[130px]">
+                <SelectValue placeholder="שנה" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">כל השנים</SelectItem>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="כל הסטטוסים" />
               </SelectTrigger>
               <SelectContent>
@@ -532,6 +620,15 @@ export default function InvoicesPage() {
               setEditingInvoice(null);
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showStats} onOpenChange={setShowStats}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>דוח סיכום ספקים</DialogTitle>
+          </DialogHeader>
+          <SupplierStatsDashboard />
         </DialogContent>
       </Dialog>
 
