@@ -43,7 +43,7 @@ export default function InvoicesPage() {
     setLoading(true);
     try {
       const [invoicesData, suppliersData, currenciesData] = await Promise.all([
-        Invoice.list("-created_date"),
+        Invoice.list("-invoice_date"),
         Supplier.list(),
         Currency.list(),
       ]);
@@ -215,21 +215,30 @@ export default function InvoicesPage() {
     .replace(/בע"מ|בעמ|בע מ|ltd\.?|inc\.?|gmbh|co\.|s\.a\.|llc\.?/gi, '')
     .replace(/\s+/g, ' ').trim() || '';
 
-  const filteredInvoices = invoices.filter((inv) => {
-    const statusMatch = filterStatus === "all" || inv.status === filterStatus;
+  const filteredInvoices = useMemo(() => {
+    return invoices
+      .filter((inv) => {
+        const statusMatch = filterStatus === "all" || inv.status === filterStatus;
 
-    // Alias-aware supplier match: resolve invoice's supplier via number or alias map
-    let resolvedSupplierNumber = inv.supplier_number;
-    if (!resolvedSupplierNumber && inv.supplier_name) {
-      resolvedSupplierNumber = supplierAliasMap[normalize(inv.supplier_name)] || null;
-    }
-    const supplierMatch = filterSupplier === "all" || resolvedSupplierNumber === filterSupplier;
+        let resolvedSupplierNumber = inv.supplier_number;
+        if (!resolvedSupplierNumber && inv.supplier_name) {
+          resolvedSupplierNumber = supplierAliasMap[normalize(inv.supplier_name)] || null;
+        }
+        const supplierMatch = filterSupplier === "all" || resolvedSupplierNumber === filterSupplier;
 
-    const yearMatch = filterYear === "all" ||
-      (inv.invoice_date && new Date(inv.invoice_date).getFullYear().toString() === filterYear);
+        const yearMatch = filterYear === "all" ||
+          (inv.invoice_date && new Date(inv.invoice_date).getFullYear().toString() === filterYear);
 
-    return statusMatch && supplierMatch && yearMatch;
-  });
+        return statusMatch && supplierMatch && yearMatch;
+      })
+      .sort((a, b) => {
+        // פתוחות ראשונות
+        if (a.status === "open" && b.status !== "open") return -1;
+        if (a.status !== "open" && b.status === "open") return 1;
+        // לאחר מכן לפי תאריך חשבונית — חדשות ראשונות
+        return (b.invoice_date || "").localeCompare(a.invoice_date || "");
+      });
+  }, [invoices, filterStatus, filterSupplier, filterYear, supplierAliasMap]);
 
   const handleRunMigration = async () => {
     setRunningMigration(true);
