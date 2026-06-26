@@ -130,19 +130,18 @@ Deno.serve(async (req) => {
     // 1. Suppliers with open invoices first (sorted by open amount desc)
     // 2. Then suppliers with only paid invoices (sorted by latest_invoice_date desc)
     const result = Object.values(stats).sort((a, b) => {
-      if (a.open_count > 0 && b.open_count === 0) return -1;
-      if (a.open_count === 0 && b.open_count > 0) return 1;
-      if (a.open_count > 0 && b.open_count > 0) {
-        // Sort by total open across all currencies (ILS as primary comparison)
-        const aOpen = Object.values(a.balances).reduce((s, bal) => s + bal.open, 0);
-        const bOpen = Object.values(b.balances).reduce((s, bal) => s + bal.open, 0);
-        return bOpen - aOpen;
-      }
-      // Both have no open invoices - sort by latest date
-      if (a.latest_invoice_date && b.latest_invoice_date) {
-        return b.latest_invoice_date.localeCompare(a.latest_invoice_date);
-      }
-      return 0;
+      // 1. Suppliers with open invoices first
+      const aHasOpen = a.open_count > 0 ? 1 : 0;
+      const bHasOpen = b.open_count > 0 ? 1 : 0;
+      if (bHasOpen !== aHasOpen) return bHasOpen - aHasOpen;
+
+      // 2. Sort by total invoice count descending
+      const aTotalCount = a.open_count + a.paid_count;
+      const bTotalCount = b.open_count + b.paid_count;
+      if (bTotalCount !== aTotalCount) return bTotalCount - aTotalCount;
+
+      // 3. Sort by name ascending
+      return a.supplier_name.localeCompare(b.supplier_name, 'he');
     });
 
     // Also return list of unique invoice names not matched to any supplier (for alias management UI)
