@@ -32,9 +32,12 @@ export default function SupplierStatsDashboard() {
     }
   };
 
-  const formatAmount = (amount) => {
-    if (!amount) return '₪0';
-    return `₪${amount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
+  const CURRENCY_SYMBOLS = { ILS: '₪', USD: '$', EUR: '€', GBP: '£' };
+
+  const formatAmount = (amount, currency = 'ILS') => {
+    if (!amount) return `${CURRENCY_SYMBOLS[currency] || currency}0`;
+    const symbol = CURRENCY_SYMBOLS[currency] || currency + ' ';
+    return `${symbol}${amount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}`;
   };
 
   return (
@@ -100,18 +103,27 @@ export default function SupplierStatsDashboard() {
                 </div>
 
                 <div className="flex items-center gap-3 flex-shrink-0 mr-2">
-                  {item.open_count > 0 && (
-                    <div className="text-left">
-                      <div className="text-sm font-bold text-red-600">{formatAmount(item.total_open)}</div>
-                      <div className="text-xs text-slate-400">{item.open_count} פתוחות</div>
-                    </div>
-                  )}
-                  {item.paid_count > 0 && (
-                    <div className="text-left">
-                      <div className="text-sm text-slate-500">{formatAmount(item.total_paid)}</div>
-                      <div className="text-xs text-slate-400">{item.paid_count} שולמו</div>
-                    </div>
-                  )}
+                  <div className="flex flex-col gap-1 items-end">
+                    {Object.entries(item.balances || {}).map(([currency, bal]) => (
+                      <div key={currency} className="flex items-center gap-3">
+                        {bal.open_count > 0 && (
+                          <div className="text-left">
+                            <div className="text-sm font-bold text-red-600">{formatAmount(bal.open, currency)}</div>
+                            <div className="text-xs text-slate-400">{bal.open_count} פתוחות</div>
+                          </div>
+                        )}
+                        {bal.paid_count > 0 && (
+                          <div className="text-left">
+                            <div className="text-sm text-slate-500">{formatAmount(bal.paid, currency)}</div>
+                            <div className="text-xs text-slate-400">{bal.paid_count} שולמו</div>
+                          </div>
+                        )}
+                        {Object.keys(item.balances).length > 1 && (
+                          <span className="text-xs text-slate-400 font-mono">{currency}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                   {item.open_count > 0 ? (
                     <Badge variant="destructive" className="text-xs">פתוח</Badge>
                   ) : (

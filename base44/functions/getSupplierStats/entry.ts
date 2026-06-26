@@ -96,8 +96,8 @@ Deno.serve(async (req) => {
           supplier_name: resolvedName,
           invoice_display_name: rawName,
           is_matched: isMatched,
-          total_open: 0,
-          total_paid: 0,
+          // balances: { ILS: { open: 0, paid: 0, open_count: 0, paid_count: 0 }, USD: {...}, ... }
+          balances: {},
           open_count: 0,
           paid_count: 0,
           latest_invoice_date: null,
@@ -105,11 +105,19 @@ Deno.serve(async (req) => {
       }
 
       const amount = inv.amount || 0;
+      const currency = inv.currency || 'ILS';
+
+      if (!stats[key].balances[currency]) {
+        stats[key].balances[currency] = { open: 0, paid: 0, open_count: 0, paid_count: 0 };
+      }
+
       if (inv.status === 'open') {
-        stats[key].total_open += amount;
+        stats[key].balances[currency].open += amount;
+        stats[key].balances[currency].open_count += 1;
         stats[key].open_count += 1;
       } else {
-        stats[key].total_paid += amount;
+        stats[key].balances[currency].paid += amount;
+        stats[key].balances[currency].paid_count += 1;
         stats[key].paid_count += 1;
       }
 
@@ -125,7 +133,10 @@ Deno.serve(async (req) => {
       if (a.open_count > 0 && b.open_count === 0) return -1;
       if (a.open_count === 0 && b.open_count > 0) return 1;
       if (a.open_count > 0 && b.open_count > 0) {
-        return b.total_open - a.total_open;
+        // Sort by total open across all currencies (ILS as primary comparison)
+        const aOpen = Object.values(a.balances).reduce((s, bal) => s + bal.open, 0);
+        const bOpen = Object.values(b.balances).reduce((s, bal) => s + bal.open, 0);
+        return bOpen - aOpen;
       }
       // Both have no open invoices - sort by latest date
       if (a.latest_invoice_date && b.latest_invoice_date) {
