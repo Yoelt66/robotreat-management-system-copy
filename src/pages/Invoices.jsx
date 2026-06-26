@@ -16,6 +16,7 @@ import { Upload, FileText, Pencil, Trash2, Loader2, CheckCircle, AlertCircle, Ex
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, addDays, differenceInDays } from "date-fns";
 import { toast } from "sonner";
+import UnmatchedSuppliersPanel from "@/components/invoices/UnmatchedSuppliersPanel";
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
@@ -277,6 +278,11 @@ export default function InvoicesPage() {
 
   return (
     <div className="space-y-6" dir="rtl">
+      <UnmatchedSuppliersPanel
+        suppliers={suppliers}
+        onSuppliersChanged={loadData}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-800">ניהול חשבוניות</h1>
         <div className="flex gap-2">
