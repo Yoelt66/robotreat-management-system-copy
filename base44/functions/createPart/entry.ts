@@ -43,7 +43,6 @@ Deno.serve(async (req) => {
                 minimum_stock: partData.minimum_stock || 0,
                 notes: partData.notes || '',
                 replaced_sku: partData.replaced_sku || '',
-                current_location: partData.current_location || '',
                 requires_serial_number: partData.requires_serial_number || false,
                 last_count_date: partData.last_count_date || null
             };
@@ -73,7 +72,7 @@ Deno.serve(async (req) => {
             
             createdEntities.supplier = await base44.asServiceRole.entities.PartSupplier.create(supplierData);
 
-            // Step 4: Create PartStock for each warehouse in parallel (new part, no existing stocks)
+            // Step 4: Create PartStock for each warehouse + log initial transactions
             if (partData.warehouses && Array.isArray(partData.warehouses)) {
                 const stocksToCreate = partData.warehouses
                     .filter(wh => wh.warehouse_id)
@@ -83,6 +82,46 @@ Deno.serve(async (req) => {
                         quantity: wh.quantity || 0
                     }));
                 createdEntities.stocks = await Promise.all(stocksToCreate);
+
+                // Log initial stock transactions
+                const transactionsToLog = createdEntities.stocks
+                    .filter(s => s.quantity > 0)
+                    .map(s => base44.asServiceRole.entities.StockTransaction.create({
+                        part_sku: sku,
+                        warehouse_id: s.warehouse_id,
+                        transaction_type: 'initial',
+                        quantity_delta: s.quantity,
+                        quantity_before: 0,
+                        quantity_after: s.quantity,
+                        reference_type: 'manual',
+                        performed_by: user.id,
+                        performed_by_name: user.full_name || ''
+                    }));
+                await Promise.all(transactionsToLog);
+            }
+
+            // Step 5: Log initial price if cost_price was provided
+            if (partData.cost_price && parseFloat(partData.cost_price) > 0) {
+                try {
+                    await base44.asServiceRole.entities.PartPriceLog.create({
+                        part_sku: sku,
+                        changed_by: user.id,
+                        changed_by_name: user.full_name || '',
+                        old_cost_price: 0,
+                        new_cost_price: parseFloat(partData.cost_price),
+                        old_cost_currency: '',
+                        new_cost_currency: partData.cost_currency || 'ILS',
+                        old_manual_sale_price: 0,
+                        new_manual_sale_price: partData.manual_sale_price || 0,
+                        old_markup_percentage: 0,
+                        new_markup_percentage: partData.markup_percentage || 0,
+                        old_import_percentage: 0,
+                        new_import_percentage: partData.import_percentage || 0,
+                        change_reason: 'יצירת פריט חדש'
+                    });
+                } catch (logErr) {
+                    console.error('Failed to write initial price log:', logErr);
+                }
             }
 
             return Response.json({ 

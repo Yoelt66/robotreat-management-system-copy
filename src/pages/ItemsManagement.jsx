@@ -212,10 +212,7 @@ export default function ItemsManagement() {
           aValue = categories.find(c => c.code === a.category)?.name || a.category || '';
           bValue = categories.find(c => c.code === b.category)?.name || b.category || '';
           break;
-        case 'location':
-          aValue = a.current_location || '';
-          bValue = b.current_location || '';
-          break;
+
         case 'minimum_stock':
           aValue = a.minimum_stock || 0;
           bValue = b.minimum_stock || 0;
@@ -395,12 +392,7 @@ export default function ItemsManagement() {
                   >
                     קטגוריה {getSortIcon('category')}
                   </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-gray-50" 
-                    onClick={() => handleSort('location')}
-                  >
-                    מיקום {getSortIcon('location')}
-                  </TableHead>
+
                   {warehouses.map((warehouse) => (
                     <TableHead 
                       key={warehouse.warehouse_id}
@@ -453,9 +445,7 @@ export default function ItemsManagement() {
                         <TableCell>
                           {categories.find(c => c.code === part.category)?.name || part.category}
                         </TableCell>
-                        <TableCell>
-                          {part.current_location || '-'}
-                        </TableCell>
+
                         {warehouses.map((warehouse) => {
                           const stock = getStockForWarehouse(part, warehouse);
                           return (

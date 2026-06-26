@@ -1,5 +1,25 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+const logTransaction = async (base44, { part_sku, warehouse_id, transaction_type, quantity_delta, quantity_before, quantity_after, reference_type, reference_id, notes, performed_by, performed_by_name }) => {
+    try {
+        await base44.asServiceRole.entities.StockTransaction.create({
+            part_sku,
+            warehouse_id,
+            transaction_type,
+            quantity_delta,
+            quantity_before,
+            quantity_after,
+            reference_type: reference_type || 'manual',
+            reference_id: reference_id || '',
+            performed_by: performed_by || '',
+            performed_by_name: performed_by_name || '',
+            notes: notes || ''
+        });
+    } catch (e) {
+        console.error('Failed to log stock transaction:', e);
+    }
+};
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -9,7 +29,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { sku, warehouse_id, quantity, delta } = await req.json();
+        const { sku, warehouse_id, quantity, delta, reference_type, reference_id, notes } = await req.json();
 
         if (!sku || !warehouse_id) {
             return Response.json({ error: 'SKU and warehouse_id are required' }, { status: 400 });
@@ -41,6 +61,21 @@ Deno.serve(async (req) => {
             }
             
             await base44.asServiceRole.entities.PartStock.update(stockRecord.id, { quantity: newQuantity });
+
+            const delta_applied = newQuantity - (stockRecord.quantity || 0);
+            await logTransaction(base44, {
+                part_sku: sku,
+                warehouse_id,
+                transaction_type: delta_applied >= 0 ? 'receipt' : 'consumption',
+                quantity_delta: delta_applied,
+                quantity_before: stockRecord.quantity || 0,
+                quantity_after: newQuantity,
+                reference_type,
+                reference_id,
+                notes,
+                performed_by: user.id,
+                performed_by_name: user.full_name
+            });
             
             return Response.json({ 
                 success: true, 
@@ -55,6 +90,20 @@ Deno.serve(async (req) => {
                 part_sku: sku,
                 warehouse_id: warehouse_id,
                 quantity: newQuantity
+            });
+
+            await logTransaction(base44, {
+                part_sku: sku,
+                warehouse_id,
+                transaction_type: 'initial',
+                quantity_delta: newQuantity,
+                quantity_before: 0,
+                quantity_after: newQuantity,
+                reference_type,
+                reference_id,
+                notes,
+                performed_by: user.id,
+                performed_by_name: user.full_name
             });
             
             return Response.json({ 

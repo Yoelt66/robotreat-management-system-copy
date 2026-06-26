@@ -96,11 +96,37 @@ Deno.serve(async (req) => {
         }
         
         if (Object.keys(pricingUpdate).length > 0) {
+            const priceLogFields = ['cost_price', 'cost_currency', 'manual_sale_price', 'markup_percentage', 'import_percentage'];
+            const hasPriceChange = priceLogFields.some(f => pricingUpdate[f] !== undefined);
+
             if (existingPricings && existingPricings.length > 0) {
                 await base44.asServiceRole.entities.PartPricing.update(existingPricings[0].id, pricingUpdate);
             } else {
                 pricingUpdate.part_sku = sku;
                 await base44.asServiceRole.entities.PartPricing.create(pricingUpdate);
+            }
+
+            if (hasPriceChange) {
+                try {
+                    await base44.asServiceRole.entities.PartPriceLog.create({
+                        part_sku: sku,
+                        changed_by: user.id,
+                        changed_by_name: user.full_name || '',
+                        old_cost_price: existingPricing.cost_price ?? 0,
+                        new_cost_price: pricingUpdate.cost_price ?? existingPricing.cost_price ?? 0,
+                        old_cost_currency: existingPricing.cost_currency ?? 'ILS',
+                        new_cost_currency: pricingUpdate.cost_currency ?? existingPricing.cost_currency ?? 'ILS',
+                        old_manual_sale_price: existingPricing.manual_sale_price ?? 0,
+                        new_manual_sale_price: pricingUpdate.manual_sale_price ?? existingPricing.manual_sale_price ?? 0,
+                        old_markup_percentage: existingPricing.markup_percentage ?? 0,
+                        new_markup_percentage: pricingUpdate.markup_percentage ?? existingPricing.markup_percentage ?? 0,
+                        old_import_percentage: existingPricing.import_percentage ?? 0,
+                        new_import_percentage: pricingUpdate.import_percentage ?? existingPricing.import_percentage ?? 0,
+                        change_reason: 'עדכון ידני'
+                    });
+                } catch (logErr) {
+                    console.error('Failed to write price log:', logErr);
+                }
             }
         }
 

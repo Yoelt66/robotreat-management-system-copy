@@ -28,7 +28,6 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
     unit: '',
     notes: '',
     replaced_sku: '',
-    current_location: '',
     supplier_part_number: '',
     supplier_number: '',
     requires_serial_number: false, // Added new field
@@ -65,7 +64,6 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
         unit: part.unit || '',
         notes: part.notes || '',
         replaced_sku: part.replaced_sku || '',
-        current_location: part.current_location || '',
         supplier_part_number: part.supplier_part_number || '',
         supplier_number: part.supplier_number || '',
         requires_serial_number: part.requires_serial_number || false,
@@ -250,15 +248,7 @@ export default function PartForm({ part, categories, suppliers, currencies, unit
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="current_location">מיקום במחסן</Label>
-              <Input
-                id="current_location"
-                name="current_location"
-                value={formData.current_location}
-                onChange={handleChange}
-              />
-            </div>
+
           </div>
 
           <div className="flex items-center space-x-2 space-x-reverse">
