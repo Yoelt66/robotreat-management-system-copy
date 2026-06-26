@@ -12,7 +12,6 @@ import { createPageUrl } from "@/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import RecentTransfers from "../components/dashboard/RecentTransfers";
-import SupplierStatsDashboard from "../components/dashboard/SupplierStatsDashboard";
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -124,8 +123,6 @@ export default function StockDashboard() {
       </div>
 
       <RecentTransfers />
-
-      <SupplierStatsDashboard />
     </div>
   );
 }

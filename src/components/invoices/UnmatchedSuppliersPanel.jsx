@@ -53,9 +53,18 @@ export default function UnmatchedSuppliersPanel({ suppliers, onSuppliersChanged 
   // Create new supplier state
   const [creatingFor, setCreatingFor] = useState(null);
   const [newSupplierName, setNewSupplierName] = useState("");
-  const [newSupplierNumber, setNewSupplierNumber] = useState("");
   const [savingNew, setSavingNew] = useState(false);
   const [similarWarning, setSimilarWarning] = useState(null);
+
+  const generateSupplierNumber = async () => {
+    const allSuppliers = await base44.entities.Supplier.list();
+    const existingNumbers = allSuppliers
+      .map(s => s.supplier_number)
+      .filter(num => num && num.startsWith('SUP-'))
+      .map(num => parseInt(num.replace('SUP-', '')) || 0);
+    const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+    return `SUP-${String(maxNumber + 1).padStart(4, '0')}`;
+  };
 
   const loadUnmatched = useCallback(async () => {
     setLoadingStats(true);
@@ -116,22 +125,21 @@ export default function UnmatchedSuppliersPanel({ suppliers, onSuppliersChanged 
   };
 
   const handleCreateNew = async (forceCreate = false) => {
-    if (!creatingFor || !newSupplierName.trim() || !newSupplierNumber.trim()) return;
-    if (similarWarning && !forceCreate) return; // block until user confirms
+    if (!creatingFor || !newSupplierName.trim()) return;
+    if (similarWarning && !forceCreate) return;
 
     setSavingNew(true);
     try {
-      // Create the supplier with this invoice name as an alias
+      const supplierNumber = await generateSupplierNumber();
       const created = await base44.entities.Supplier.create({
         name: newSupplierName.trim(),
-        supplier_number: newSupplierNumber.trim(),
+        supplier_number: supplierNumber,
         aliases: creatingFor !== newSupplierName.trim() ? [creatingFor] : [],
         is_active: true,
       });
       toast.success(`ספק "${newSupplierName}" נוצר ושויך בהצלחה`);
       setCreatingFor(null);
       setNewSupplierName("");
-      setNewSupplierNumber("");
       setSimilarWarning(null);
       await loadUnmatched();
       onSuppliersChanged?.();
@@ -196,7 +204,7 @@ export default function UnmatchedSuppliersPanel({ suppliers, onSuppliersChanged 
                         setLinkingName(null);
                         setCreatingFor(name);
                         setNewSupplierName(name);
-                        setNewSupplierNumber("");
+
                         setSimilarWarning(null);
                       }}
                     >
@@ -244,15 +252,6 @@ export default function UnmatchedSuppliersPanel({ suppliers, onSuppliersChanged 
                         className="h-8 text-sm"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-600">מספר ספק *</Label>
-                      <Input
-                        value={newSupplierNumber}
-                        onChange={e => setNewSupplierNumber(e.target.value)}
-                        placeholder="לדוג': S001"
-                        className="h-8 text-sm"
-                      />
-                    </div>
 
                     {similarWarning && (
                       <Alert className="border-orange-300 bg-orange-50 py-2">
@@ -276,7 +275,7 @@ export default function UnmatchedSuppliersPanel({ suppliers, onSuppliersChanged 
                         size="sm"
                         className="h-7 text-xs"
                         onClick={() => handleCreateNew(false)}
-                        disabled={!newSupplierName.trim() || !newSupplierNumber.trim() || savingNew || !!similarWarning}
+                        disabled={!newSupplierName.trim() || savingNew || !!similarWarning}
                       >
                         {savingNew ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3 ml-1" />}
                         צור ספק
