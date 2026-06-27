@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { sku, warehouse_id, quantity, delta, reference_type, reference_id, notes } = await req.json();
+        const { sku, warehouse_id, quantity, delta, location, reference_type, reference_id, notes } = await req.json();
 
         if (!sku || !warehouse_id) {
             return Response.json({ error: 'SKU and warehouse_id are required' }, { status: 400 });
@@ -60,7 +60,9 @@ Deno.serve(async (req) => {
                 newQuantity = 0;
             }
             
-            await base44.asServiceRole.entities.PartStock.update(stockRecord.id, { quantity: newQuantity });
+            const stockUpdate = { quantity: newQuantity };
+            if (location !== undefined) stockUpdate.location = location;
+            await base44.asServiceRole.entities.PartStock.update(stockRecord.id, stockUpdate);
 
             const delta_applied = newQuantity - (stockRecord.quantity || 0);
             await logTransaction(base44, {
@@ -86,11 +88,9 @@ Deno.serve(async (req) => {
             // Create new stock record
             const newQuantity = typeof delta === 'number' ? Math.max(0, delta) : (quantity || 0);
             
-            await base44.asServiceRole.entities.PartStock.create({
-                part_sku: sku,
-                warehouse_id: warehouse_id,
-                quantity: newQuantity
-            });
+            const newStockRecord = { part_sku: sku, warehouse_id, quantity: newQuantity };
+            if (location !== undefined) newStockRecord.location = location;
+            await base44.asServiceRole.entities.PartStock.create(newStockRecord);
 
             await logTransaction(base44, {
                 part_sku: sku,

@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
         const coreId = existingCore.id;
         let updatedFields = [];
 
-        // Build PartCore update - only changed fields
-        const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'replaced_sku', 'current_location', 'requires_serial_number', 'last_count_date'];
+        // Build PartCore update - only changed fields (current_location removed - managed per-warehouse in PartStock.location)
+        const coreFields = ['name', 'category', 'unit', 'minimum_stock', 'notes', 'replaced_sku', 'requires_serial_number', 'last_count_date'];
         const coreUpdate = {};
         
         for (const field of coreFields) {
