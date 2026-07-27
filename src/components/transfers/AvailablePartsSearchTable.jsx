@@ -84,9 +84,16 @@ export default function AvailablePartsSearchTable({
                   className="cursor-pointer bg-blue-50/50 hover:bg-blue-100"
                   onClick={() => onPickSku(part.replaced_sku)}
                 >
-                  <TableCell colSpan={6} className="text-xs text-blue-700 py-1.5">
+                  <TableCell colSpan={2} className="text-xs text-blue-700 py-1.5">
                     פריט חלופי: {part.replaced_sku}{altPart ? ` - ${altPart.name}` : ''}
                   </TableCell>
+                  <TableCell className="text-center text-xs text-blue-700 py-1.5">
+                    {altPart ? getPartLocation(altPart.sku) : '-'}
+                  </TableCell>
+                  <TableCell className={`text-center text-xs py-1.5 ${altPart && fromWarehouse ? getStockStatusColor(getAvailableStock(fromWarehouse.id, altPart.id)) : 'text-blue-700'}`}>
+                    {altPart && fromWarehouse ? getAvailableStock(fromWarehouse.id, altPart.id) : '-'}
+                  </TableCell>
+                  <TableCell colSpan={2} />
                 </TableRow>
               )}
             </React.Fragment>
