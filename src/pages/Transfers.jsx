@@ -323,23 +323,28 @@ export default function TransfersPage() {
             setEditingTransfer(null);
           }
         }}>
-          <DialogContent className="max-w-4xl" dir="rtl">
-            <DialogHeader>
+          <DialogContent
+            className="w-screen h-screen sm:w-[95vw] sm:h-[92vh] max-w-none rounded-none sm:rounded-lg flex flex-col p-4 sm:p-6 gap-3"
+            dir="rtl"
+          >
+            <DialogHeader className="shrink-0">
               <DialogTitle className="text-center text-xl">
                 {editingTransfer ? `עריכת העברה ${editingTransfer.transfer_number}` : 'העברת מלאי חדשה'}
               </DialogTitle>
             </DialogHeader>
-            <TransferForm
-              warehouses={warehouses}
-              stocks={[]} // Pass empty array instead of undefined stocks
-              transfer={editingTransfer}
-              onSubmit={editingTransfer ? handleUpdateTransfer : handleTransferCreation}
-              onCancel={() => {
-                setShowForm(false);
-                setEditingTransfer(null);
-              }}
-              onDelete={(transfer) => setTransferToDelete(transfer)}
-            />
+            <div className="flex-1 min-h-0">
+              <TransferForm
+                warehouses={warehouses}
+                stocks={[]} // Pass empty array instead of undefined stocks
+                transfer={editingTransfer}
+                onSubmit={editingTransfer ? handleUpdateTransfer : handleTransferCreation}
+                onCancel={() => {
+                  setShowForm(false);
+                  setEditingTransfer(null);
+                }}
+                onDelete={(transfer) => setTransferToDelete(transfer)}
+              />
+            </div>
           </DialogContent>
         </Dialog>
 

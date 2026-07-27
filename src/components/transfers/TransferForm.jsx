@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, Trash2, Search, AlertTriangle, ChevronUp, ChevronDown } from "lucide-react";
+import { AlertCircle, Trash2, Search, AlertTriangle, ChevronUp, ChevronDown, Plus, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Transfer } from "@/entities/Transfer";
 import { getParts } from "@/functions/getParts";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
@@ -29,10 +28,9 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
   const [warning, setWarning] = useState('');
   const [nextTransferNumber, setNextTransferNumber] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [parts, setParts] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'part_sku', direction: 'asc' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Function to generate a new transfer number
   const generateTransferNumber = async () => {
@@ -126,68 +124,54 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
     const part = parts.find(p => p.sku === partSku);
     return part?.current_location || 'לא מוגדר';
   };
-  
-  useEffect(() => {
-    if (searchTerm.length < 4 || !formData.from_warehouse_name) {
-      setSearchResults([]);
-      return;
-    }
 
-    const fetchStockItems = async () => {
-      setSearchLoading(true);
-      try {
-        const fromWarehouse = warehouses.find(w => w.name === formData.from_warehouse_name);
-        if (!fromWarehouse) {
-          setSearchResults([]);
-          setSearchLoading(false);
-          return;
-        }
-
-        // Search in parts by name and SKU
-        const filteredParts = parts.filter(part => {
-          const nameMatch = part.name && part.name.toLowerCase().includes(searchTerm.toLowerCase());
-          const skuMatch = part.sku && part.sku.toLowerCase().includes(searchTerm.toLowerCase());
-          return nameMatch || skuMatch;
-        });
-
-        const currentSkus = new Set(formData.items.map(item => item.part_sku));
-        const availableParts = filteredParts.filter(part => !currentSkus.has(part.sku));
-        
-        // Show up to 20 results
-        const results = availableParts.slice(0, 20).map(part => ({
-          id: part.id,
-          part_sku: part.sku,
-          part_name: part.name
-        }));
-
-        setSearchResults(results);
-      } catch (err) {
-        console.error("Error searching parts:", err);
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    };
-    
-    const debounceTimer = setTimeout(fetchStockItems, 500);
-    return () => clearTimeout(debounceTimer);
-
-  }, [searchTerm, formData.from_warehouse_name, formData.items, warehouses, parts]);
-
-  const handleSelectChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+  // Handle source warehouse change - allow it even if it matches destination,
+  // but reset destination in that case and never allow both to be equal.
+  const handleFromWarehouseChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      from_warehouse_name: value,
+      to_warehouse_name: prev.to_warehouse_name === value ? '' : prev.to_warehouse_name
+    }));
     setError('');
     setWarning('');
   };
 
-  const handleSelectStock = (stock) => {
-    // Find the part_id from the parts list based on the SKU for the new item
-    const part = parts.find(p => p.sku === stock.part_sku);
+  // Handle destination warehouse change - allow it even if it matches source,
+  // but reset source in that case and never allow both to be equal.
+  const handleToWarehouseChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      to_warehouse_name: value,
+      from_warehouse_name: prev.from_warehouse_name === value ? '' : prev.from_warehouse_name
+    }));
+    setError('');
+    setWarning('');
+  };
 
+  // Available parts to add - computed synchronously from already-loaded parts (table instead of dropdown)
+  const availableResults = useMemo(() => {
+    if (!formData.from_warehouse_name || searchTerm.trim().length < 4) return [];
+
+    const term = searchTerm.toLowerCase();
+    const currentSkus = new Set(formData.items.map(item => item.part_sku));
+
+    return parts
+      .filter(part => {
+        if (currentSkus.has(part.sku)) return false;
+        const nameMatch = part.name && part.name.toLowerCase().includes(term);
+        const skuMatch = part.sku && part.sku.toLowerCase().includes(term);
+        return nameMatch || skuMatch;
+      })
+      .slice(0, 100);
+  }, [parts, searchTerm, formData.from_warehouse_name, formData.items]);
+
+  const handleSelectStock = (stock) => {
+    if (isSubmitting) return;
     const newItem = {
       part_sku: stock.part_sku,
       part_name: stock.part_name || stock.part_sku,
-      part_id: part ? part.id : undefined, // Add part_id
+      part_id: stock.id,
       quantity: 1
     };
     
@@ -195,12 +179,10 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
       ...prev,
       items: [newItem, ...prev.items]
     }));
-    
-    setSearchTerm('');
-    setSearchResults([]);
   };
 
   const removeItem = (index) => {
+    if (isSubmitting) return;
     setFormData(prev => {
       const itemToRemove = sortedItems[index]; // Use sortedItems to get correct item
       return {
@@ -212,6 +194,7 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
   };
 
   const handleItemChange = (sku, field, value) => {
+    if (isSubmitting) return;
     setFormData(prev => {
       const newItems = prev.items.map(item => 
         item.part_sku === sku ? { ...item, [field]: value } : item
@@ -219,19 +202,18 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
       return { ...prev, items: newItems };
     });
     setError('');
-    
-    // Check for negative stock warnings immediately after item change
-    checkNegativeStockWarning();
   };
 
   const checkNegativeStockWarning = () => {
-    if (!formData.from_warehouse_name) return;
+    if (!formData.from_warehouse_name) {
+      setWarning('');
+      return;
+    }
     
     const fromWarehouse = warehouses.find(w => w.name === formData.from_warehouse_name);
     if (!fromWarehouse) return;
 
     const negativeItems = formData.items.filter(item => {
-      // Pass warehouse.id and item.part_id to the updated getAvailableStock
       const availableStock = getAvailableStock(fromWarehouse.id, item.part_id);
       return Number(item.quantity) > availableStock;
     });
@@ -248,9 +230,10 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
     checkNegativeStockWarning();
   }, [formData.items, formData.from_warehouse_name, warehouses, parts]); // Add warehouses, parts to dependencies
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    if (isSubmitting) return;
+
     if (formData.from_warehouse_name === formData.to_warehouse_name) {
       setError('לא ניתן להעביר לאותו מחסן');
       return;
@@ -277,18 +260,23 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
       }
     }
 
-    onSubmit({
-      ...formData,
-      transfer_number: nextTransferNumber,
-      // Preserve existing status if editing, otherwise default to 'pending'
-      status: transfer ? transfer.status : 'pending', 
-      items: formData.items.map(item => ({
-        part_sku: item.part_sku,
-        part_name: item.part_name,
-        part_id: item.part_id, // Add part_id to transfer items
-        quantity: Number(item.quantity)
-      }))
-    });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        ...formData,
+        transfer_number: nextTransferNumber,
+        // Preserve existing status if editing, otherwise default to 'pending'
+        status: transfer ? transfer.status : 'pending', 
+        items: formData.items.map(item => ({
+          part_sku: item.part_sku,
+          part_name: item.part_name,
+          part_id: item.part_id, // Add part_id to transfer items
+          quantity: Number(item.quantity)
+        }))
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStockStatusColor = (quantity) => {
@@ -340,13 +328,15 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
     </TableHead>
   );
 
+  const fromWarehouse = warehouses.find(w => w.name === formData.from_warehouse_name);
+
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto p-2">
-        <div className="flex justify-center text-sm text-gray-500 mb-4">
-            מספר העברה: {nextTransferNumber}
+    <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0 gap-3">
+      <div className="shrink-0 space-y-3">
+        <div className="flex justify-center text-sm text-gray-500">
+          מספר העברה: {nextTransferNumber}
         </div>
-          
+
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -366,18 +356,15 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
             <Label>מחסן מקור</Label>
             <Select
               value={formData.from_warehouse_name}
-              onValueChange={(value) => handleSelectChange('from_warehouse_name', value)}
+              onValueChange={handleFromWarehouseChange}
+              disabled={isSubmitting}
             >
               <SelectTrigger>
                 <SelectValue placeholder="בחר מחסן מקור" />
               </SelectTrigger>
               <SelectContent>
                 {sortedWarehouses.map((warehouse) => (
-                  <SelectItem 
-                    key={warehouse.id} 
-                    value={warehouse.name}
-                    disabled={warehouse.name === formData.to_warehouse_name}
-                  >
+                  <SelectItem key={warehouse.id} value={warehouse.name}>
                     {`${warehouse.number} - ${warehouse.name}`}
                   </SelectItem>
                 ))}
@@ -389,18 +376,15 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
             <Label>מחסן יעד</Label>
             <Select
               value={formData.to_warehouse_name}
-              onValueChange={(value) => handleSelectChange('to_warehouse_name', value)}
+              onValueChange={handleToWarehouseChange}
+              disabled={isSubmitting}
             >
               <SelectTrigger>
                 <SelectValue placeholder="בחר מחסן יעד" />
               </SelectTrigger>
               <SelectContent>
                 {sortedWarehouses.map((warehouse) => (
-                  <SelectItem 
-                    key={warehouse.id} 
-                    value={warehouse.name}
-                    disabled={warehouse.name === formData.from_warehouse_name}
-                  >
+                  <SelectItem key={warehouse.id} value={warehouse.name}>
                     {`${warehouse.number} - ${warehouse.name}`}
                   </SelectItem>
                 ))}
@@ -408,71 +392,83 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
             </Select>
           </div>
         </div>
+      </div>
 
-        <div className="space-y-4">
-          <Popover open={searchTerm.length >= 4 && (searchResults.length > 0 || searchLoading)}>
-            <PopoverTrigger asChild>
-              <div className="relative">
-                <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="חפש פריט במלאי לפי שם או מקט (4 תווים לפחות)..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  disabled={!formData.from_warehouse_name}
-                  className="pr-9"
-                />
-              </div>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-              {searchLoading ? (
-                <div className="p-3 text-center text-sm text-gray-500">מחפש במלאי...</div>
-              ) : searchResults.length > 0 ? (
-                <ul className="max-h-80 overflow-y-auto">
-                  {searchResults.map(stock => {
-                    const fromWarehouse = warehouses.find(w => w.name === formData.from_warehouse_name);
-                    // Pass warehouse.id and part.id to getAvailableStock
-                    // We need to find the part_id for the stock item if it's not directly on the stock object
-                    const partForStock = parts.find(p => p.sku === stock.part_sku);
-                    const availableQty = fromWarehouse && partForStock ? getAvailableStock(fromWarehouse.id, partForStock.id) : 0;
-                    const location = getPartLocation(stock.part_sku);
-                    
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
+        {/* Left side: search & available parts */}
+        <div className="flex flex-col min-h-0 border rounded-md overflow-hidden">
+          <div className="p-3 border-b shrink-0 bg-gray-50 space-y-1">
+            <Label>חיפוש פריטים במחסן המקור</Label>
+            <div className="relative">
+              <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="חפש לפי שם או מק״ט (4 תווים לפחות)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={!formData.from_warehouse_name || isSubmitting}
+                className="pr-9"
+              />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {!formData.from_warehouse_name ? (
+              <div className="p-4 text-center text-sm text-gray-500">בחר מחסן מקור כדי לחפש פריטים</div>
+            ) : searchTerm.trim().length < 4 ? (
+              <div className="p-4 text-center text-sm text-gray-500">הקלד לפחות 4 תווים לחיפוש</div>
+            ) : availableResults.length === 0 ? (
+              <div className="p-4 text-center text-sm text-gray-500">לא נמצאו פריטים במלאי במחסן זה</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>מק"ט</TableHead>
+                    <TableHead>שם פריט</TableHead>
+                    <TableHead className="text-center">מיקום</TableHead>
+                    <TableHead className="text-center">זמין</TableHead>
+                    <TableHead className="text-center">הוסף</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {availableResults.map(part => {
+                    const availableQty = fromWarehouse ? getAvailableStock(fromWarehouse.id, part.id) : 0;
+                    const location = getPartLocation(part.sku);
                     return (
-                      <li 
-                        key={stock.id} 
-                        className="p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                        onClick={() => handleSelectStock(stock)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-medium text-lg">{stock.part_sku}</p>
-                            </div>
-                            <div className="text-sm text-gray-600 space-y-1">
-                              <p>{stock.part_name || 'שם לא זמין'}</p>
-                              <p className="text-base font-medium"><span className="font-medium">מיקום:</span> {location}</p>
-                            </div>
-                          </div>
-                          <div className="text-left">
-                            <p className={`text-sm font-medium ${getStockStatusColor(availableQty)}`}>
-                              {availableQty} יח'
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {getStockStatusText(availableQty)}
-                            </p>
-                          </div>
-                        </div>
-                      </li>
+                      <TableRow key={part.id}>
+                        <TableCell className="font-mono">{part.sku}</TableCell>
+                        <TableCell>{part.name}</TableCell>
+                        <TableCell className="text-center">{location}</TableCell>
+                        <TableCell className={`text-center font-medium ${getStockStatusColor(availableQty)}`}>
+                          {availableQty}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={isSubmitting}
+                            onClick={() => handleSelectStock({ id: part.id, part_sku: part.sku, part_name: part.name })}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </ul>
-              ) : searchTerm.length >= 4 ? (
-                <div className="p-3 text-center text-sm text-gray-500">לא נמצאו פריטים במלאי במחסן זה.</div>
-              ) : null}
-            </PopoverContent>
-          </Popover>
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </div>
 
-          {formData.items.length > 0 && (
-            <div className="border rounded-md">
+        {/* Right side: selected items */}
+        <div className="flex flex-col min-h-0 border rounded-md overflow-hidden">
+          <div className="p-3 border-b shrink-0 bg-gray-50">
+            <Label>פריטים שנבחרו ({formData.items.length})</Label>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {formData.items.length === 0 ? (
+              <div className="p-4 text-center text-sm text-gray-500">טרם נבחרו פריטים</div>
+            ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -480,14 +476,12 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
                     <SortableHeader columnKey="part_name">שם פריט</SortableHeader>
                     <TableHead className="text-center">מיקום</TableHead>
                     <TableHead className="text-center">זמין</TableHead>
-                    <SortableHeader columnKey="quantity">כמות להעברה</SortableHeader>
+                    <SortableHeader columnKey="quantity">כמות</SortableHeader>
                     <TableHead className="text-center">פעולות</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sortedItems.map((item, index) => {
-                    const fromWarehouse = warehouses.find(w => w.name === formData.from_warehouse_name);
-                    // Pass warehouse.id and item.part_id to getAvailableStock
                     const availableStock = fromWarehouse ? getAvailableStock(fromWarehouse.id, item.part_id) : 0;
                     const willBeNegative = Number(item.quantity) > availableStock;
                     const location = getPartLocation(item.part_sku);
@@ -500,14 +494,15 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
                         <TableCell className={`text-center font-medium ${getStockStatusColor(availableStock)}`}>
                           {availableStock}
                         </TableCell>
-                        <TableCell className="w-48">
+                        <TableCell className="w-32">
                           <div className="flex items-center justify-center gap-2">
                             <Input
                               type="number"
                               min="1"
                               value={item.quantity}
                               onChange={(e) => handleItemChange(item.part_sku, 'quantity', e.target.value)}
-                              className={`w-24 text-center ${willBeNegative ? 'border-yellow-400' : ''}`}
+                              disabled={isSubmitting}
+                              className={`w-20 text-center ${willBeNegative ? 'border-yellow-400' : ''}`}
                             />
                             {willBeNegative && (
                               <AlertTriangle className="h-4 w-4 text-yellow-600" title="כמות זו תיצור מלאי שלילי" />
@@ -520,6 +515,7 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
                             variant="ghost"
                             size="icon"
                             className="text-red-500 hover:text-red-600"
+                            disabled={isSubmitting}
                             onClick={() => removeItem(index)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -530,40 +526,42 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
                   })}
                 </TableBody>
               </Table>
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label>הערות</Label>
-          <Textarea
-            value={formData.notes}
-            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            placeholder="הערות נוספות להעברה"
-            rows={3}
-          />
+            )}
+          </div>
         </div>
       </div>
-      <div className="flex justify-between items-center gap-3 pt-4 border-t mt-4">
+
+      <div className="shrink-0 space-y-2">
+        <Label>הערות</Label>
+        <Textarea
+          value={formData.notes}
+          onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+          placeholder="הערות נוספות להעברה"
+          rows={2}
+          disabled={isSubmitting}
+        />
+      </div>
+
+      <div className="shrink-0 flex justify-between items-center gap-3 pt-3 border-t">
         <div>
           {transfer && onDelete && (
-            <Button type="button" variant="destructive" onClick={() => onDelete(transfer)}>
+            <Button type="button" variant="destructive" disabled={isSubmitting} onClick={() => onDelete(transfer)}>
               <Trash2 className="h-4 w-4 ml-2" />
               מחק העברה
             </Button>
           )}
         </div>
         <div className="flex gap-3">
-          <Button type="button" variant="ghost" onClick={onCancel}>
+          <Button type="button" variant="ghost" disabled={isSubmitting} onClick={onCancel}>
             ביטול
           </Button>
           <Button 
             type="submit"
-            // Ensure part_id is present for submission
-            disabled={!formData.from_warehouse_name || !formData.to_warehouse_name || 
+            disabled={isSubmitting || !formData.from_warehouse_name || !formData.to_warehouse_name || 
                      formData.items.length === 0 ||
                      formData.items.some(item => !item.part_sku || !item.part_id || !item.quantity || Number(item.quantity) <= 0)}
           >
+            {isSubmitting && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
             {transfer ? 'עדכן העברה' : 'צור העברה'}
           </Button>
         </div>
