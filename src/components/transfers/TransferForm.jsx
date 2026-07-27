@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import AvailablePartsSearchTable from "./AvailablePartsSearchTable";
 
 export default function TransferForm({ warehouses, stocks, transfer, onSubmit, onCancel, onDelete }) {
   const [formData, setFormData] = useState({
@@ -166,13 +167,13 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
       .slice(0, 100);
   }, [parts, searchTerm, formData.from_warehouse_name, formData.items]);
 
-  const handleSelectStock = (stock) => {
+  const handleSelectStock = (stock, quantity = 1) => {
     if (isSubmitting) return;
     const newItem = {
       part_sku: stock.part_sku,
       part_name: stock.part_name || stock.part_sku,
       part_id: stock.id,
-      quantity: 1
+      quantity: Number(quantity) > 0 ? Number(quantity) : 1
     };
     
     setFormData(prev => ({
@@ -418,44 +419,17 @@ export default function TransferForm({ warehouses, stocks, transfer, onSubmit, o
             ) : availableResults.length === 0 ? (
               <div className="p-4 text-center text-sm text-gray-500">לא נמצאו פריטים במלאי במחסן זה</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>מק"ט</TableHead>
-                    <TableHead>שם פריט</TableHead>
-                    <TableHead className="text-center">מיקום</TableHead>
-                    <TableHead className="text-center">זמין</TableHead>
-                    <TableHead className="text-center">הוסף</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {availableResults.map(part => {
-                    const availableQty = fromWarehouse ? getAvailableStock(fromWarehouse.id, part.id) : 0;
-                    const location = getPartLocation(part.sku);
-                    return (
-                      <TableRow key={part.id}>
-                        <TableCell className="font-mono">{part.sku}</TableCell>
-                        <TableCell>{part.name}</TableCell>
-                        <TableCell className="text-center">{location}</TableCell>
-                        <TableCell className={`text-center font-medium ${getStockStatusColor(availableQty)}`}>
-                          {availableQty}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={isSubmitting}
-                            onClick={() => handleSelectStock({ id: part.id, part_sku: part.sku, part_name: part.name })}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <AvailablePartsSearchTable
+                results={availableResults}
+                parts={parts}
+                fromWarehouse={fromWarehouse}
+                getAvailableStock={getAvailableStock}
+                getPartLocation={getPartLocation}
+                getStockStatusColor={getStockStatusColor}
+                disabled={isSubmitting}
+                onAdd={(part, quantity) => handleSelectStock({ id: part.id, part_sku: part.sku, part_name: part.name }, quantity)}
+                onPickSku={(sku) => setSearchTerm(sku)}
+              />
             )}
           </div>
         </div>
